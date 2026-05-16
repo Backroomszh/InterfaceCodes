@@ -1,10 +1,21 @@
 (() => {
-    const { namespaceIds, wgUserName } = mw.config.get(['wgNamespaceIds', 'wgUserName']);
-    const namespaces = Object.keys(namespaceIds).filter(ns => namespaceIds[ns] === 2);
+    interface ApiUserEntry {
+        name: string;
+        missing?: boolean;
+        invalid?: boolean;
+    }
+    interface ApiQueryResponse {
+        query: {
+            users: ApiUserEntry[];
+        };
+    }
+
+    const { wgNamespaceIds, wgUserName } = mw.config.get(['wgNamespaceIds', 'wgUserName']);
+    const namespaces = Object.keys(wgNamespaceIds).filter(ns => wgNamespaceIds[ns] === 2);
     const selector = namespaces.map(ns => 'a.new[href^="' + mw.util.getUrl(ns) + ':"i]').join(',');
     // User cache to not check them multiple times.
-    const blueUsers = [];
-    const missingUsers = [];
+    const blueUsers: string[] = [];
+    const missingUsers: string[] = [];
     if (wgUserName) {
         blueUsers.push(mw.util.wikiUrlencode(wgUserName));
     }
@@ -16,15 +27,21 @@
         },
     });
 
-    const makeUsersBlue = $content => {
-        const users = [];
-        const userlinks = $content.find(selector).each(function () {
-            const encodedUsername = this.pathname.split(':')[1];
-            if (missingUsers.includes(encodedUsername)) {
+    const getEncodedUsername = (el: HTMLElement): string | undefined => {
+        const anchor = el as HTMLAnchorElement;
+        return anchor.pathname.split(':')[1];
+    };
+
+    const makeUsersBlue = ($content: JQuery): void => {
+        const users: string[] = [];
+        const userlinks = $content.find(selector).each(function (this: HTMLElement) {
+            const encodedUsername = getEncodedUsername(this);
+            if (!encodedUsername || missingUsers.includes(encodedUsername)) {
                 return;
             }
             if (blueUsers.includes(encodedUsername)) {
-                this.href = this.pathname;
+                const anchor = this as HTMLAnchorElement;
+                anchor.href = anchor.pathname;
                 this.classList.remove('new');
                 this.classList.add('mw-newuserlink');
                 return;
@@ -38,15 +55,16 @@
         if (!users.length) {
             return;
         }
-        const apiRequests = [];
+        const apiRequests: JQueryPromise<unknown>[] = [];
         while (users.length) {
             apiRequests.push(
                 api
                     .get({
                         ususers: users.splice(0, 50),
                     })
-                    .done(function (data) {
-                        data.query.users.forEach(function (user) {
+                    .then(data => {
+                        const result = data as ApiQueryResponse;
+                        result['query'].users.forEach(user => {
                             if (user.missing || user.invalid) {
                                 missingUsers.push(mw.util.wikiUrlencode(user.name));
                                 return;
@@ -57,11 +75,13 @@
             );
         }
         Promise.all(apiRequests).then(() => {
-            userlinks.each(function () {
-                if (!blueUsers.includes(this.pathname.split(':')[1])) {
+            userlinks.each(function (this: HTMLElement) {
+                const encodedUsername = getEncodedUsername(this);
+                if (!encodedUsername || !blueUsers.includes(encodedUsername)) {
                     return;
                 }
-                this.href = this.pathname;
+                const anchor = this as HTMLAnchorElement;
+                anchor.href = anchor.pathname;
                 this.classList.remove('new');
                 this.classList.add('mw-newuserlink');
             });
