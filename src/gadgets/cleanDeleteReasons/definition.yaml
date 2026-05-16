@@ -31,4 +31,4 @@ dependencies: []
 enable: true
 
 files:
-    - Gadget-CleanDeleteReasons.js
+    - Gadget-cleanDeleteReasons.js
