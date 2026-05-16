@@ -1,0 +1,846 @@
+/* thank you jet lag wiki! https://jetlag.fandom.com */
+/* Message boxes */
+/** Base styling **/
+.utg-mbox {
+    border-radius: 1rem;
+    padding: 1rem;
+    margin: 1rem 0;
+    display: flex !important;
+    gap: 1rem;
+    align-items: center;
+    position: relative;
+    border: 1px solid;
+}
+
+.utg-mbox {
+    background-color: var(--header-light);
+}
+
+.utg-mbox__toggle {
+    position: absolute;
+    inset: 0.75rem 0.75rem auto auto;
+    font-size: 1em;
+    transform: rotate(45deg);
+    transition: transform 0.2s;
+}
+
+.utg-mbox.mw-collapsed .utg-mbox__toggle {
+    transform: rotate(0);
+}
+
+.utg-mbox__icon {
+    width: 60px;
+    height: 60px;
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+    display: grid;
+    place-items: center;
+    font-size: 20px;
+    transition:
+        width 0.2s,
+        height 0.2s,
+        font-size 0.2s;
+}
+
+.utg-mbox.mw-collapsed .utg-mbox__icon {
+    width: 2.25em;
+    height: 2.25em;
+    font-size: 0.75em;
+}
+
+.utg-mbox__icon img {
+    width: 20px;
+    height: 20px;
+    object-fit: contain;
+    object-position: center;
+
+    transition:
+        width 0.2s,
+        height 0.2s;
+}
+
+.utg-mbox.mw-collapsed .utg-mbox__icon img {
+    width: 2em;
+    height: 2em;
+}
+
+.utg-mbox__image img {
+    width: 100px;
+    height: 100%;
+    transition:
+        height 0.2s,
+        width 0.2s;
+    object-fit: contain;
+}
+
+.utg-mbox.mw-collapsed .utg-mbox__image img {
+    height: 2.25em;
+    width: 50px;
+}
+
+.utg-mbox__text {
+    flex: 1 1 auto;
+}
+
+.utg-mbox__header {
+    font-weight: 600;
+    font-size: 1.15em;
+    /* border-bottom: 1px solid; */
+}
+
+.utg-mbox__content {
+    transition: font-size 0.2s;
+    visibility: visible;
+    font-size: 0.85em;
+}
+
+.utg-mbox.mw-collapsed .utg-mbox__content {
+    font-size: 0;
+    visibility: collapse;
+}
+
+.utg-mbox:not(.mw-collapsed) .utg-mbox__icon,
+.utg-mbox:not(.mw-collapsed) .utg-mbox__image {
+    padding: 5px;
+    border-radius: 10px;
+    background: var(--color-surface-3);
+    transition: 0.5s background;
+}
+
+/* 各种票 */
+.green-ticket {
+    --ticket-background-color: #82c77c;
+    --ticket-border-color: green;
+    --ticket-text-color: green;
+}
+.yellow-ticket {
+    --ticket-background-color: #f0eb97;
+    --ticket-border-color: yellow;
+    --ticket-text-color: black;
+}
+.red-ticket {
+    --ticket-background-color: #ebb9b9;
+    --ticket-border-color: red;
+    --ticket-text-color: black;
+}
+.black-ticket {
+    --ticket-background-color: #101010;
+    --ticket-border-color: red;
+    --ticket-text-color: red;
+}
+.ticket-modpanel,
+.ticket {
+    background-color: var(--ticket-background-color);
+    border: 3px solid var(--ticket-border-color);
+    color: var(--ticket-text-color);
+    margin: 1em;
+    font-family: Noto Serif SC;
+}
+.ticket-modpanel {
+    text-align: center;
+    padding: 0 24px;
+    --display: block;
+}
+.ticket-modpanel-header {
+    font-weight: bold;
+    font-size: 20px;
+}
+.ticket-modpanel-actions > a {
+    font-weight: bold;
+}
+.ticket-modpanel-actions > a[title^='Special:DeletePage/'] {
+    color: red;
+}
+.ticket-modpanel-actions > a[title^='Special:EditPage/'] {
+    color: blue;
+}
+.ticket-modpanel-actions > a[title^='Special:PageHistory/'] {
+    color: brown;
+}
+.ticket-header {
+    margin: 1em;
+    text-align: center;
+    font-weight: bold;
+    font-size: large;
+}
+.ticket-image {
+    border-right: 2px solid var(--ticket-border-color);
+    width: min-content;
+}
+.ticket-image,
+.ticket-content {
+    padding: 0 1em;
+}
+.ticket-content p {
+    margin-top: 0 !important;
+    margin-bottom: 12px;
+}
+.ticket-content p:last-child {
+    margin-bottom: 0;
+    text-align: right;
+}
+.ticket-footer {
+    margin-top: 1em;
+    border-top: 2px solid var(--ticket-border-color);
+    text-align: center;
+}
+/* English Backrooms Fandom */
+/* Rainbow Text */
+.rainbow_text {
+    background: linear-gradient(to right, #6666ff, #0099ff, #00ff00, #ff3399, #6666ff);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: rainbow_animation 6s ease-in-out infinite;
+    background-size: 400% 100%;
+}
+
+@keyframes rainbow_animation {
+    0%,
+    100% {
+        background-position: 0 0;
+    }
+
+    50% {
+        background-position: 100% 0;
+    }
+}
+
+/* Used by Template:Notice */
+.messagebox.standard-talk {
+    border: 1px solid #c0c090;
+    background-color: #fcf7e3;
+    margin: 4px auto;
+}
+.messagebox.warn {
+    border: 1px solid #ff0000;
+    background-color: #ffd9d9;
+    margin: 4px auto;
+}
+.messagebox.info {
+    border: 1px solid #003d8c;
+    background-color: #ebfeff;
+    margin: 4px auto;
+}
+.messagebox.valid {
+    border: 1px solid #002e01;
+    background-color: #d9ffd9;
+    margin: 4px auto;
+}
+.messagebox.createwikiprotect {
+    border: 1px solid #ff0066;
+    background-color: #ffe0ed;
+    margin: 4px auto;
+}
+.messagebox.archive {
+    border: 1px solid #331a00;
+    background-color: #f0ebe6;
+    margin: 4px auto;
+}
+.mw-charinsert-buttons {
+    margin-top: 10px;
+    border: 1px solid #aaaaaa;
+    padding: 1px;
+    text-align: center;
+    font-size: 110%;
+}
+.mw-charinsert-buttons a {
+    color: black;
+    background-color: #cde !important;
+    font-weight: bold;
+    font-size: 0.9em;
+    text-decoration: none;
+    border: thin #069 outset;
+    padding: 0 0.1em 0.1em;
+}
+.mw-charinsert-buttons a:hover,
+.mw-charinsert-buttons a:active {
+    background-color: #bcd;
+    border-style: inset;
+}
+
+/* 黑幕 */
+.heimu,
+.heimu rt,
+.heimu sub,
+.heimu sup {
+    background-color: #252525;
+}
+span.heimu,
+span.heimu a,
+span.heimu a.new,
+span.heimu a.external,
+span.heimu a.extiw,
+span.heimu a.mw-disambig,
+span.heimu a.mw-redirect,
+a span.heimu {
+    transition: color 0.13s linear;
+    color: #252525;
+    text-shadow: none;
+}
+span.heimu:hover,
+span.heimu:active {
+    color: white;
+}
+span.heimu:hover a,
+span.heimu:hover a.extiw,
+span.heimu:hover a.external,
+span.heimu:hover a.mw-disambig,
+span.heimu:hover a.mw-redirect,
+a:hover span.heimu,
+a.extiw:hover span.heimu,
+a.external:hover span.heimu,
+a.mw-disambig:hover span.heimu,
+a.mw-redirect:hover span.heimu {
+    color: #c85b5b;
+}
+span.heimu:hover a:visited,
+span.heimu:hover a.extiw:visited,
+span.heimu:hover a.external:visited,
+span.heimu:hover a.mw-disambig:visited,
+span.heimu:hover a.mw-redirect:visited,
+a:visited:hover span.heimu,
+a.extiw:visited:hover span.heimu,
+a.external:visited:hover span.heimu,
+a.mw-disambig:visited:hover span.heimu,
+a.mw-redirect:visited:hover span.heimu {
+    color: grey;
+}
+span.heimu:hover a.new,
+a.new:hover span.heimu,
+span.heimu a.new:visited:hover,
+a.new:visited:hover span.heimu {
+    color: #e91e1e;
+}
+
+/*in [[Template:Level Class]]*/
+img.sd-background {
+    position: absolute;
+    width: 100%;
+}
+/*<!-- [[Template:GoodWork2]] -->*/
+.viewport {
+    margin: 0;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    min-height: 156px;
+    border-radius: 0;
+    position: absolute;
+}
+.slide_image {
+    margin-left: calc(max(4%, 14px));
+    width: 100%;
+    min-height: 156px;
+    height: 100%;
+    border-radius: 0;
+    position: absolute;
+    z-index: 0;
+    transition: 0.5s;
+}
+.image_mask {
+    background: linear-gradient(
+        to left,
+        rgba(133, 120, 88, 0) 17.5%,
+        rgba(251, 231, 181, 0.3) 23.67%,
+        rgba(251, 231, 181, 0.7) 27.33%,
+        rgba(251, 231, 181, 1) 34.67%
+    );
+    min-height: 156px;
+    width: calc(min(300%, 2280px));
+    height: 100%;
+    border-radius: 0;
+    left: calc(-150% + max(0px, calc(1.07 * (240% - 1824px))));
+    transition: 0.3s;
+    z-index: 1;
+    position: absolute;
+}
+.image_mask:hover {
+    transition-delay: 0.1s;
+    transform: translateX(max(-370px, -20%));
+    /*background: linear-gradient(to left, rgba(133, 120, 88,0) 10%, rgba(251, 231, 181,0.8) 40%, rgba(251, 231, 181,1) 60%);*/
+    border-radius: 0;
+}
+.image_mask:hover + .slide_image {
+    transform: translateX(max(-4%, -40px));
+    transition-delay: 0.05s;
+}
+
+/* mbox */
+.mbox {
+    width: 80%;
+    margin: auto;
+    padding: 12px;
+    color: var(--mbox-text-color);
+    border: 2px solid var(--mbox-border-color);
+    border-left: 8px solid var(--mbox-border-left-color);
+    background-color: var(--mbox-background-color);
+}
+.mbox.mbox-tiny {
+    padding: 4px 12px;
+}
+.mbox + .mbox {
+    border-top: none;
+}
+.mbox .mbox-header {
+    text-align: center;
+    font-size: large;
+    font-weight: bold;
+}
+.mbox .mbox-row {
+    display: flex;
+    align-items: center;
+}
+.mbox .mbox-image {
+    flex: none;
+    max-width: 100px;
+    overflow: hidden;
+}
+.mbox.mbox-tiny .mbox-image {
+    max-width: 30px;
+}
+.mbox .mbox-content {
+    flex: auto;
+    padding: 0 12px;
+}
+.mbox .mbox-content:first-child {
+    padding-left: 0;
+}
+.mbox .mbox-content:last-child {
+    padding-right: 0;
+}
+.mbox .mbox-content *,
+.mbox .mbox-aside * {
+    margin-top: 0;
+    margin-bottom: 0;
+}
+.mbox .mbox-aside {
+    flex: none;
+    font-size: small;
+    text-align: center;
+    padding-left: 12px;
+    border-left: 1px solid var(--theme-page-text-color);
+}
+/* [[Template:Documentation]] */
+.documentation {
+    border: 1px solid var(--doc-border-color, black);
+}
+.documentation-header {
+    background-color: var(--doc-background-color, #ddd);
+    padding: 1em;
+}
+.documentation-actions {
+    float: right;
+    position: relative;
+    cursor: pointer;
+}
+.documentation-action-label {
+    text-align: right;
+    border-radius: 3px;
+    padding: 4px;
+    transition: background-color 0.2s linear;
+}
+ul.documentation-action-menu {
+    display: none;
+    list-style-type: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    width: max-content;
+    text-align: left;
+    opacity: 0;
+    margin: 0;
+    padding: 0.5em;
+    border: 1px solid var(--theme-border-color);
+    border-radius: 3px;
+    background-color: var(--theme-page-background-color--secondary);
+    transition: opacity 0.2s linear;
+}
+ul.documentation-action-menu > li {
+    padding: 0.25em 0.5em;
+    border-radius: 3px;
+    transition: background-color 0.2s linear;
+}
+ul.documentation-action-menu > li > a {
+    display: block;
+    color: var(--theme-page-text-color);
+    text-decoration: none;
+}
+ul.documentation-action-menu > li > a.new {
+    color: var(--theme-alert-color);
+}
+.documentation-actions:hover .documentation-action-label {
+    background-color: #0000001f;
+}
+.documentation-actions:hover .documentation-action-menu {
+    display: block;
+    top: 100%;
+    opacity: 1;
+    z-index: 1;
+}
+ul.documentation-action-menu > li:hover {
+    background-color: rgba(var(--theme-link-color--rgb), 0.1);
+}
+ul.documentation-action-menu > li:hover > a:not(.new) {
+    color: var(--theme-link-color);
+}
+.documentation-content {
+    padding: 1em;
+}
+.documentation-content > p:last-child {
+    margin-bottom: 0;
+}
+.documentation-footer {
+    background-color: var(--doc-background-color, #ddd);
+    padding: 0.5em;
+    font-size: 85%;
+    text-align: right;
+}
+/* [[Template:Quote]] */
+.quote-container {
+    display: table;
+    margin: 0 auto 12px;
+}
+.quote-block {
+    display: table-row;
+}
+.quote-mark-left,
+.quote-mark-right {
+    display: table-cell;
+    font-size: 3em;
+    font-family: Times, serif;
+    font-weight: bold;
+    color: var(--theme-accent-color);
+}
+.quote-mark-left {
+    vertical-align: top;
+}
+.quote-mark-right {
+    vertical-align: bottom;
+}
+.quote-content {
+    display: table-cell;
+    padding: 1em;
+    vertical-align: middle;
+}
+.quote-content > p:last-of-type {
+    margin-bottom: 0;
+}
+.quote-source {
+    display: table-caption;
+    caption-side: bottom;
+    font-size: small;
+    text-align: right;
+}
+
+/*关于Blurimage、Blurquote的相关CSS（hangco添）*/
+.no-margin-p p {
+    margin: 0 0 0 0 !important;
+}
+
+.blurbehind {
+    width: 100%;
+    height: 100%;
+    text-align: center;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+.marginblock {
+    margin: 1rem !important;
+    color: white;
+}
+
+.blurquote-noperson .blurquote-person {
+    display: none !important;
+}
+
+.keyboard {
+    outline: none;
+    border: none;
+    display: flex;
+    width: 400px;
+    justify-content: center;
+    flex-wrap: wrap;
+    background-color: transparent;
+}
+
+.keyboard div:first-child {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.keyboard span {
+    cursor: pointer;
+    position: relative;
+    height: 60px;
+    width: 60px;
+    padding: 8px 15px;
+    margin: 8px 4px;
+    display: inline-block;
+    border-radius: 10px;
+    background: linear-gradient(180deg, #282828, #202020);
+    box-shadow:
+        inset -8px 0 8px rgba(0, 0, 0, 0.15),
+        inset 0 -8px 8px rgba(0, 0, 0, 0.25),
+        0 0 0 2px rgba(0, 0, 0, 0.75),
+        10px 20px 25px rgba(0, 0, 0, 0.4);
+    overflow: hidden;
+}
+
+.keyboard span::before {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 4px;
+    bottom: 14px;
+    right: 12px;
+    background: linear-gradient(90deg, #232323, #4a4a4a);
+    border-radius: 10px;
+    box-shadow:
+        -10px -10px 10px rgba(255, 255, 255, 0.25),
+        10px 5px 10px rgba(0, 0, 0, 0.15);
+    border-left: 1px solid #0004;
+    border-bottom: 1px solid #0004;
+    border-top: 1px solid #0009;
+}
+
+.keyboard span i {
+    font-family: 'Montserrat', sans-serif;
+    position: relative;
+    font-style: normal;
+    font-size: 1.5rem;
+    text-transform: uppercase;
+    color: white;
+}
+
+.notepaper {
+    background: linear-gradient(rgb(var(--lh-paper-bg)) 95%, #ddd 0);
+    line-height: 2em;
+    background-size: 100% 2em;
+    background-attachment: local;
+    border: 2em solid rgb(var(--lh-paper-bg));
+    box-shadow: 0 0.1rem 0.3rem rgba(0, 0, 0, 0.2);
+    padding: 0;
+    margin: 1em auto;
+    box-sizing: border-box;
+    position: relative;
+}
+/* MediaWiki 幻灯片样式
+ */
+
+.mw-slideshow {
+    position: relative;
+    max-width: 100%;
+    margin: 20px auto;
+    background: #ffffd0;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    height: 500px; /* 固定高度防止跳动 */
+    display: flex;
+    align-items: center;
+}
+
+.mw-slideshow .slide {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
+}
+
+.mw-slideshow .slide.active {
+    opacity: 1;
+    position: relative;
+}
+
+.mw-slideshow .slide img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.mw-slideshow .slide-caption {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+    color: white;
+    padding: 20px 15px 10px;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.mw-slideshow .slide-title {
+    font-weight: bold;
+    font-size: 16px;
+    margin-bottom: 5px;
+}
+
+/* 控制按钮 */
+.slideshow-controls {
+    position: absolute;
+    top: 50%;
+    left: 10px;
+    right: 10px;
+    transform: translateY(-50%);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    pointer-events: none;
+}
+
+.slideshow-controls button {
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    font-size: 18px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.slideshow-controls button:hover {
+    background: rgba(0, 0, 0, 0.8);
+    transform: scale(1.1);
+}
+
+.slideshow-controls .btn-play-pause {
+    position: static;
+    margin: 0 auto;
+}
+
+/* 指示器 */
+.slideshow-indicators {
+    position: absolute;
+    bottom: 15px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    z-index: 10;
+}
+
+.slideshow-indicators .indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.5);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.slideshow-indicators .indicator:hover {
+    background: rgba(255, 255, 255, 0.8);
+    transform: scale(1.2);
+}
+
+.slideshow-indicators .indicator.active {
+    background: white;
+    transform: scale(1.3);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .mw-slideshow {
+        margin: 10px;
+        border-radius: 4px;
+        height: 300px;
+    }
+
+    .mw-slideshow.slideshow-small {
+        height: 250px;
+    }
+
+    .mw-slideshow.slideshow-large {
+        height: 400px;
+    }
+
+    .slideshow-controls button {
+        width: 35px;
+        height: 35px;
+        font-size: 16px;
+    }
+
+    .slideshow-controls {
+        left: 5px;
+        right: 5px;
+    }
+
+    .mw-slideshow .slide-caption {
+        padding: 15px 10px 8px;
+        font-size: 12px;
+    }
+
+    .mw-slideshow .slide-title {
+        font-size: 14px;
+    }
+
+    .mw-slideshow .slide img {
+        max-height: 280px;
+    }
+
+    .mw-slideshow.slideshow-small .slide img {
+        max-height: 230px;
+    }
+
+    .mw-slideshow.slideshow-large .slide img {
+        max-height: 380px;
+    }
+}
+
+/* 小尺寸幻灯片样式 */
+.mw-slideshow.slideshow-small {
+    max-width: 400px;
+    height: 300px;
+}
+
+.mw-slideshow.slideshow-small .slide img {
+    max-height: 280px;
+}
+
+/* 大尺寸幻灯片样式 */
+.mw-slideshow.slideshow-large {
+    height: 700px;
+}
+
+.mw-slideshow.slideshow-large .slide img {
+    max-height: 680px;
+}
+
+/* 无边框样式 */
+.mw-slideshow.slideshow-borderless {
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+/* 暗色主题 */
+.mw-slideshow.slideshow-dark {
+    background: #2c2c2c;
+    border-color: #555;
+}
+
+.mw-slideshow.slideshow-dark .slideshow-controls button {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.mw-slideshow.slideshow-dark .slideshow-controls button:hover {
+    background: rgba(255, 255, 255, 0.4);
+}

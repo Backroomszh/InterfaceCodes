@@ -1,0 +1,19 @@
+/**
+ * Minecraft Wiki InPageEdit 本地样式修复
+ */
+/* FontAwesome字体冲突 #51 */
+.in-page-edit .fa,
+#ipe-edit-toolbox .fa {
+    font-family: 'FontAwesome' !important;
+}
+
+/* .icon错误背景 */
+.vectorMenu li.icon,
+.section.achievements .icon,
+.commentdisplay .right a.icon {
+    background: none;
+}
+
+.in-page-edit .ssi-topIcons .ssi-closeIcon {
+    box-sizing: content-box;
+}

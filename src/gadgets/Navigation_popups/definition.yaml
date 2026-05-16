@@ -1,0 +1,36 @@
+ResourceLoader: true
+
+hidden: false
+
+default: false
+
+supportsUrlLoad: false
+
+skins: []
+
+actions: []
+
+categories: []
+
+namespaces: []
+
+contentModels: []
+
+type: general
+
+package: false
+
+rights: []
+
+peers: []
+
+dependencies:
+    - mediawiki.user
+    - mediawiki.util
+    - user.options
+
+enable: true
+
+files:
+    - Gadget-popups.js
+    - Gadget-popups.css

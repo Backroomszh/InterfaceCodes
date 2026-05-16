@@ -1,0 +1,62 @@
+/* Keep some indication for missing user pages */
+.mw-newuserlink:where(:not(#pt-userpage a)) {
+    text-decoration: underline dotted red;
+}
+.citizen-body-container:has(.citizen-sidebar-closed) {
+    grid-template-columns: 1fr 0;
+}
+
+.citizen-sidebar-toggle {
+    /* position: absolute;
+	top: 5px;
+	right: 5px;
+	width: 30px;
+	height: 30px;
+	border-radius: 10px;
+	text-align: center;
+	font-size: 1.4em;
+	/* opacity: 0.75; */
+    transform: rotateY(0deg);
+    transition:
+        opacity 0.5s,
+        box-shadow 0.5s,
+        transform 0.5s;
+    cursor: var(--cursor-pointer);
+    user-select: none;
+    position: relative;
+    width: var(--sidewrapper-button-size) !important;
+}
+
+/* .citizen-sidebar-toggle:hover {
+	opacity: 1;
+	box-shadow: 0 0 0 1px var(--border-color-base);
+} */
+
+.citizen-body-container:has(.citizen-sidebar-closed) .citizen-sidebar-toggle {
+    transform: rotateY(180deg);
+    border-radius: 0 30% 30% 0;
+}
+
+.citizen-sidebar-toggle::after {
+    position: absolute;
+    width: calc(100% - 15px);
+    height: calc(100% - 15px);
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+    margin: auto;
+    background: url(https://static.wikitide.net/utgwiki/3/3c/Angles-right-solid.svg);
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    content: '';
+    z-index: 5;
+    filter: var(--filter-invert);
+}
+
+@media screen and (max-width: 1119px) {
+    .citizen-sidebar-toggle {
+        display: none !important;
+    }
+}

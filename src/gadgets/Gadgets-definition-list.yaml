@@ -1,0 +1,29 @@
+- section: User
+  gadgets:
+      - Navigation_popups
+      - blueUsers
+      - syntaxhighlight-copy
+      - externalsearch-bar
+      - whoisactive
+      - checkSignature
+      - topButton
+
+- section: Edit
+  gadgets:
+      - Edittools
+      - oldeditor
+      - HotCat
+      - InPageEdit-v2
+      - Wikiplus
+      - Wikiplus-highlight
+
+- section: Admin
+  gadgets:
+      - cleanDeleteReasons
+      - status
+
+- section: Site
+  gadgets:
+      - site-template
+      - CollapsibleCitizen
+      - page-top-banner

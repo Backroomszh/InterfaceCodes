@@ -1,0 +1,60 @@
+/* ===== 顶部横幅基础样式（非固定，随页面滚动） ===== */
+/* 1. 创建可点击的横幅容器 */
+#top-banner-link {
+    position: relative; /* 改为相对定位，随文档流滚动 */
+    display: block;
+    width: 100%;
+    height: 150px; /* 默认高度 */
+    z-index: 90; /* 适当降低z-index，因为不再是固定定位 */
+    background: none;
+    text-decoration: none;
+    margin: 0;
+    padding: 0;
+}
+
+/* 2. 横幅背景图片（无文字提示） */
+#top-banner-link::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    /* 请确保此图片URL有效且是直接链接 */
+    background-image: url('https://static.wikitide.net/backroomszhwiki/4/47/Banner.jpeg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    /* 深色叠加层，可根据图片亮度调整透明度 */
+    box-shadow: inset 0 0 0 1000px rgba(0, 0, 0, 0);
+    /* 移除所有文字相关内容 */
+}
+
+/* 3. 移除之前所有的 ::after 样式（文字提示） */
+/* 无需任何 ::after 规则 */
+
+/* ===== 响应式适配 - 桌面端（侧栏在左侧） ===== */
+@media (min-width: 769px) {
+    /* 桌面端：侧栏在左，横幅需要避开侧栏宽度 */
+    /* 注意：现在横幅是相对定位，left/width调整的是其伪元素背景，而非容器本身 */
+
+    /* 当侧栏可见时，调整横幅背景的定位和尺寸 */
+    /* 请根据Citizen皮肤实际添加到body的类名替换 .citizen-sidebar-visible */
+    body.citizen-sidebar-visible #top-banner-link::before {
+        left: 300px; /* 侧栏宽度 */
+        width: calc(100% - 300px);
+    }
+}
+
+/* ===== 响应式适配 - 移动端 ===== */
+@media (max-width: 768px) {
+    #top-banner-link {
+        height: 120px; /* 移动端适当降低高度 */
+    }
+
+    /* 移动端侧栏通常在底部，横幅背景可占满全宽 */
+    body.citizen-sidebar-visible #top-banner-link::before {
+        left: 0;
+        width: 100%;
+    }
+}

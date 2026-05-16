@@ -1,0 +1,4 @@
+/* Keep some indication for missing user pages */
+.mw-newuserlink:where(:not(#pt-userpage a)) {
+    text-decoration: underline dotted red;
+}

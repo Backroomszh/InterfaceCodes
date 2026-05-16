@@ -1,0 +1,34 @@
+{
+    "$id": "gadgets-definition-list.json",
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "array",
+    "title": "小工具列表",
+    "additionalProperties": true,
+    "items": {
+        "type": "object",
+        "properties": {
+            "section": {
+                "type": "string",
+                "description": "小工具章节名称"
+            },
+            "gadgets": {
+                "type": "array",
+                "description": "小工具名称",
+                "items": {
+                    "type": "string",
+                    "description": "小工具名称"
+                },
+                "minItems": 1,
+                "uniqueItems": true
+            }
+        },
+        "required": ["section", "gadgets"],
+        "additionalProperties": false
+    },
+    "examples": [
+        {
+            "appearance": ["DiscussionBoardLinks"],
+            "admin": ["RollbackSummary", "CleanDeleteReasons"]
+        }
+    ]
+}

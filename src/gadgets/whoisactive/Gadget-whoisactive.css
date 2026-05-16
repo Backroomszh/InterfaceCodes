@@ -1,0 +1,35 @@
+.mw-whoisactivegadget-span {
+    margin: 0.5em;
+    padding-left: 1em;
+    padding-right: 1em;
+    padding-top: 0.15em;
+    padding-bottom: 0.15em;
+    border-radius: 1em;
+}
+
+.mw-whoisactivegadget-recent {
+    color: #14866d;
+    border: 1px solid #dddddd;
+}
+
+.mw-whoisactivegadget-thisyear {
+    color: #ac6600;
+    border: 1px solid #dddddd;
+}
+
+.mw-whoisactivegadget-overayear {
+    color: #b32424;
+    border: 1px solid #dddddd;
+}
+
+.mw-whoisactivegadget-filter-recent {
+    filter: invert(38%) sepia(99%) saturate(328%) hue-rotate(117deg) brightness(91%) contrast(99%);
+}
+
+.mw-whoisactivegadget-filter-thisyear {
+    filter: invert(47%) sepia(61%) saturate(4688%) hue-rotate(24deg) brightness(88%) contrast(101%);
+}
+
+.mw-whoisactivegadget-filter-overayear {
+    filter: invert(13%) sepia(75%) saturate(3621%) hue-rotate(350deg) brightness(112%) contrast(86%);
+}

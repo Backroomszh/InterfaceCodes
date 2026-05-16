@@ -1,0 +1,32 @@
+ResourceLoader: true
+
+hidden: true
+
+default: true
+
+supportsUrlLoad: false
+
+skins: []
+
+actions: []
+
+categories: []
+
+namespaces: []
+
+contentModels: []
+
+type: styles
+
+package: false
+
+rights: []
+
+peers: []
+
+dependencies: []
+
+enable: true
+
+files:
+    - Gadget-site-template.css

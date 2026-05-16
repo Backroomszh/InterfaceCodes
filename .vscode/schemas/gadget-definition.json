@@ -1,0 +1,206 @@
+{
+    "$id": "gadget-definition.json",
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "title": "小工具定义",
+    "additionalProperties": false,
+    "required": [
+        "ResourceLoader",
+        "hidden",
+        "default",
+        "type",
+        "rights",
+        "dependencies",
+        "enable",
+        "files"
+    ],
+    "properties": {
+        "ResourceLoader": {
+            "type": "boolean",
+            "default": true,
+            "title": "一般为 true 即可",
+            "examples": [true, false]
+        },
+        "hidden": {
+            "type": "boolean",
+            "default": false,
+            "title": "是否与参数设置中隐藏",
+            "examples": [false, true]
+        },
+        "default": {
+            "type": "boolean",
+            "default": false,
+            "title": "是否默认开启该小工具",
+            "examples": [false, true]
+        },
+        "supportsUrlLoad": {
+            "type": "boolean",
+            "default": false,
+            "title": "supportsUrlLoad 为 true 时用户可通过在页面地址中加入 \"withgadget\" 参数并指定该小工具 ID 的方式临时加载该小工具",
+            "examples": [false, true]
+        },
+        "skins": {
+            "type": "array",
+            "default": [],
+            "title": "小工具运行的皮肤，默认所有",
+            "uniqueItems": true,
+            "items": {
+                "type": "string",
+                "title": "皮肤名称， \"vector-2022\"、\"citizen\"",
+                "examples": ["vector-2022", "citizen"]
+            },
+            "examples": [[], ["vector"], ["vector", "citizen"]]
+        },
+        "actions": {
+            "type": "array",
+            "default": [],
+            "title": "仅在特定操作页面时加载",
+            "uniqueItems": true,
+            "items": {
+                "type": "string",
+                "title": "操作名称",
+                "examples": []
+            },
+            "examples": ["edit"]
+        },
+        "categories": {
+            "type": "array",
+            "default": [],
+            "title": "在特定分类下加载",
+            "uniqueItems": true,
+            "items": {
+                "type": "string",
+                "title": "分类名称",
+                "examples": []
+            },
+            "examples": ["角色"]
+        },
+        "namespaces": {
+            "type": "array",
+            "default": [],
+            "title": "在特定命名空间下加载",
+            "uniqueItems": true,
+            "items": {
+                "type": "number",
+                "title": "命名空间编号",
+                "examples": []
+            },
+            "examples": [0, 2]
+        },
+        "contentModels": {
+            "type": "array",
+            "default": [],
+            "title": "在特定内容模型下加载",
+            "uniqueItems": true,
+            "items": {
+                "type": "string",
+                "title": "内容模型名称",
+                "examples": []
+            },
+            "examples": ["wikitext"]
+        },
+        "type": {
+            "type": "string",
+            "default": "general",
+            "title": "type 指定小工具类型，\"general\" 是普通型（JS 和 CSS 会通过 JS 加载），\"styles\" 是纯 CSS 型（JS 不会被加载，CSS 文件的链接会直接嵌入页面）",
+            "enum": ["general", "styles"],
+            "examples": ["general", "styles"]
+        },
+        "package": {
+            "type": "boolean",
+            "default": false,
+            "title": "package 指定小工具作为可被其他代码直接加载的包，此时仅能在小工具文件夹下保留一个 js 或 json 文件，其他代码可通过 \"require\" 函数加载该小工具，该小工具在该状态下被允许使用 json 文件",
+            "examples": [false, true]
+        },
+        "rights": {
+            "type": "array",
+            "default": [],
+            "title": "启用小工具所需要的用户权限，如无需权限可保留空数组，但不能删去",
+            "uniqueItems": true,
+            "minItems": 0,
+            "items": {
+                "type": "string",
+                "title": "每个权限一个元素"
+            },
+            "examples": [[]]
+        },
+        "peers": {
+            "type": "array",
+            "default": [],
+            "title": "peers 指定小工具所依赖的小工具，该小工具将只加载其 CSS 部分，如无需可保留空数组，但不能删去",
+            "uniqueItems": true,
+            "minItems": 0,
+            "items": {
+                "type": "string",
+                "title": "A gadget",
+                "examples": ["dark-mode-toggle-pagestyles"]
+            },
+            "examples": [["dark-mode-toggle-pagestyles"]]
+        },
+        "dependencies": {
+            "type": "array",
+            "default": [],
+            "title": "小工具的依赖项，如无需依赖项可保留空数组，但不能删去",
+            "uniqueItems": true,
+            "minItems": 0,
+            "items": {
+                "type": "string",
+                "title": "A dependency",
+                "examples": ["mediawiki.api", "mediawiki.user"]
+            },
+            "examples": [["mediawiki.api", "mediawiki.user"]]
+        },
+        "enable": {
+            "type": "boolean",
+            "default": true,
+            "title": "是否启用",
+            "examples": [false, true]
+        },
+        "files": {
+            "type": "array",
+            "default": [],
+            "title": "小工具文件名称，不带Gadget-前缀",
+            "uniqueItems": true,
+            "minItems": 1,
+            "items": {
+                "type": "string",
+                "title": "每个文件一个元素"
+            },
+            "examples": [["CleanDeleteReasons.js"]]
+        }
+    },
+    "default": {
+        "ResourceLoader": true,
+        "hidden": false,
+        "default": false,
+        "supportsUrlLoad": false,
+        "targets": [],
+        "skins": [],
+        "actions": [],
+        "type": "general",
+        "package": false,
+        "rights": [],
+        "peers": [],
+        "dependencies": [],
+        "enable": true,
+        "files": []
+    },
+    "examples": [
+        {
+            "ResourceLoader": true,
+            "hidden": false,
+            "default": true,
+            "supportsUrlLoad": false,
+            "targets": [],
+            "skins": [],
+            "actions": [],
+            "type": "general",
+            "package": false,
+            "rights": ["delete"],
+            "peers": [],
+            "dependencies": ["mediawiki.api", "mediawiki.user"],
+            "enable": true,
+            "files": ["CleanDeleteReasons.js"]
+        }
+    ]
+}

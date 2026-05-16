@@ -1,0 +1,110 @@
+/* ===== 顶部横幅视觉优化样式 ===== */
+/* 目标：增强头部与主体的分离感，增加质感 */
+
+/* 1. 横幅链接容器 - 创建视觉隔离层 */
+#top-banner-link {
+    position: relative;
+    display: block;
+    width: 100%;
+    height: 150px; /* 保持默认高度 */
+    z-index: 90;
+    background: none;
+    text-decoration: none;
+    margin: 0;
+    padding: 0;
+
+    /* === 新增：核心视觉分离效果 === */
+
+    /* 底部实线分隔：明确划分头部与主体区域的边界 */
+    border-bottom: 3px solid #2c3e50; /* 深蓝色实线，可根据主题色调整 */
+
+    /* 下外边距：在横幅与页面主体内容之间创造呼吸空间 */
+    margin-bottom: 25px;
+
+    /* 质感阴影：使横幅具有轻微的“浮起”感，增加层次 */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+
+    /* 圆角：仅底部圆角，顶部保持与页面顶边平齐，更自然 */
+    border-radius: 0 0 8px 8px;
+
+    /* 溢出隐藏：确保内部的背景图片伪元素不超出圆角边界 */
+    overflow: hidden;
+}
+
+/* 2. 横幅背景图片层 - 从容器内部下方开始 */
+#top-banner-link::before {
+    content: '';
+    position: absolute;
+    /* 关键修改：背景从容器内部顶端开始，而非紧贴页面最顶边 */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+
+    background-size: cover;
+    background-position: center 35%; /* 微调背景位置，通常向上偏移些更好看 */
+    background-repeat: no-repeat;
+
+    /* 深色叠加层：降低背景亮度，同时作为文字（如需）的衬底 */
+    /* 使用从透明到深色的线性渐变，创造顶部“消隐”融入页面的感觉 */
+    background-image:
+        linear-gradient(to bottom, rgba(0, 0, 0, 0.3) 0%, rgba(0, 0, 0, 0.5) 100%),
+        url('https://static.wikitide.net/backroomszhwiki/thumb/9/95/Level0Original.jpg/250px-Level0Original.jpg');
+
+    /* 可选：增加一个非常细的内发光边框，增强边缘质感 */
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+
+    /* 过渡效果：当背景位置或宽度响应侧栏变化时，有平滑动画 */
+    transition:
+        left 0.3s ease,
+        width 0.3s ease;
+}
+
+/* 3. 移除所有文字提示的样式（确保无文字干扰） */
+/* 无需任何 ::after 规则 */
+
+/* 4. 悬停效果：增强交互反馈 */
+#top-banner-link:hover::before {
+    /* 悬停时轻微提亮背景，表示可点击 */
+    filter: brightness(1.05);
+}
+#top-banner-link:active::before {
+    /* 点击时轻微变暗，模拟按压感 */
+    filter: brightness(0.95);
+}
+
+/* ===== 响应式适配 - 桌面端（侧栏在左侧） ===== */
+@media (min-width: 769px) {
+    /* 桌面端高度可略高 */
+    #top-banner-link {
+        height: 160px;
+        margin-bottom: 30px; /* 桌面端间距可稍大 */
+    }
+
+    /* 当侧栏可见时，调整横幅背景层的定位和尺寸以避开侧栏 */
+    /* 请根据Citizen皮肤实际添加到body的类名替换 .citizen-sidebar-visible */
+    body.citizen-sidebar-visible #top-banner-link::before {
+        left: 300px; /* 侧栏宽度 */
+        width: calc(100% - 300px);
+    }
+
+    /* 如果之前为固定定位添加了body的padding-top，请确保已移除 */
+    /* body { padding-top: 0 !important; } */
+}
+
+/* ===== 响应式适配 - 移动端 ===== */
+@media (max-width: 768px) {
+    #top-banner-link {
+        height: 120px; /* 移动端适当降低高度 */
+        margin-bottom: 20px;
+        border-bottom-width: 2px; /* 移动端分隔线稍细 */
+        border-radius: 0 0 6px 6px; /* 移动端圆角稍小 */
+        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12); /* 移动端阴影稍轻 */
+    }
+
+    /* 移动端侧栏通常在底部，横幅背景可占满全宽 */
+    body.citizen-sidebar-visible #top-banner-link::before {
+        left: 0;
+        width: 100%;
+    }
+}

@@ -1,0 +1,256 @@
+#citizen-drawer__card .citizen-drawer__header {
+    position: relative;
+}
+
+#citizen-main-menu .citizen-menu {
+    position: relative;
+}
+
+#citizen-main-menu .citizen-menu__content ul {
+    position: relative;
+    margin: 0;
+    list-style-type: none;
+}
+
+#citizen-main-menu .citizen-menu__content ul::before {
+    content: '';
+    position: absolute;
+    right: 10px;
+    top: 11px;
+    width: 10px;
+    height: 10px;
+    mask-image: url('https://battlecats.miraheze.org/w/load.php?modules=skins.citizen.icons&image=collapse&format=original&lang=en&skin=citizen&version=1yzgf');
+    mask-size: 100%;
+    transform: scaleY(-1);
+    pointer-events: none;
+}
+
+#citizen-main-menu .citizen-menu__content li {
+    margin: 0;
+    list-style-type: none;
+    cursor: var(--cursor-pointer);
+}
+
+#citizen-main-menu.dropdown-hover {
+    margin-bottom: 0;
+    padding: 0;
+    grid-row-gap: 0;
+    column-gap: 0;
+    grid-template-columns: repeat(auto-fit, minmax(13rem, auto));
+}
+
+#citizen-main-menu.dropdown-hover .citizen-menu__heading {
+    position: relative;
+    padding: 0;
+    border-radius: var(--border-radius-base);
+}
+
+#citizen-main-menu.dropdown-hover .citizen-menu__heading a {
+    display: block;
+    padding: 10px var(--space-md);
+}
+
+#citizen-main-menu .citizen-menu__heading a:hover {
+    text-decoration: none;
+}
+
+@media screen and (min-width: 1120px) {
+    #citizen-drawer__card {
+        max-width: calc(100vw - 72px);
+    }
+}
+
+#citizen-drawer__card:has(#citizen-main-menu.dropdown-hover) {
+    contain: none;
+    overflow: visible;
+}
+
+#citizen-main-menu.dropdown-hover .citizen-menu__heading::before {
+    content: '';
+    position: absolute;
+    right: 10px;
+    top: 12px;
+    width: 10px;
+    height: 10px;
+    mask-image: url('https://battlecats.miraheze.org/w/load.php?modules=skins.citizen.icons&image=collapse&format=original&lang=en&skin=citizen&version=1yzgf');
+    mask-size: 100%;
+    transform: scaleY(-1);
+    transition: transform 0.25s;
+    pointer-events: none;
+}
+
+#citizen-main-menu.dropdown-hover .citizen-menu__content {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    border: var(--border-width-base) solid var(--border-color-base);
+    border-radius: var(--border-radius-medium);
+    box-shadow: var(--box-shadow-drop-xx-large);
+    z-index: 2;
+    transform: scaleY(0);
+    transform-origin: 50% 0;
+    transition: transform 0.25s;
+}
+
+#citizen-main-menu.dropdown-hover .citizen-menu:hover .citizen-menu__content {
+    transform: scaleY(1);
+}
+
+#citizen-main-menu.dropdown-hover .citizen-menu:hover .citizen-menu__heading::before {
+    transform: scaleY(1);
+}
+
+#citizen-main-menu.dropdown-hover .citizen-menu__content ul:hover::before {
+    transform: scaleY(1);
+}
+
+#citizen-main-menu.dropdown-hover .citizen-menu:hover .citizen-menu__heading {
+    background-color: var(--background-color-button-quiet--hover);
+}
+
+#citizen-main-menu.dropdown-hover .citizen-menu__content ul:hover > li {
+    background-color: var(--background-color-button-quiet--hover);
+    border-radius: var(--border-radius-base);
+}
+
+#citizen-main-menu.dropdown-hover .citizen-menu .mw-list-item a:hover {
+    background: none;
+}
+
+#citizen-main-menu.dropdown-hover .citizen-menu__content li:hover {
+    background-color: var(--background-color-button-quiet--hover);
+    border-radius: var(--border-radius-base);
+}
+
+#citizen-main-menu.dropdown-hover .citizen-menu__content-2 {
+    position: absolute;
+    top: 0;
+    left: 100%;
+    width: max-content;
+    border: var(--border-width-base) solid var(--border-color-base);
+    border-radius: var(--border-radius-medium);
+    box-shadow: var(--box-shadow-drop-xx-large);
+    z-index: 3;
+    opacity: 0;
+    transform: scale(0);
+    transform-origin: 0 17.5px;
+    transition:
+        opacity 0.25s,
+        transform 0.25s;
+}
+
+#citizen-main-menu.dropdown-hover .citizen-menu__content ul:hover > .citizen-menu__content-2 {
+    opacity: 1;
+    transform: scale(1);
+}
+
+#citizen-main-menu.dropdown-hover .citizen-menu__click-area {
+    display: none;
+}
+
+#citizen-main-menu.dropdown-click {
+    justify-content: stretch;
+}
+
+#citizen-main-menu.dropdown-click .citizen-menu__heading {
+    padding: var(--space-xs) var(--space-sm);
+}
+
+#citizen-main-menu.dropdown-click .citizen-menu__content ul {
+    transition: background 0.25s;
+    border-radius: var(--border-radius-base);
+}
+
+#citizen-main-menu.dropdown-click .citizen-menu__content li {
+    display: flex;
+    padding: var(--space-xs) var(--space-sm);
+    transition: box-shadow 0.25s;
+}
+
+#citizen-main-menu.dropdown-click .citizen-menu__content li .citizen-menu__click-area {
+    flex-grow: 1;
+    background-color: transparent;
+    cursor: var(--cursor-pointer);
+}
+
+#citizen-main-menu.dropdown-click .citizen-menu__content ul > .citizen-menu__content-2 {
+    max-height: 0;
+    transition: max-height 0.25s;
+    overflow: hidden;
+}
+
+#citizen-main-menu.dropdown-click .citizen-menu__content > ul.citizen-menu__open::before {
+    transform: scaleY(1);
+}
+
+#citizen-main-menu.dropdown-click .citizen-menu__content-2 > ul.citizen-menu__open::before {
+    transform: scaleY(1);
+}
+
+#citizen-main-menu.dropdown-click nav:not(.mw-portlet-External) .mw-list-item a {
+    display: inline;
+    /* padding: 0; */
+}
+
+#citizen-main-menu.dropdown-click .citizen-menu__content-2 {
+    margin-left: var(--space-xs);
+}
+
+#citizen-main-menu.dropdown-click .citizen-menu__content-2 li {
+    border-left: 1px solid transparent;
+    transition: border-color 0.25s;
+}
+
+#citizen-main-menu.dropdown-click .citizen-menu__content-2 > li,
+#citizen-main-menu.dropdown-click .citizen-menu__content-2 > ul:not(.citizen-menu__open) > li {
+    border-left: 1px solid var(--border-color-base);
+}
+
+#citizen-main-menu.dropdown-click .citizen-menu__content ul > li {
+    padding: 0;
+}
+
+#citizen-main-menu.dropdown-click nav:not(.mw-portlet-External) .citizen-menu__content ul > li a {
+    display: inline-block;
+    padding: var(--space-xs) var(--space-sm);
+}
+
+#citizen-main-menu.dropdown-click .citizen-menu__content > li,
+#citizen-main-menu.dropdown-click .citizen-menu__content-2 > li {
+    padding: 0;
+}
+
+#citizen-main-menu.dropdown-click .citizen-menu__content > li a,
+#citizen-main-menu.dropdown-click .citizen-menu__content-2 > li a {
+    flex-grow: 1;
+    padding: var(--space-xs) var(--space-sm);
+}
+
+#citizen-main-menu.dropdown-click .citizen-menu__content > li a:hover,
+#citizen-main-menu.dropdown-click .citizen-menu__content-2 > li a:hover {
+    background-color: transparent;
+}
+
+#citizen-main-menu.dropdown-click .citizen-menu__content ul::before {
+    transition: transform 0.25s;
+}
+
+.citizen-drawer__toggle {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    height: 20px;
+    width: 20px;
+    mask-image: url('https://static.wikitide.net/battlecatswiki/5/5a/SwitchIcon.svg');
+    mask-size: 100%;
+    background-color: var(--color-max-contrast);
+    opacity: 0.5;
+    transition: opacity 0.5s;
+    z-index: 2;
+    cursor: var(--cursor-pointer);
+}
+
+.citizen-drawer__toggle:hover {
+    opacity: 1;
+}
