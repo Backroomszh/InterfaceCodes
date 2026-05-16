@@ -1,18 +1,17 @@
+interface ApiUserEntry {
+    name: string;
+    missing?: boolean;
+    invalid?: boolean;
+}
+interface ApiQueryResponse {
+    query: {
+        users: ApiUserEntry[];
+    };
+}
 (() => {
-    interface ApiUserEntry {
-        name: string;
-        missing?: boolean;
-        invalid?: boolean;
-    }
-    interface ApiQueryResponse {
-        query: {
-            users: ApiUserEntry[];
-        };
-    }
-
     const { wgNamespaceIds, wgUserName } = mw.config.get(['wgNamespaceIds', 'wgUserName']);
     const namespaces = Object.keys(wgNamespaceIds).filter(ns => wgNamespaceIds[ns] === 2);
-    const selector = namespaces.map(ns => 'a.new[href^="' + mw.util.getUrl(ns) + ':"i]').join(',');
+    const selector = namespaces.map(ns => `a.new[href^="${mw.util.getUrl(ns)}:"i]`).join(',');
     // User cache to not check them multiple times.
     const blueUsers: string[] = [];
     const missingUsers: string[] = [];
