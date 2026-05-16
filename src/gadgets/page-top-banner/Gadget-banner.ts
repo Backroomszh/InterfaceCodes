@@ -1,4 +1,3 @@
-
 (() => {
     const createBanner = () => {
         if (document.getElementById('top-banner-link')) {

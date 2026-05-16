@@ -1,14 +1,14 @@
-mw.loader.using(['mediawiki.api', 'mediawiki.util']).then(function () {
-    const namespaceIds = mw.config.get('wgNamespaceIds');
+(() => {
+    const { namespaceIds, wgUserName } = mw.config.get(['wgNamespaceIds', 'wgUserName']);
     const namespaces = Object.keys(namespaceIds).filter(ns => namespaceIds[ns] === 2);
     const selector = namespaces.map(ns => 'a.new[href^="' + mw.util.getUrl(ns) + ':"i]').join(',');
     // User cache to not check them multiple times.
-    var blueUsers = [];
-    var missingUsers = [];
-    if (mw.config.get('wgUserName')) {
-        blueUsers.push(mw.util.wikiUrlencode(mw.config.get('wgUserName')));
+    const blueUsers = [];
+    const missingUsers = [];
+    if (wgUserName) {
+        blueUsers.push(mw.util.wikiUrlencode(wgUserName));
     }
-    var api = new mw.Api({
+    const api = new mw.Api({
         parameters: {
             action: 'query',
             list: 'users',
@@ -17,9 +17,9 @@ mw.loader.using(['mediawiki.api', 'mediawiki.util']).then(function () {
     });
 
     const makeUsersBlue = $content => {
-        var users = [];
-        var userlinks = $content.find(selector).each(function () {
-            var encodedUsername = this.pathname.split(':')[1];
+        const users = [];
+        const userlinks = $content.find(selector).each(function () {
+            const encodedUsername = this.pathname.split(':')[1];
             if (missingUsers.includes(encodedUsername)) {
                 return;
             }
@@ -29,7 +29,7 @@ mw.loader.using(['mediawiki.api', 'mediawiki.util']).then(function () {
                 this.classList.add('mw-newuserlink');
                 return;
             }
-            var username = decodeURIComponent(encodedUsername);
+            const username = decodeURIComponent(encodedUsername);
             if (users.includes(username) || username.includes('/')) {
                 return;
             }
@@ -38,7 +38,7 @@ mw.loader.using(['mediawiki.api', 'mediawiki.util']).then(function () {
         if (!users.length) {
             return;
         }
-        var apiRequests = [];
+        const apiRequests = [];
         while (users.length) {
             apiRequests.push(
                 api
@@ -56,7 +56,7 @@ mw.loader.using(['mediawiki.api', 'mediawiki.util']).then(function () {
                     }),
             );
         }
-        Promise.all(apiRequests).then(function () {
+        Promise.all(apiRequests).then(() => {
             userlinks.each(function () {
                 if (!blueUsers.includes(this.pathname.split(':')[1])) {
                     return;
@@ -72,4 +72,4 @@ mw.loader.using(['mediawiki.api', 'mediawiki.util']).then(function () {
     mw.hook('wikipage.content').add(makeUsersBlue);
     // Catch links outside the content area
     makeUsersBlue($(selector).not('#mw-content-text a.new').parent());
-});
+})();
