@@ -23,10 +23,8 @@
         customSelector = window.UsernameReplaceSelector
             ? ', ' + window.UsernameReplaceSelector
             : '';
-    const inputUsername = ($content) => {
-        $content
-            .find('.InputUsername, .insertusername' + customSelector)
-            .text(username);
+    const inputUsername = $content => {
+        $content.find('.InputUsername, .insertusername' + customSelector).text(username);
     };
     mw.hook('wikipage.content').add(inputUsername);
     if ($rail.hasClass('loaded')) {
@@ -48,9 +46,7 @@
             console.error('No data-media-id present on element', e);
             return;
         }
-        const target = document.getElementsByClassName(
-            'media-id-' + targetId,
-        )[0];
+        const target = document.getElementsByClassName('media-id-' + targetId)[0];
         if (!target) {
             console.error('No element found with .media-id-' + targetId, e);
             return;
@@ -77,9 +73,7 @@ mw.hook('wikipage.content').add(function () {
         var switchTab = function (offset) {
             return function () {
                 var tabs = container.children('.sitenotice-tab').toArray();
-                var no =
-                    Number(container.find('.sitenotice-tab-no')[0].innerText) +
-                    offset;
+                var no = Number(container.find('.sitenotice-tab-no')[0].innerText) + offset;
                 var count = tabs.length;
                 if (no < 1) {
                     no = count;
@@ -149,20 +143,12 @@ for (var CountTimers = 0; CountTimers <= TimerNumber; CountTimers++) {
     if (!Timers[CountTimers]) {
         continue;
     }
-    TimerEndTimes[CountTimers] = document.getElementById(
-        'TimerEndTime' + CountTimers,
-    );
+    TimerEndTimes[CountTimers] = document.getElementById('TimerEndTime' + CountTimers);
     TimerPMrs[CountTimers] = document.getElementById('TimerPMr' + CountTimers);
     TimerDays[CountTimers] = document.getElementById('TimerDay' + CountTimers);
-    TimerHours[CountTimers] = document.getElementById(
-        'TimerHour' + CountTimers,
-    );
-    TimerMinutes[CountTimers] = document.getElementById(
-        'TimerMinute' + CountTimers,
-    );
-    TimerSeconds[CountTimers] = document.getElementById(
-        'TimerSecond' + CountTimers,
-    );
+    TimerHours[CountTimers] = document.getElementById('TimerHour' + CountTimers);
+    TimerMinutes[CountTimers] = document.getElementById('TimerMinute' + CountTimers);
+    TimerSeconds[CountTimers] = document.getElementById('TimerSecond' + CountTimers);
     document.getElementById('TimerPMl' + CountTimers).innerHTML = '距离';
     Timers[CountTimers].style.display = '';
 }
@@ -173,32 +159,19 @@ var TimerRun = function () {
         }
         var TimerEndTime = new Date(TimerEndTimes[CountTimers].innerHTML);
         var TimerNowTime = new Date();
-        var TimerDifference =
-            TimerEndTime.getTime() - TimerNowTime.getTime() - TimerOffset;
+        var TimerDifference = TimerEndTime.getTime() - TimerNowTime.getTime() - TimerOffset;
         var TimerDay, TimerHour, TimerMinute, TimerSecond;
         if (TimerDifference < 0) {
-            TimerDay = Math.abs(
-                Math.ceil(TimerDifference / 1000 / 60 / 60 / 24),
-            );
-            TimerHour = Math.abs(
-                Math.ceil((TimerDifference / 1000 / 60 / 60) % 24),
-            );
-            TimerMinute = Math.abs(
-                Math.ceil((TimerDifference / 1000 / 60) % 60),
-            );
+            TimerDay = Math.abs(Math.ceil(TimerDifference / 1000 / 60 / 60 / 24));
+            TimerHour = Math.abs(Math.ceil((TimerDifference / 1000 / 60 / 60) % 24));
+            TimerMinute = Math.abs(Math.ceil((TimerDifference / 1000 / 60) % 60));
             TimerSecond = Math.abs(Math.ceil((TimerDifference / 1000) % 60));
             TimerPMrs[CountTimers].innerHTML = '已经过去';
         } else {
             TimerDifference += 1000;
-            TimerDay = Math.abs(
-                Math.floor(TimerDifference / 1000 / 60 / 60 / 24),
-            );
-            TimerHour = Math.abs(
-                Math.floor((TimerDifference / 1000 / 60 / 60) % 24),
-            );
-            TimerMinute = Math.abs(
-                Math.floor((TimerDifference / 1000 / 60) % 60),
-            );
+            TimerDay = Math.abs(Math.floor(TimerDifference / 1000 / 60 / 60 / 24));
+            TimerHour = Math.abs(Math.floor((TimerDifference / 1000 / 60 / 60) % 24));
+            TimerMinute = Math.abs(Math.floor((TimerDifference / 1000 / 60) % 60));
             TimerSecond = Math.abs(Math.floor((TimerDifference / 1000) % 60));
             TimerPMrs[CountTimers].innerHTML = '还有';
         }
@@ -211,9 +184,7 @@ var TimerRun = function () {
 setInterval(TimerRun, 0);
 
 var loadSAOGadget = function (saogadget) {
-    mw.loader.load(
-        '//saozh.miraheze.org/w/load.php?modules=ext.gadget.' + saogadget,
-    );
+    mw.loader.load('//saozh.miraheze.org/w/load.php?modules=ext.gadget.' + saogadget);
 };
 loadSAOGadget('shortLink');
 
