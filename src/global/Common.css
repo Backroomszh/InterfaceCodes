@@ -1,0 +1,1816 @@
+/* 这里放置的CSS将应用于所有皮肤 */
+/* CSS placed here will be applied to all skins */
+/* 第一部分：核心字体栈定义 (系统字体优先，保证速度和兼容性) */
+:root {
+    /* 1. 主字体栈 (用于正文、界面) */
+    --font-stack-main:
+        -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue',
+        'Noto Sans CJK SC', 'Source Han Sans SC', 'Microsoft YaHei UI', 'Microsoft YaHei',
+        'WenQuanYi Micro Hei', sans-serif;
+
+    /* 2. 等宽字体栈 (用于代码、预格式化文本) */
+    --font-stack-mono:
+        'JetBrains Mono', 'Cascadia Code', 'Consolas', 'Monaco', 'Andale Mono', 'Ubuntu Mono',
+        'DejaVu Sans Mono', monospace;
+
+    /* 3. 标题/强调字体栈 (可选，用于增强氛围) */
+    --font-stack-heading:
+        'Oxanium', 'Orbitron', 'Rajdhani', 'Share Tech Mono', var(--font-stack-main);
+}
+
+/* 第二部分：全局字体应用 */
+body {
+    /* 应用主字体栈 */
+    font-family: var(--font-stack-main);
+    /* 优化文本渲染，提高清晰度 */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+}
+
+/* 代码、预格式化文本使用等宽字体 */
+code,
+kbd,
+pre,
+samp,
+.mw-code,
+.mw-highlight {
+    font-family: var(--font-stack-mono);
+    font-size: 0.95em; /* 等宽字体通常较大，稍作缩小 */
+    line-height: 1.5;
+}
+
+/* 第三部分：标题字体强化 (可选，用于增强科技/神秘感) */
+
+/* 第四部分：特定区域字体优化 */
+/* 顶部横幅内的文字 (如果未来添加) */
+#top-banner-link {
+    font-family: var(--font-stack-heading, var(--font-stack-main));
+}
+
+/* 侧边栏导航 */
+.citizen-sidebar a,
+.citizen-sidebar__heading {
+    font-family: inherit; /* 通常继承主字体即可 */
+}
+
+/* 表格 */
+.mw-content-container table {
+    font-family: inherit;
+    /* 表格字体可稍小，保持紧凑 */
+    font-size: 0.95em;
+}
+@font-face {
+    font-family: 'CangerW02';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('https://fastly.jsdelivr.net/gh/Etinjat/FONT@Tsanger/仓耳与墨W02.woff2')
+        format('woff2');
+}
+:root {
+    --body-light: 25, 119, 228;
+
+    --header-light: #f3efff;
+    --header-dark: 19, 11, 37;
+
+    --border-window-light: black;
+    --window-light-img: url(https://static.miraheze.org/utgwiki/4/4d/StackdSandboxBG.png);
+    --window-light: #d8dfff;
+
+    --color-primary__h: 218;
+    --color-primary__s: 100%;
+    --color-primary__l: 50%;
+    --color-surface-0: #eff2fc;
+    --color-surface-1: #e4e8fe;
+    --color-surface-2: #d6ddfd;
+    --color-surface-3: #c6d0fb;
+    --color-surface-4: #b4bdec;
+}
+
+:root.portable-infobox {
+    --color-link: #e794fc;
+}
+
+html {
+    scroll-behavior: smooth;
+} /* SMOOTH TRANSITION WHEN CLICKING ON HYPERLINKS */
+
+.mw-body h1 {
+    font-family: 'Source Sans 3', Helvetica;
+    font-weight: 800;
+}
+
+.mw-body h2 {
+    font-family: 'Figtree', Helvetica;
+    font-weight: 700;
+}
+
+.mw-body h3,
+.mw-body h4,
+.mw-body h5,
+.mw-body h6,
+.mw-body dt {
+    font-family: 'Figtree', Helvetica;
+    font-weight: 600;
+}
+
+.color-rainbow {
+    /* color:#3DD20B; Color per default */
+    animation: rainbow 20s infinite alternate;
+}
+
+@keyframes rainbow {
+    0% {
+        color: #cf4747;
+    }
+    10% {
+        color: #3dd20b;
+    } /* filter:hue-rotate(0deg);} */
+    20% {
+        color: #78cad2;
+    }
+    30% {
+        color: #2f78ff;
+    }
+    40% {
+        color: #9132c8;
+    }
+    50% {
+        color: #ff69b4;
+    }
+    60% {
+        color: #cf4747;
+    }
+    70% {
+        color: #d88600;
+    }
+    80% {
+        color: #ffb400;
+    }
+    90% {
+        color: #d2c600;
+    }
+    100% {
+        color: #7ecb40;
+    } /* filter:hue-rotate(180deg);} */
+}
+
+a:hover {
+    animation: rainbow 10s infinite alternate;
+    animation-delay: 1s;
+}
+
+a:where(.new:not([role='button']))::after {
+    content: ' \26A0';
+}
+
+img {
+    border-radius: 10px;
+    transition: border-radius 1s;
+}
+
+img:hover {
+    transition: border-radius 1s;
+    border-radius: 0px;
+}
+
+/* infoboxes! */
+.pi-item,
+.pi-data,
+.pi-data-label,
+.pi-secondary-font {
+    hyphens: none;
+}
+
+.pi-data-label {
+    font-family: 'Source Sans 3', Helvetica;
+}
+
+.pi-header {
+    background: transparent !important;
+    text-align: left !important;
+    padding-left: 5px;
+    font-size: large;
+    font-family: 'Source Sans 3', Helvetica;
+    display: flex;
+    flex: 5;
+    align-items: center !important;
+    gap: 10px;
+    width: 240px !important;
+    margin: 4px;
+    order: 0 !important;
+}
+
+@media screen and (max-width: 802px) {
+    .pi-header {
+        display: none;
+    }
+}
+
+.pi-horizontal-group .pi-header {
+    order: -5 !important;
+}
+
+.pi-horizontal-group-item .pi-data-label {
+    order: 1 !important;
+}
+
+.pi-group {
+    /* background: #1b0d33 */
+    z-index: 100;
+}
+
+.pi-image {
+    overflow: hidden;
+}
+
+.portable-infobox .pi-image,
+.pi-image img {
+    border-radius: 10px;
+    height: auto;
+}
+
+.pi-title {
+    z-index: 5 !important;
+    text-align: left;
+    padding-bottom: 10px !important;
+    font-family: 'Source Sans 3', Helvetica !important;
+    width: 100%;
+    background: transparent;
+}
+
+.portable-infobox {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #8b5bd9;
+    border-radius: 20px;
+    padding-bottom: 10px;
+    padding: 0.5rem;
+    background: url(https://static.wikitide.net/utgwiki/4/45/LightModeBlackTeam.jpeg);
+    background-color: #eee;
+
+    background-position: bottom;
+    background-size: 100% auto;
+    background-repeat: no-repeat;
+}
+
+.skin-theme-clientpref-night .portable-infobox {
+    background: url(https://static.wikitide.net/utgwiki/2/25/DefaultPortableInfobox.png);
+    background-color: #2d0048;
+
+    background-position: bottom;
+    background-size: 100% auto;
+    background-repeat: no-repeat;
+}
+
+.pi-group,
+.pi-horizontal-group,
+.pi-horizontal-group-item {
+    text-align: left !important;
+}
+
+.portable-infobox .wds-tabs__tab {
+    cursor: pointer;
+}
+
+.portable-infobox .wds-tabs__tab.wds-is-current {
+    cursor: default;
+    color: #8b5bd9;
+}
+
+.pi-media-collection-tabs,
+.pi-media-collection {
+    background: transparent !important;
+}
+
+/* remove the square brackets in table */
+.mw-collapsible-toggle-default::before,
+.mw-collapsible-toggle-default::after {
+    display: none;
+}
+
+.outfit {
+    /* float: left; */
+    width: 150px !important;
+    height: 150px !important;
+    object-fit: cover;
+    object-position: center;
+    overflow: hidden;
+}
+
+.mapimg img {
+    width: 100px;
+    height: 100px;
+    object-fit: cover;
+    object-position: center;
+}
+
+@keyframes rotatefull {
+    0% {
+        transform: rotate(0turn);
+    }
+    100% {
+        transform: rotate(1turn);
+    } /* filter:hue-rotate(180deg);} */
+}
+
+.music img {
+    border-radius: 100%;
+    animation: rotatefull 60s infinite;
+    transition: all 1s;
+}
+
+.noellipsis {
+    max-height: 50px;
+    white-space: nowrap;
+    transition: height 1s;
+}
+
+.noellipsis:hover {
+    height: auto;
+    white-space: normal;
+    transition: height 1s;
+}
+
+.popup {
+    transform: rotate(0deg);
+    transition: 0.5s all;
+}
+
+.popup:hover {
+    transform: scale(1.1);
+    transition: 0.5 all;
+    z-index: 1000;
+}
+
+.mobileonly {
+    display: none;
+}
+
+.pressure {
+    background: url(https://static.miraheze.org/urbanshadewiki/6/6f/PressureGameThumbnail3.png) !important;
+    background-size: 100%;
+    color: white !important;
+}
+
+.outlaster {
+    background: url(https://static.wikitide.net/outlasterwiki/d/d8/OutlasterToastySeatingthumb.jpeg) !important;
+    background-size: 100%;
+    color: white !important;
+}
+
+.initiation {
+    background: url(https://static.miraheze.org/utgwiki/b/bc/IC5.png) !important;
+    background-size: 100%;
+    color: black !important;
+}
+
+.nomediaview {
+    pointer-events: none;
+}
+
+/* CookieWarning tweaks */
+.mw-cookiewarning-container {
+    max-width: 480px;
+}
+
+.mw-cookiewarning-text::before {
+    content: '🍪';
+    font-size: 2rem;
+    padding-right: 10px;
+}
+
+/*** create logo ***/
+.citizen-body a[href$='/Create'] {
+    background: url(https://static.miraheze.org/utgwiki/f/ff/Create.webp) center left no-repeat;
+    padding-left: 20px !important;
+    background-size: 15px 15px !important;
+    /* margin-left:15px!important */
+}
+
+.citizen-body a[href$='/Kevin_Hart_Fan_Club'] {
+    background: url(https://static.wikitide.net/utgwiki/3/36/Kevin_Hart_Fan_Club.webp) center left
+        no-repeat;
+    padding-left: 20px !important;
+    background-size: 15px 15px !important;
+    /* margin-left:15px!important */
+}
+
+.citizen-body a[href$='/Community:Jasper_creations']:not(img),
+.citizen-body a[href$='/Jasper_creations']:not(img),
+.citizen-body a[href$='/Community:Uglyburger0']:not(img),
+.citizen-body a[href$='/Uglyburger0']:not(img),
+.citizen-body a[href$='/Community:Number1Riker']:not(img),
+.citizen-body a[href$='/Number1Riker']:not(img) {
+    background: url(https://static.wikitide.net/utgwiki/0/01/Roblox_Verified_Icon.png) center right
+        no-repeat;
+    padding-right: 20px !important;
+    background-size: 15px 15px !important;
+}
+
+/* gallery */
+.gallery.mw-gallery-traditional {
+    text-align: center;
+}
+.gallery.mw-gallery-traditional .thumb {
+    height: 150px;
+}
+
+.mw-body .gallerybox .thumb {
+    border-radius: 10px;
+    border: 1px solid #f1f2f4;
+}
+
+/* li.gallerybox div.thumb {
+	background-color: rgb(var(--header-dark));
+	display: table;
+} */
+
+li.gallerybox div.thumb img {
+    border-radius: 5px;
+}
+
+.mw-body li.gallerybox div.thumb {
+    background-color: var(--color-surface-1);
+    background-image: linear-gradient(
+        140deg,
+        rgba(255, 145, 140, 0.8) 0%,
+        rgba(255, 200, 112, 0.5) 20%,
+        rgba(167, 255, 139, 0.5) 50%,
+        rgba(133, 177, 255, 0.5) 80%,
+        rgba(255, 145, 140, 0.8) 100%
+    );
+    border: none;
+    box-shadow: none;
+    padding-top: 1px;
+}
+
+/*** tabber image ***/
+.tabber__tab {
+    display: flex;
+    align-items: center;
+    column-gap: 5px;
+}
+.tabber-icon {
+    width: 20px;
+    height: 20px;
+    object-fit: contain;
+}
+.tabber-icon-image {
+    display: none;
+}
+
+/*** grah ***/
+.mobile-hidden,
+.mw-portlet-External,
+#p-External {
+    content-visibility: hidden;
+}
+
+.roundit img {
+    border-radius: 25rem !important;
+    margin-top: -10px;
+    animation: rotatefull 10s infinite;
+}
+
+@keyframes rotatefull {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.mw-pt-translate-header {
+    border-radius: 0px;
+}
+
+.mw-pt-translate-header:first-child {
+    border-radius: 10px 10px 0 0;
+}
+
+.mw-pt-translate-header:last-child {
+    border-radius: 0 0 10px 10px !important;
+    padding-bottom: 5px;
+}
+/* 取消MediaWiki某些元素 */
+/** 删除外部链接图标 **/
+.mw-parser-output a.external::after {
+    display: none !important;
+}
+/* wiki样式 */
+/*
+body {
+  position: relative;
+  background: none !important;
+}
+
+body::before {
+  content: '';
+  background: #06030c var(--theme-custom-background-image, url(https://static.wikitide.net/backroomszhwiki/thumb/1/16/SiteLogo.png/320px-SiteLogo.png)) center / cover no-repeat fixed;
+  display: block;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  filter: brightness(0.5);
+}
+*/
+/* 自定义文本框备用样式（不在非默认皮肤中使用）*/
+/* 自定义文本框基本样式（亮色） */
+.custom-textbox {
+    background-color: rgba(248, 243, 208, 0.8);
+    padding: 10px;
+    border-radius: 10px;
+    border-left: 5px solid #f0e68c;
+    border-right: 5px solid #f0e68c;
+    margin: 1em;
+}
+/* 自定义文本框基本样式（暗色） */
+.skin-theme-clientpref-night .custom-textbox {
+    background-color: rgb(91, 82, 158, 0.8);
+    padding: 10px;
+    border-radius: 10px;
+    border-left: 5px solid #87e4f5;
+    border-right: 5px solid #91ecec;
+    margin: 1em;
+}
+/* 针对移动设备的优化（例如，屏幕宽度小于等于600px的设备） */
+@media (max-width: 600px) {
+    .custom-textbox {
+        /* 减少外边距和内边距，使文本框在小屏上更加紧凑 */
+        margin: 0.5em;
+        padding: 3px 7px;
+        /* 可选：增加边框宽度以提高触控目标的点击区域，提升用户体验 */
+        border-width: 3px;
+        /* 确保输入时的光标与文本框大小相匹配，提升触控友好性 */
+        font-size: 16px;
+    }
+}
+
+.client-js .mw-edittools-section {
+    display: inline;
+}
+.client-js .mw-edittools-section input[type='button'] {
+    font-size: 0.9em;
+    padding-left: 1px;
+    padding-right: 1px;
+    margin-left: 1px;
+}
+/* User block messages */
+div.user-block {
+    padding: 5px;
+    margin-bottom: 0.5em;
+    border: 1px solid #a9a9a9;
+    background-color: #ffefd5;
+}
+/*仅站务可见*/
+.staff-only,
+.admin-only {
+    display: none;
+}
+
+/* [[Template:CSS]] */
+.transcluded-css {
+    display: none;
+}
+/* Fullscreen */
+#modalbox-1,
+#modalbox-2,
+#modalbox-3,
+#modalbox-4,
+#modalbox-5,
+#modalbox-6,
+#modalbox-7,
+#modalbox-8,
+#modalbox-9,
+#modalbox-10,
+#fullscreen-1,
+#fullscreen-2,
+#fullscreen-3,
+#fullscreen-4,
+#fullscreen-5,
+#fullscreen-6,
+#fullscreen-7,
+#fullscreen-8,
+#fullscreen-9,
+#fullscreen-10 {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: none;
+}
+#modalbox-1:target,
+#modalbox-2:target,
+#modalbox-3:target,
+#modalbox-4:target,
+#modalbox-5:target,
+#modalbox-6:target,
+#modalbox-7:target,
+#modalbox-8:target,
+#modalbox-9:target,
+#modalbox-10:target,
+#fullscreen-1:target,
+#fullscreen-2:target,
+#fullscreen-3:target,
+#fullscreen-4:target,
+#fullscreen-5:target,
+#fullscreen-6:target,
+#fullscreen-7:target,
+#fullscreen-8:target,
+#fullscreen-9:target,
+#fullscreen-10:target {
+    display: block;
+}
+/*按钮自定义*/
+.wds-button {
+    background-color: var(--theme-background-color-secondary) !important;
+    border-radius: 4px;
+    box-shadow:
+        rgba(0, 0, 0, 0.3) 0 2px 4px,
+        rgba(0, 0, 0, 0.3) 0 7px 13px -3px,
+        var(--theme-sticky-nav-background-color) 0 -3px 0 inset !important;
+    box-sizing: border-box;
+    cursor: pointer;
+    position: relative;
+    text-align: left;
+    text-decoration: none;
+    transition:
+        box-shadow 0.15s,
+        transform 0.15s;
+    user-select: none;
+    -webkit-user-select: none;
+    opacity: 1;
+}
+.wds-button:focus {
+    box-shadow:
+        var(--theme-sticky-nav-background-color) 0 0 0 1.5px inset,
+        rgba(0, 0, 0, 0.3) 0 2px 4px,
+        rgba(0, 0, 0, 0.3) 0 7px 13px -3px,
+        var(--theme-sticky-nav-background-color) 0 -3px 0 inset !important;
+}
+.wds-button:hover {
+    box-shadow:
+        rgba(0, 0, 0, 0.3) 0 4px 8px,
+        rgba(0, 0, 0, 0.3) 0 7px 13px -3px,
+        var(--theme-sticky-nav-background-color) 0 -3px 0 inset !important;
+    transform: translateY(-2px);
+    content: '';
+}
+.wds-button:active {
+    box-shadow: var(--theme-sticky-nav-background-color) 0 3px 7px inset !important;
+    transform: translateY(2px);
+}
+/*卡片浮起显示*/
+.el-card {
+    box-shadow: none;
+    transition: all 0.38s ease-in-out;
+}
+.el-card:hover {
+    box-shadow: 0 1.2px 6px rgba(0, 0, 0, 0.2);
+    transition: all 0.38s ease-in-out;
+}
+.sl-card {
+    transition: all 0.32s ease;
+}
+.sl-card:hover {
+    transform: scale(1.08);
+    transition: all 0.32s ease;
+}
+/*通知框*/
+.featurebox {
+    padding: 0 0.5rem;
+    margin: 1rem 0;
+    background: #efdba6;
+    border-radius: 0.6rem;
+    box-shadow: 0px 0px 3px;
+    border: 1.75px solid #d6ce92;
+    box-sizing: border-box;
+    z-index: 99999 !important;
+}
+/* 可放大图片 */
+.right-image {
+    max-width: 40%;
+    float: right;
+    padding: 0;
+    margin: 0 8px 1rem 1rem;
+    border-radius: 0 1rem 0 0;
+    text-align: center;
+    color: #fbe7b5;
+    text-shadow: 1pt 1pt 1pt rgba(251, 231, 181, 0.3);
+    background: #857858;
+    border: 2pt solid #fbe7b5;
+    box-shadow: 0 0 5pt #857858;
+}
+.right-image img {
+    width: calc(100% + 2rem);
+    height: auto;
+    margin-bottom: 1rem;
+    margin-left: -1rem;
+    transition: 0.08s;
+    border-radius: 0 1rem 0 0;
+}
+.right-image img:hover {
+    transition-delay: 0.35s;
+    transform: scale(1.5) translateX(-3rem);
+    border-radius: 0;
+}
+.right-image p {
+    padding: 0 1rem;
+}
+
+.left-image {
+    max-width: 40%;
+    float: left;
+    padding: 0;
+    margin: 0 8px 1rem 0.35rem;
+    border-radius: 0 1rem 0 0;
+    text-align: center;
+    color: #fbe7b5;
+    text-shadow: 1pt 1pt 1pt rgba(251, 231, 181, 0.3);
+    background: #857858;
+    border: 2pt solid #fbe7b5;
+    box-shadow: 0 0 5pt #857858;
+}
+.left-image img {
+    width: calc(100% + 2rem);
+    height: auto;
+    margin-bottom: 1rem;
+    margin-left: -1rem;
+    transition: 0.08s;
+    border-radius: 0 1rem 0 0;
+}
+.left-image img:hover {
+    transition-delay: 0.35s;
+    transform: scale(1.5) translateX(3rem);
+    border-radius: 0;
+}
+.left-image p {
+    padding: 0 1rem;
+}
+.right-image3 img {
+    width: calc(100% + 2rem);
+    height: auto;
+    transition: 0.08s;
+    border-radius: 0 1rem 0 0;
+}
+.right-image3 img:hover {
+    transition-delay: 0.35s;
+    transform: scale(1.5) translateX(-3rem);
+    border-radius: 0;
+    z-index: 4;
+}
+.slider {
+    background: #e8d49d;
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+    border-left: 15px solid #decb96;
+    width: calc(90% - 3em);
+    text-align: center;
+    font-family: Genshin75W;
+    font-size: 18pt;
+    cursor: default;
+    transition: 0.2s;
+}
+.slider:hover {
+    transform: translateX(1.2em);
+    opacity: 60%;
+    transition: 0.2s ease-out 0.05s;
+}
+.text-coverer {
+    background: #e8d49d;
+    cursor: default;
+    transition: 1s;
+    position: absolute;
+}
+.text-coverer:hover {
+    opacity: 0%;
+    transition: 1s ease-in-out 0.4s;
+}
+/* Titleblock */
+.titleblock {
+    background-color: rgb(239, 219, 166);
+    color: rgb(12, 12, 12);
+    padding: 0.5rem 1rem 0.1rem;
+    margin: 1.5rem 0 0.5rem 0;
+    box-shadow: 0 0.2rem 0.3rem rgba(0, 0, 0, 0.5);
+    border: solid rgb(206, 187, 135) 2px;
+}
+.titlebox {
+    color: rgb(12, 12, 12);
+    position: relative;
+    top: -1.6rem;
+    background-color: rgb(222, 203, 150);
+    padding: 0.25rem 1rem;
+    line-height: 0.1rem;
+}
+
+/* Animated Collapse */
+.box {
+    width: 550px;
+    height: 80px;
+    margin: 20px;
+    background: #f5deb3;
+    outline: 0.5px solid;
+    outline-offset: 10px;
+    position: relative;
+}
+.box::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 20px;
+    background: #d2b48c; /*#18c89b;*/
+    box-shadow: 0 0 70px 20px #d2b48c;
+    -webkit-box-shadow: 0 0 70px 20px #d2b48c;
+    -moz-box-shadow: 0 0 70px 20px #d2b48c;
+    clip-path: inset(0);
+    -webkit-clip-path: inset(0);
+    animation:
+        x 0.5s ease-in-out 0.5s 4 alternate,
+        y 1s ease-in-out 0.5s 2,
+        z 5s ease-in-out 2.3s,
+        x1 1.1s linear 7.3s forwards,
+        x2 5s linear 2.3s forwards;
+    -webkit-animation:
+        x 0.5s ease-in-out 0.5s 4 alternate,
+        y 1s ease-in-out 0.5s 2,
+        z 5s ease-in-out 2.3s,
+        x1 1.1s linear 7.3s forwards,
+        x2 5s linear 2.3s forwards;
+    -moz-animation:
+        x 0.5s ease-in-out 0.5s 4 alternate,
+        y 1s ease-in-out 0.5s 2,
+        z 5s ease-in-out 2.3s,
+        x1 1.1s linear 7.3s forwards,
+        x2 5s linear 2.3s forwards;
+    -ms-animation:
+        x 0.5s ease-in-out 0.5s 4 alternate,
+        y 1s ease-in-out 0.5s 2,
+        z 5s ease-in-out 2.3s,
+        x1 1.1s linear 7.3s forwards,
+        x2 5s linear 2.3s forwards;
+    -o-animation:
+        x 0.5s ease-in-out 0.5s 4 alternate,
+        y 1s ease-in-out 0.5s 2,
+        z 5s ease-in-out 2.3s,
+        x1 1.1s linear 7.3s forwards,
+        x2 5s linear 2.3s forwards;
+}
+
+@keyframes x {
+    to {
+        transform: translateX(-100%);
+        left: 100%;
+        -webkit-transform: translateX(-100%);
+    }
+}
+@keyframes y {
+    33% {
+        clip-path: inset(0 0 0 -100px);
+        -webkit-clip-path: inset(0 0 0 -100px);
+    }
+    50% {
+        clip-path: inset(0 0 0 0);
+        -webkit-clip-path: inset(0 0 0 0);
+    }
+    83% {
+        clip-path: inset(0 -100px 0 0);
+        -webkit-clip-path: inset(0 -100px 0 0);
+    }
+}
+@keyframes z {
+    30% {
+        width: 100%;
+        content: '';
+    }
+    50% {
+        width: 100%;
+        content: '密钥校验成功，已为您绕过模因标记。';
+        font-family: 'Noto Serif SC';
+        font-size: 13pt;
+    }
+    80% {
+        width: 100%;
+    }
+    100% {
+        width: 100%;
+        content: '欢迎您，来自后室的流浪者。';
+        font-family: 'Noto Serif SC';
+        font-weight: bolder;
+        font-size: 13pt;
+    }
+}
+@keyframes x2 {
+    20% {
+        height: 70px;
+        background-color: rgb(245, 222, 179);
+    }
+    50% {
+        height: 60px;
+        background-color: rgb(245, 222, 179);
+    }
+    70% {
+        height: 50px;
+        background-color: rgb(245, 222, 179);
+    }
+    100% {
+        height: 42px;
+        background-color: rgb(245, 222, 179);
+    }
+}
+@keyframes x1 {
+    0% {
+        width: 100%;
+        content: '欢迎您，来自后室的流浪者。';
+        font-family: 'Noto Serif SC';
+        font-weight: bolder;
+        font-size: 13pt;
+    }
+    100% {
+        width: 100%;
+        content: '已为您解开安全锁，请单击您的密钥以读取隐藏信息。';
+        font-family: 'Noto Serif SC';
+        font-weight: bolder;
+        font-size: 13pt;
+    }
+}
+/* 背景 */
+img.backgroundplate {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: -2;
+}
+/*书签框*/
+.styled-quote {
+    background-color: var(--theme-page-text-mix-color-95);
+    color: rgb(var(--theme-page-text-color--rgb));
+    border-left: 0.5rem solid var(--theme-page-accent-mix-color);
+    padding: 1rem;
+    margin: 0.5rem 0 0.5rem 0.25rem;
+    box-shadow: 0.05rem 0.1rem 0.3rem rgba(0, 0, 0, 0.25);
+}
+.dark-styled-quote {
+    background-color: rgb(var(--theme-accent-color--rgb));
+    border-left: 0.5rem solid var(--theme-link-color--hover);
+    color: white;
+    padding: 1rem;
+    margin: 0.5rem 0 0.5rem 0.25rem;
+    box-shadow: 0.05rem 0.1rem 0.3rem rgba(0, 0, 0, 0.25);
+}
+.dark-styled-quote a {
+    color: white;
+}
+/* 后室中分首页 */
+.mainpage-banner,
+.mainpage-block {
+    background-color: var(--theme-page-background-color--secondary);
+    border-color: var(--theme-border-color);
+    border-style: solid;
+    border-width: 0.6px;
+    box-shadow: 0 0 5px 0.5px grey;
+    margin: 10px 5px;
+    padding: 15px 0;
+}
+.mainpage-banner {
+    border-radius: 30px 0;
+    text-align: center;
+}
+.mainpage-banner-content {
+    margin: 0 2.5%;
+}
+.mainpage-banner-header {
+    background-color: var(--theme-border-color);
+    font-size: 175%;
+    font-weight: bold;
+    margin: 12px;
+}
+.mainpage-block {
+    border-radius: 9px;
+}
+.mainpage-block-content {
+    margin: 0 10px;
+}
+.mainpage-block-header {
+    background-color: var(--theme-border-color);
+    font-size: 150%;
+    font-weight: bold;
+    margin-bottom: 15px;
+    padding: 0 30px;
+}
+.mainpage-contact img {
+    filter: sepia(0.5) invert(0.9);
+}
+/**图片可放大化设置 - Style II**/
+.right-image2 {
+    max-width: 40%;
+    float: right;
+    padding: 0;
+    margin: 0 8px 1rem 1rem;
+    border-radius: 0 1rem 0 0;
+    text-align: center;
+    color: #fbe7b5;
+    text-shadow: 1pt 1pt 1pt rgba(251, 231, 181, 0.3);
+    background: #4f4834;
+    border: 2pt solid #fbe7b5;
+    box-shadow: 0 0 5pt #4f4834;
+}
+.right-image2 img {
+    width: calc(100% + 2rem);
+    height: auto;
+    margin-bottom: 1rem;
+    margin-left: -1rem;
+    transition: 0.08s;
+    border-radius: 0 1rem 0 0;
+}
+.right-image2 img:hover {
+    transition-delay: 0.3s;
+    transform: scale(1.4) translateX(-3rem);
+    border-radius: 0;
+}
+.right-image2 p {
+    padding: 0 1rem;
+}
+
+/* Achievements - DPAD-1362 */
+.achievement_category {
+    background: none repeat scroll 0 0 var(--theme-page-background-color);
+    border: 1px solid var(--theme-border-color);
+}
+#p-achievement-list {
+    background: none repeat scroll 0 0 var(--theme-body-background-color);
+    border: 1px solid var(--theme-border-color);
+}
+.achievement_category_select {
+    background: none repeat scroll 0 0 var(--theme-page-background-color--secondary);
+    border-bottom: 1px solid var(--theme-border-color);
+    border-left: 1px solid var(--theme-border-color);
+    border-top: 1px solid var(--theme-border-color);
+}
+.achievement_category_select[data-selected='true'] {
+    background: none repeat scroll 0 0 var(--theme-body-background-color);
+    border-bottom: 1px solid var(--theme-border-color);
+}
+#achievement_categories .achievement_category_select.end,
+#achievement_categories .achievement_category_select:last-child {
+    border-right: 1px solid var(--theme-border-color);
+}
+.p-achievement-row {
+    background: none repeat scroll 0 0 var(--theme-page-background-color);
+}
+/* Titleblock */
+.titleblock {
+    background-color: rgb(239, 219, 166);
+    color: rgb(12, 12, 12);
+    padding: 0.5rem 1rem 0.1rem;
+    margin: 1.5rem 0 0.5rem 0;
+    box-shadow: 0 0.2rem 0.3rem rgba(0, 0, 0, 0.5);
+    border: solid rgb(206, 187, 135) 2px;
+}
+.titlebox {
+    color: rgb(12, 12, 12);
+    position: relative;
+    top: -1.6rem;
+    background-color: rgb(222, 203, 150);
+    padding: 0.25rem 1rem;
+    line-height: 0.1rem;
+}
+
+/* Animated Collapse */
+.box {
+    width: 550px;
+    height: 80px;
+    margin: 20px;
+    background: #f5deb3;
+    outline: 0.5px solid;
+    outline-offset: 10px;
+    position: relative;
+}
+.box::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 20px;
+    background: #d2b48c; /*#18c89b;*/
+    box-shadow: 0 0 70px 20px #d2b48c;
+    -webkit-box-shadow: 0 0 70px 20px #d2b48c;
+    -moz-box-shadow: 0 0 70px 20px #d2b48c;
+    clip-path: inset(0);
+    -webkit-clip-path: inset(0);
+    animation:
+        x 0.5s ease-in-out 0.5s 4 alternate,
+        y 1s ease-in-out 0.5s 2,
+        z 5s ease-in-out 2.3s,
+        x1 1.1s linear 7.3s forwards,
+        x2 5s linear 2.3s forwards;
+    -webkit-animation:
+        x 0.5s ease-in-out 0.5s 4 alternate,
+        y 1s ease-in-out 0.5s 2,
+        z 5s ease-in-out 2.3s,
+        x1 1.1s linear 7.3s forwards,
+        x2 5s linear 2.3s forwards;
+    -moz-animation:
+        x 0.5s ease-in-out 0.5s 4 alternate,
+        y 1s ease-in-out 0.5s 2,
+        z 5s ease-in-out 2.3s,
+        x1 1.1s linear 7.3s forwards,
+        x2 5s linear 2.3s forwards;
+    -ms-animation:
+        x 0.5s ease-in-out 0.5s 4 alternate,
+        y 1s ease-in-out 0.5s 2,
+        z 5s ease-in-out 2.3s,
+        x1 1.1s linear 7.3s forwards,
+        x2 5s linear 2.3s forwards;
+    -o-animation:
+        x 0.5s ease-in-out 0.5s 4 alternate,
+        y 1s ease-in-out 0.5s 2,
+        z 5s ease-in-out 2.3s,
+        x1 1.1s linear 7.3s forwards,
+        x2 5s linear 2.3s forwards;
+}
+
+@keyframes x {
+    to {
+        transform: translateX(-100%);
+        left: 100%;
+        -webkit-transform: translateX(-100%);
+    }
+}
+@keyframes y {
+    33% {
+        clip-path: inset(0 0 0 -100px);
+        -webkit-clip-path: inset(0 0 0 -100px);
+    }
+    50% {
+        clip-path: inset(0 0 0 0);
+        -webkit-clip-path: inset(0 0 0 0);
+    }
+    83% {
+        clip-path: inset(0 -100px 0 0);
+        -webkit-clip-path: inset(0 -100px 0 0);
+    }
+}
+@keyframes z {
+    30% {
+        width: 100%;
+        content: '';
+    }
+    50% {
+        width: 100%;
+        content: '密钥校验成功，已为您绕过模因标记。';
+        font-family: 'Noto Serif SC';
+        font-size: 13pt;
+    }
+    80% {
+        width: 100%;
+    }
+    100% {
+        width: 100%;
+        content: '欢迎您，来自后室的流浪者。';
+        font-family: 'Noto Serif SC';
+        font-weight: bolder;
+        font-size: 13pt;
+    }
+}
+@keyframes x2 {
+    20% {
+        height: 70px;
+        background-color: rgb(245, 222, 179);
+    }
+    50% {
+        height: 60px;
+        background-color: rgb(245, 222, 179);
+    }
+    70% {
+        height: 50px;
+        background-color: rgb(245, 222, 179);
+    }
+    100% {
+        height: 42px;
+        background-color: rgb(245, 222, 179);
+    }
+}
+@keyframes x1 {
+    0% {
+        width: 100%;
+        content: '欢迎您，来自后室的流浪者。';
+        font-family: 'Noto Serif SC';
+        font-weight: bolder;
+        font-size: 13pt;
+    }
+    100% {
+        width: 100%;
+        content: '已为您解开安全锁，请单击您的密钥以读取隐藏信息。';
+        font-family: 'Noto Serif SC';
+        font-weight: bolder;
+        font-size: 13pt;
+    }
+}
+/* Right Sound */
+.right-sound {
+    max-width: 40%;
+    float: right;
+    padding: 0;
+    margin: 0 8px 1rem 1rem;
+    border-radius: 0 1rem 0 0;
+    text-align: center;
+    color: #ffffff;
+    text-shadow: 1pt 1pt 1pt rgba(255, 255, 255, 0);
+    background: #ffffff;
+    border: 2pt solid #ffffff;
+    box-shadow: 0 0 5pt #ffffff;
+}
+/*通知框*/
+.featurebox {
+    padding: 0 0.5rem;
+    margin: 1rem 0;
+    background: #efdba6;
+    border-radius: 0.6rem;
+    box-shadow: 0px 0px 3px;
+    border: 1.75px solid #d6ce92;
+    box-sizing: border-box;
+    z-index: 99999 !important;
+}
+/*自定义目录样式*/
+.faketoc {
+    transition: 0.22s;
+    border-radius: 4px;
+    color: #3c3c3c !important;
+    cursor: pointer !important;
+}
+.faketoc:hover {
+    transition: 0.22s;
+    background-color: rgba(204, 108, 9, 0.25);
+}
+code,
+tt,
+kbd,
+pre {
+    padding: 1px 4px;
+    font-family: Consolas, 'Eupheima UCAS', Ayuthaya, Menlo, monospace;
+}
+code,
+tt,
+kbd {
+    border: 1px solid var(--theme-border-color);
+    border-radius: 2px;
+    color: var(--theme-page-text-color);
+    background-color: var(--theme-page-background-color--secondary);
+}
+pre {
+    line-height: 1.25 !important;
+}
+.page-content {
+    overflow: visible !important;
+}
+
+/*右侧两浮块颜色修复*/
+.rail-module {
+    background: transparent;
+}
+.block {
+    padding-top: 0.01rem;
+    padding-left: 1rem;
+    padding-bottom: 0.01rem;
+    padding-right: 0;
+    box-shadow: 0 0.2rem 0.3rem rgba(0, 0, 0, 0.25);
+    color: rgb(var(--theme-page-text-color--rgb));
+    margin: 0.5rem 0 0.5rem 0.25rem;
+    display: block;
+    position: relative;
+    background-color: var(--theme-page-background-color--secondary);
+    width: 100%;
+    max-width: 887.8px;
+    align-items: center;
+    justify-content: center;
+    border-left: 15px solid #b4b082;
+    height: min-content;
+}
+.block:before {
+    content: '';
+    z-index: 1;
+    background: url(https://static.wikia.nocookie.net/backrooms/images/8/82/M.E.G.CN.png/revision/latest?cb=20220829203021&path-prefix=zh)
+        center/150% no-repeat;
+    width: 30%;
+    height: 100%;
+    min-width: 100px;
+    position: absolute;
+    right: 10%;
+    opacity: 30%;
+}
+.block a {
+    transition: all cubic-bezier(0.59, 0.6, 0.68, 1) 0.2s;
+}
+.block a:hover {
+    background: var(--theme-border-color);
+    box-shadow: 0.5px 0.5px 1px 2px rgb(0 0 0 / 25%);
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+    transition: all cubic-bezier(0.59, 0.6, 0.68, 1) 0.2s;
+    text-decoration: none;
+}
+.wds-tabber {
+    overflow: visible;
+}
+/* Interlanguage edits */
+.switch-lang .selected a,
+.WikiaArticleInterlang .selected a {
+    color: inherit;
+    font-weight: bold;
+}
+.WikiaArticleInterlang .selected a:hover {
+    text-decoration: none;
+}
+.mainpage .toc {
+    border: none;
+    font-size: 12px;
+    line-height: 150%;
+    margin: 0 10% 1% 7%;
+    width: 670px;
+}
+.transclude-notice-top,
+.transclude-notice-bottom {
+    clear: both;
+    font-size: 80%;
+    padding: 0.1em 0.5em;
+    text-align: right;
+}
+.transclude-notice-top {
+    border-bottom: 1px solid var(--theme-border-color, #ccc);
+}
+.transclude-notice-bottom {
+    border-top: 1px solid var(--theme-border-color, #ccc);
+}
+@keyframes dropdown-topnav {
+    from {
+        opacity: 0;
+        top: 30px;
+    }
+    to {
+        opacity: 1;
+        top: 40px;
+    }
+}
+/* DataTable styling */
+.dataTables_wrapper .table-wrapper.table-is-wide::before {
+    box-shadow: unset;
+}
+.datatable td.JSobject {
+    font-family: monospace;
+}
+.datatable td.JSobject a.external:after {
+    display: none;
+}
+.datatable td.data-attr {
+    font-style: italic;
+}
+/* TemplateData table styles */
+.mw-templatedata-doc-wrap :is(p, dl) {
+    margin-bottom: 0;
+}
+.mw-templatedata-doc-wrap :is(p + p, dl) {
+    margin-top: 0;
+}
+.mw-templatedata-doc-wrap .oo-ui-widget {
+    background-color: transparent;
+}
+/* Disable antialiasing on tiny images */
+.mw-parser-output img {
+    -ms-interpolation-mode: nearest-neighbor;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: -o-crisp-edges;
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+}
+/* Fix "Mark All As Read" button getting obscured in sidebar */
+.notifications header[class*='NotificationsDropdown-module_contentHeader'] {
+    z-index: 500;
+}
+/* Hide bottom category bar on main page */
+.mainpage .article-categories,
+.mainpage .page-footer__categories {
+    display: none;
+}
+/* 部分页面定制CSS 请置于此 */
+/* 页眉滚栏 - Used in Level 37 */
+.headerbox {
+    color: #fbe7b5;
+    text-shadow: 0 0 1pt rgb(251, 231, 181);
+    padding: 1rem 0;
+    background: linear-gradient(180deg, rgba(133, 120, 88, 0.5) 0%, rgba(251, 231, 181, 1) 75%);
+    float: none;
+    width: auto;
+    margin: auto;
+    border-radius: 1rem 1rem 0 0;
+}
+.scrollheader2 {
+    background: url(https://static.wikia.nocookie.net/backrooms/images/1/19/37ScrollHeader.png/revision/latest?cb=20220329005840);
+    animation: slide2 120s linear infinite;
+    background-size: 800px;
+    background-repeat: repeat;
+    width: calc(100% - 72px);
+    min-height: 150px;
+    border-radius: 1rem 1rem 0 0;
+    position: absolute;
+}
+@keyframes slide2 {
+    0% {
+        background-position: 120px bottom;
+    }
+    100% {
+        background-position: -500px bottom;
+    }
+}
+/* 页面背景 & 页眉滚栏(不清楚在哪里被用到了，但是确实是定制) */
+.wide-image img {
+    width: calc(100%);
+    height: auto;
+}
+.header_box1 {
+    color: #fbe7b5;
+    text-shadow: 0 0 1pt rgb(251, 231, 181);
+    background: linear-gradient(180deg, rgba(133, 120, 88, 0.5) 0%, rgba(251, 231, 181, 1) 100%);
+    padding: 16px 0;
+    margin: auto;
+    border-radius: 0.5rem 0.5rem 0 0;
+}
+.scroll_header1 {
+    background: url(https://static.wikia.nocookie.net/backrooms/images/9/93/L1.4K_0.jpg/revision/latest?cb=20220727100723&path-prefix=zh);
+    animation: slide3 120s infinite;
+    background-size: 100%;
+    width: calc(100% - 72px); /*减宽，防止图片宽度超过纸张，且此宽度恰好将图片置于纸张正中*/
+    min-height: 120px;
+    border-radius: 0.5rem 0.5rem 0 0;
+    position: absolute;
+}
+@keyframes slide1 {
+    0% {
+        background-position: 0 0;
+    }
+    50% {
+        background-position: -200px 0; /*横向滑动。背景左上角到div左上角的距离；最左为0px，最右为calc(-100%)*/
+    }
+    100% {
+        background-position: 0 0;
+    }
+}
+@keyframes slide3 {
+    0% {
+        background-position: 0 33%;
+    }
+    50% {
+        background-position: 0 66%; /*纵向滑动。背景的哪个位置在div左上角；若填正值从左上角计算，负值则是右下；最上为0%或-100%，最下为100%或-0%*/
+    }
+    100% {
+        background-position: 0 33%;
+    }
+}
+.featureflavor {
+    padding: 0 0.5rem;
+    margin: 0.5rem 0;
+    background: #decb96;
+    border-radius: 0.6rem;
+    box-shadow: 0px 0px 3px;
+    border: 1.75px solid #c7c089;
+    box-sizing: border-box;
+    transition: 0.2s;
+}
+.entityentry {
+    background-color: var(--theme-page-background-color--secondary);
+    color: rgba(var(--theme-page-text-color--rgb), 0.7);
+    padding: 0.5rem;
+    margin: 0.5rem 0 0.5rem 0.25rem;
+    box-shadow: 0 0.2rem 0.3rem rgba(0, 0, 0, 0.25);
+    font-size: 80%;
+    font-style: italic;
+    border: solid 2px var(--theme-sticky-nav-background-color);
+}
+.entitylistname {
+    font-size: 180%;
+    font-style: normal !important;
+    clear: both;
+    color: rgba(var(--theme-page-text-color--rgb), 1);
+}
+.page-content .entries {
+    list-style: none;
+    padding-left: 0;
+    margin-left: 0;
+}
+.entries li:not(.sub-entries li) {
+    background-color: var(--theme-page-background-color--secondary);
+    color: rgba(var(--theme-page-text-color--rgb), 0.7);
+    padding: 0.5rem;
+    margin: 0.5rem 0 0.5rem 0.25rem;
+    box-shadow: 0 0.2rem 0.3rem rgba(0, 0, 0, 0.25);
+    font-size: 90%;
+    font-style: italic;
+    border: solid 2px var(--theme-sticky-nav-background-color);
+}
+/* 楼层列表 */
+.entries li:not(.sub-entries li) a {
+    font-size: 150%;
+}
+.sub-entries li a {
+    font-size: 120%;
+}
+.sub-entries li::marker {
+    content: '↳ ';
+}
+/* Blurimage & Blurquote定制 */
+.no-margin-p p {
+    margin: 0 0 0 0 !important;
+}
+.blurbehind {
+    width: 100%;
+    height: 100%;
+    text-align: center;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+.marginblock {
+    margin: 1rem !important;
+    color: white;
+}
+.blurquote-noperson .blurquote-person {
+    display: none !important;
+}
+.blurquote-noborder .darkblock {
+    padding: 0 !important;
+}
+/* 背景 */
+img.backgroundplate {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: -2;
+}
+/* wiki功能性css（没有借鉴） */
+/* 字体 */
+.lxgw-wenkai-mono-tc-regular {
+    font-family: 'LXGW WenKai Mono TC', monospace;
+    font-weight: 400;
+    font-style: normal;
+}
+/* JavaScript */
+/* 1 */
+.tag.usergroup-bureaucrat {
+    background-color: gold !important;
+    color: black !important;
+}
+.tag.usergroup-featured {
+    background-color: blue !important;
+    color: white !important;
+}
+/* 2 */
+.tag.usergroup-bureaucrat {
+    /* 此自訂標籤會顯示為紅色邊框與自訂背景 */
+    background-image: url('http://site.com/image.png');
+    border: 3px red solid;
+    border-radius: 0;
+}
+.tag.usergroup-featured:before {
+    /* 於「Feautured」標籤之前新增圖案 */
+    content: url('http://site.com/magnifying-glass.gif');
+}
+/* 功能拓展 */
+/* Fandom dev Wiki（自定义） */
+/** 图片背景 **/
+.blackout {
+    background: #c7cda6;
+    mix-blend-mode: overlay;
+}
+/** 透明删除线文本 **/
+strike,
+s,
+del {
+    opacity: 0.5;
+}
+/* Search bars being sticky */
+.mw-special-Search form.unified-search__form,
+.mw-special-SearchCommunity form.unified-search__form {
+    position: sticky;
+    top: 42px;
+    z-index: 1;
+}
+/* Tabs on the left being sticky */
+.mw-special-Search .unified-search__layout__left-rail {
+    position: sticky;
+    top: 100px;
+    align-self: flex-start;
+}
+/* Related community section being sticky */
+.mw-special-Search .unified-search__layout__right-rail {
+    position: sticky;
+    top: 85px;
+    align-self: flex-start;
+}
+/* General rule */
+.mw-special-Search div#content,
+.mw-special-SearchCommunity div#content {
+    overflow: unset;
+}
+/* Prevent overlapping of the search bar if there are more CSS customizations */
+.mw-special-SearchCommunity .unified-search__result {
+    margin: 8px;
+}
+/* 滚动条 */
+:root {
+    scrollbar-color: var(--yellow) var(--yellow);
+}
+/* 透明页面 */
+.page__main {
+    background-color: rgba(var(--theme-page-background-color--rgb), 0.96);
+}
+/* 取消部分页面的某些元素 */
+/* 权限span块 */
+/** 站长 **/
+.staff main-admin {
+    display: inline-block; /*确保span作为块级元素显示，这样border才能生效 */
+    border: 2px solid gold; /* 设置边框颜色和宽度 */
+    border-radius: 5px; /* 设置圆角半径 */
+    padding: 5px; /*给文字留出一点空间 */
+    font-size: 16px; /* 设置字体大小 */
+    color: black; /* 设置字体颜色 */
+}
+/* 自定义幻灯片样式 */
+/* Alters each gallery item */
+.wikia-gallery-item {
+    text-align: center;
+    padding: 0px;
+    margin: 5px;
+    background-color: rgba(0, 0, 0, 0.1);
+    border-radius: 1em;
+    /* More CSS Attributes */
+}
+/* Removes the default border of the images */
+.wikia-gallery-item .thumb .gallery-image-wrapper {
+    border-style: none;
+}
+/* 更改导航栏 */
+.fandom-community-header__local-navigation .wds-dropdown__content {
+    padding: 0 !important;
+}
+.fandom-community-header__local-navigation .wds-dropdown__content .wds-list.wds-is-linked > li {
+    padding: 0 6px !important;
+}
+/* 美观的滚动条 */
+:root {
+    scrollbar-color: var(--theme-accent-color) var(--theme-accent-color--hover);
+}
+/* 用户页面背景 */
+#userProfileApp {
+    /* insert URL to profile background image */
+    background-image: url('https://static.wikia.nocookie.net/backroom/images/d/d5/Wallpaper.png/revision/latest?cb=20240512090552&path-prefix=zh');
+}
+
+:root {
+    --main-color: #feaf09aa;
+    --edit-color: #52c12aaa;
+    --new-color: #00bfffaa;
+    --delete-color: #b30000aa;
+    --file-color: #52c12a;
+    --template-color: #941347aa;
+    --mediawiki-color: #3420bdaa;
+    --project-color: #ff8300;
+    --category-color: #b76801aa;
+    --user-color: #9943ffaa;
+    --blog-color: silver;
+    --move-color: #bcbc25aa;
+    --protect-color: #b2d401aa;
+    --help-color: #5dd8d8;
+    --default-color: #b9b9b9;
+    --post-color: #bcbc25aa;
+
+    --main-color-bg: rgb(254, 175, 9, 0.15);
+    --edit-color-bg: rgb(82, 193, 42, 0.1);
+    --new-color-bg: rgb(0 191 255 / 8%);
+    --delete-color-bg: rgb(179, 0, 0, 0.08);
+    --template-color-bg: rgb(148 19 71 / 8%);
+    --mediawiki-color-bg: rgb(52, 32, 189, 0.1);
+    --project-color-bg: #ff8300;
+    --category-color-bg: rgb(183, 104, 1, 0.1);
+    --user-color-bg: rgb(140, 0, 255, 0.08);
+    --blog-color-bg: rgb(192, 192, 192, 0.25);
+    --move-color-bg: rgb(224, 224, 42, 0.15);
+    --protect-color-bg: rgb(178, 212, 1, 0.1);
+    --default-color-bg: #b9b9b955;
+    --post-color-bg: rgb(224, 224, 42, 0.15);
+
+    --accent-rgb: var(--theme-accent-color--rgb);
+}
+
+/* Display-none's */
+.activity-data .mw-usertoollinks,
+
+
+
+
+/* = social-activity-feed = */
+.social-activity-feed .activity-icon {
+    margin: 0 0.5em;
+}
+
+.activity-data > a:nth-of-type(1) {
+    font-weight: bold;
+    font-size: 14px;
+}
+.social-activity-feed .activity-data {
+    width: 100%;
+}
+
+.social-activity-feed .activity-time {
+    order: 1;
+    flex: 1;
+    margin-left: 10px;
+}
+
+.social-activity-feed [data-activity-type='create'][data-content-type='comment'] {
+    --auto-color: var(--new-color);
+    --auto-color-bg: var(--new-color-bg);
+}
+
+.social-activity-feed [data-activity-type='delete'][data-content-type='message'] {
+    --auto-color-bg2: var(--user-color-bg);
+}
+
+.social-activity-feed [data-activity-type='create'][data-content-type='message'],
+.social-activity-feed [data-activity-type='update'][data-content-type='message'],
+.social-activity-feed [data-activity-type='create'][data-content-type='message-reply'],
+.social-activity-feed [data-activity-type='update'][data-content-type='message-reply'] {
+    --auto-color: var(--user-color);
+    --auto-color-bg: var(--user-color-bg);
+}
+.social-activity-feed [data-activity-type='create'][data-content-type='message'] {
+    --auto-color-bg2: var(--new-color-bg);
+}
+
+.social-activity-feed [data-activity-type='update'][data-content-type='comment'],
+.social-activity-feed [data-activity-type='create'][data-content-type='comment-reply'],
+.social-activity-feed [data-activity-type='update'][data-content-type='comment-reply'] {
+    --auto-color: var(--edit-color);
+    --auto-color-bg: var(--edit-color-bg);
+}
+.social-activity-feed [data-activity-type='create'][data-content-type='comment-reply'] {
+    --auto-color-bg2: var(--post-color-bg);
+}
+
+.social-activity-feed [data-activity-type='create'][data-content-type='message-reply'] {
+    --auto-color-bg2: var(--post-color-bg);
+}
+.social-activity-feed [data-activity-type='update'][data-content-type='message'],
+.social-activity-feed [data-activity-type='update'][data-content-type='message-reply'] {
+    --auto-color-bg2: var(--edit-color-bg);
+}
+.social-activity-feed [data-activity-type='update'][data-content-type='post'],
+.social-activity-feed [data-activity-type='update'][data-content-type='post-reply'] {
+    --auto-color: var(--post-color);
+    --auto-color-bg: var(--post-color-bg);
+    --auto-color-bg2: var(--edit-color-bg);
+}
+.social-activity-feed [data-activity-type='create'][data-content-type='post'],
+.social-activity-feed [data-activity-type='create'][data-content-type='post-reply'] {
+    --auto-color: var(--post-color);
+    --auto-color-bg: var(--post-color-bg);
+    --auto-color-bg2: var(--post-color-bg);
+}
+
+.social-activity-feed .activity-icon svg {
+    display: none;
+}
+
+.social-activity-feed .activity-icon:after {
+    color: var(--auto-color);
+}
+
+/* Styles from Miraheze */
+/* wiki styles for readbility in light theme */
+code,
+.mw-code {
+    background-color: #f8f9fa;
+    color: #000;
+    border: 1px solid #838383;
+}
+/* 导入字体 */
+@import url('/load.php?mode=articles&only=styles&articles=u:dev:MediaWiki:AjaxPoll.Modern.css|u:dev:MediaWiki:BalancedBloglists.css|u:dev:MediaWiki:BalancedCategories.css|u:dev:MediaWiki:BalancedComments.css|u:dev:MediaWiki:BalancedMessageBoxes.css|u:dev:MediaWiki:BalancedPageBottom.css|u:dev:MediaWiki:BalancedProfile.css|u:dev:MediaWiki:BalancedScrollbar.css|u:dev:MediaWiki:LocalNavExploreIcons.css|u:dev:MediaWiki:BalancedSearch.css|u:dev:MediaWiki:BalancedSlider.css|u:dev:MediaWiki:BalancedTabber.css|u:dev:MediaWiki:CSS3Tooltip.css|u:dev:MediaWiki:Highlight.css|u:dev:MediaWiki:LeafyStrap.css|u:dev:MediaWiki:ThemeBasedStyling.css|u:dev:MediaWiki:ThemeColorClasses.css|u:dev:MediaWiki:ProgressBar.css|u:dev:MediaWiki:SpoilerBlur.css|u:dev:MediaWiki:Heimu.css|u:dev:MediaWiki:UserAnimations.css');
+/*字体导入*/
+@import url('https://fonts.googleapis.com/css2?display=swap&family=Long+Cang&family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@200;500;700&family=ZCOOL+XiaoWei&family=Zhi+Mang+Xing&family=Lobster&family=Ma+Shan+Zheng&family=ZCOOL+QingKe+HuangYou&family=Comfortaa&family=Silkscreen&family=Noto+Sans+SC&family=Oxygen+Mono&family=Overpass+Mono:wght@300');
+@import url('https://fonts.googleapis.com/css?family=Lato:400,900|PT+Mono|Poppins:600,800|Share+Tech+Mono|Anonymous+Pro');
+@import url('https://fonts.googleapis.com/css2?family=Island+Moments&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Baumans&family=Graduate&family=Kelly+Slab&family=Kumar+One&family=Tulpen+One&family=ZCOOL+QingKe+HuangYou&display=swap');

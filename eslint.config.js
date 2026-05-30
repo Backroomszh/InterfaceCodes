@@ -52,6 +52,8 @@ export default defineConfig([
                 wgULS: 'readonly',
                 oouiDialog: 'readonly',
                 libCachedCode: 'readonly',
+                importArticles: 'readonly',
+                importScript: 'readonly',
             },
         },
     },

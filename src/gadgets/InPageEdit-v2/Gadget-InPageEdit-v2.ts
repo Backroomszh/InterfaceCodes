@@ -1,5 +1,5 @@
 interface InPageEditAPI {
-    quickEdit(options: { page: string; revision?: number; }): void;
+    quickEdit(options: { page: string; revision?: number }): void;
 }
 
 declare const InPageEdit: InPageEditAPI | undefined;
@@ -28,7 +28,7 @@ declare const InPageEdit: InPageEditAPI | undefined;
                             class: 'vector-tab-noicon',
                         })
                         .text('快速编辑')
-                        .on('click', (e) => {
+                        .on('click', e => {
                             e.preventDefault();
                             if (typeof InPageEdit !== 'undefined') {
                                 const revision = wgRevisionId;

@@ -58,10 +58,10 @@ pnpm install
 `src/gadgets/Gadgets-definition-list.yaml` 控制小工具在参数设置界面的分组与显示顺序。修改时添加或调整 `gadgets` 数组中的小工具名称即可：
 
 ```yaml
-- section: User           # 分区名称
+- section: User # 分区名称
   gadgets:
-    - Navigation_popups   # 引用小工具的文件夹名称
-    - whoisactive
+      - Navigation_popups # 引用小工具的文件夹名称
+      - whoisactive
 ```
 
 ## 新建小工具
@@ -70,33 +70,33 @@ pnpm install
 
 2. 在文件夹内创建源码文件和 `definition.yaml`，例如：
 
-   ```
-   src/gadgets/myGadget/
-   ├── definition.yaml
-   └── Gadget-myGadget.js     # 文件名必须以 Gadget- 开头
-   ```
+    ```
+    src/gadgets/myGadget/
+    ├── definition.yaml
+    └── Gadget-myGadget.js     # 文件名必须以 Gadget- 开头
+    ```
 
 3. 编写 `definition.yaml`：
 
-   ```yaml
-   ResourceLoader: true
-   hidden: false
-   default: false
-   type: general
-   rights: []
-   dependencies: []
-   enable: true
-   files:
-     - Gadget-myGadget.js
-   ```
+    ```yaml
+    ResourceLoader: true
+    hidden: false
+    default: false
+    type: general
+    rights: []
+    dependencies: []
+    enable: true
+    files:
+        - Gadget-myGadget.js
+    ```
 
 4. 在 `src/gadgets/Gadgets-definition-list.yaml` 中对应的分区下添加该小工具的文件夹名称。
 
 5. 运行构建验证：
 
-   ```bash
-   pnpm run build
-   ```
+    ```bash
+    pnpm run build
+    ```
 
 ## 构建与部署
 
