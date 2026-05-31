@@ -24,7 +24,8 @@ rights: []
 
 peers: []
 
-dependencies: []
+dependencies:
+    - mediawiki.util
 
 enable: true
 
