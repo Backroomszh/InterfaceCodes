@@ -183,11 +183,6 @@ var TimerRun = function () {
 };
 setInterval(TimerRun, 0);
 
-var loadSAOGadget = function (saogadget) {
-    mw.loader.load('//saozh.miraheze.org/w/load.php?modules=ext.gadget.' + saogadget);
-};
-loadSAOGadget('shortLink');
-
 /**
  * MediaWiki 自动播放图片幻灯片脚本
  * 使用方法：将此脚本添加到 MediaWiki:Common.js 或个人的 User:用户名/common.js

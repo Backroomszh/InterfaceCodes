@@ -1,5 +1,10 @@
 /* 这里放置的CSS将应用于所有皮肤 */
 /* CSS placed here will be applied to all skins */
+/*字体导入*/
+@import url('https://fonts.googleapis.com/css2?display=swap&family=Long+Cang&family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@200;500;700&family=ZCOOL+XiaoWei&family=Zhi+Mang+Xing&family=Lobster&family=Ma+Shan+Zheng&family=ZCOOL+QingKe+HuangYou&family=Comfortaa&family=Silkscreen&family=Noto+Sans+SC&family=Oxygen+Mono&family=Overpass+Mono:wght@300');
+@import url('https://fonts.googleapis.com/css?family=Lato:400,900|PT+Mono|Poppins:600,800|Share+Tech+Mono|Anonymous+Pro');
+@import url('https://fonts.googleapis.com/css2?family=Island+Moments&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Baumans&family=Graduate&family=Kelly+Slab&family=Kumar+One&family=Tulpen+One&family=ZCOOL+QingKe+HuangYou&display=swap');
 /* 第一部分：核心字体栈定义 (系统字体优先，保证速度和兼容性) */
 :root {
     /* 1. 主字体栈 (用于正文、界面) */
@@ -1807,10 +1812,3 @@ code,
     color: #000;
     border: 1px solid #838383;
 }
-/* 导入字体 */
-@import url('/load.php?mode=articles&only=styles&articles=u:dev:MediaWiki:AjaxPoll.Modern.css|u:dev:MediaWiki:BalancedBloglists.css|u:dev:MediaWiki:BalancedCategories.css|u:dev:MediaWiki:BalancedComments.css|u:dev:MediaWiki:BalancedMessageBoxes.css|u:dev:MediaWiki:BalancedPageBottom.css|u:dev:MediaWiki:BalancedProfile.css|u:dev:MediaWiki:BalancedScrollbar.css|u:dev:MediaWiki:LocalNavExploreIcons.css|u:dev:MediaWiki:BalancedSearch.css|u:dev:MediaWiki:BalancedSlider.css|u:dev:MediaWiki:BalancedTabber.css|u:dev:MediaWiki:CSS3Tooltip.css|u:dev:MediaWiki:Highlight.css|u:dev:MediaWiki:LeafyStrap.css|u:dev:MediaWiki:ThemeBasedStyling.css|u:dev:MediaWiki:ThemeColorClasses.css|u:dev:MediaWiki:ProgressBar.css|u:dev:MediaWiki:SpoilerBlur.css|u:dev:MediaWiki:Heimu.css|u:dev:MediaWiki:UserAnimations.css');
-/*字体导入*/
-@import url('https://fonts.googleapis.com/css2?display=swap&family=Long+Cang&family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@200;500;700&family=ZCOOL+XiaoWei&family=Zhi+Mang+Xing&family=Lobster&family=Ma+Shan+Zheng&family=ZCOOL+QingKe+HuangYou&family=Comfortaa&family=Silkscreen&family=Noto+Sans+SC&family=Oxygen+Mono&family=Overpass+Mono:wght@300');
-@import url('https://fonts.googleapis.com/css?family=Lato:400,900|PT+Mono|Poppins:600,800|Share+Tech+Mono|Anonymous+Pro');
-@import url('https://fonts.googleapis.com/css2?family=Island+Moments&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Baumans&family=Graduate&family=Kelly+Slab&family=Kumar+One&family=Tulpen+One&family=ZCOOL+QingKe+HuangYou&display=swap');
