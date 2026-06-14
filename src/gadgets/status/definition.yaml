@@ -6,13 +6,16 @@ default: true
 
 supportsUrlLoad: false
 
-skins: []
+skins:
+    - citizen
 
-actions: []
+actions:
+    - view
 
 categories: []
 
-namespaces: []
+namespaces:
+    - 0
 
 contentModels: []
 
@@ -20,7 +23,8 @@ type: general
 
 package: false
 
-rights: []
+rights:
+    - editprotected
 
 peers: []
 
