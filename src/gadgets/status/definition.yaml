@@ -30,6 +30,8 @@ peers: []
 
 dependencies:
     - mediawiki.api
+    - oojs-ui-core
+    - oojs-ui-windows
 
 enable: true
 
