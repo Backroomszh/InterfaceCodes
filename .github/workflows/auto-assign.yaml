@@ -3,9 +3,13 @@ on:
     issues:
         types: [opened]
     pull_request:
-        types: [opened]
+        branches: ['main']
+    pull_request_target:
+        types:
+            - opened
+            - ready_for_review
 jobs:
-    run:
+    auto-assign-issues:
         runs-on: ubuntu-latest
         permissions:
             issues: write
@@ -17,3 +21,17 @@ jobs:
                   repo-token: ${{ secrets.GITHUB_TOKEN }}
                   assignees: Saoutax
                   numOfAssignee: 1
+
+    auto-assign-pr:
+        if: github.event_name == 'pull_request_target'
+        runs-on: ubuntu-latest
+        permissions:
+            pull-requests: write
+            issues: write
+            contents: read
+        steps:
+            - name: Auto Assign
+              uses: kentaro-m/auto-assign-action@v2.0.0
+              with:
+                  configuration-path: .github/auto_assign.yaml
+                  repo-token: '${{ secrets.GITHUB_TOKEN }}'
