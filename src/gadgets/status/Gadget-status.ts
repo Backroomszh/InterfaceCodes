@@ -172,7 +172,7 @@
         const wm = getWindowManager();
         wm.openWindow('failNoticeDialog').closed.then((data: any) => {
             if (data?.action === 'submit') {
-                postFailNotice(`{{FailNotice|${data.value}}`)
+                postFailNotice(`{{FailNotice|${data.value}}}`)
                     .done(() => {
                         mw.notify('FailNotice 已发布');
                     })
