@@ -28,7 +28,8 @@ rights:
 
 peers: []
 
-dependencies: []
+dependencies:
+    - mediawiki.api
 
 enable: true
 

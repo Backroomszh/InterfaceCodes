@@ -27,6 +27,7 @@ peers: []
 dependencies:
     - mediawiki.user
     - mediawiki.util
+    - mediawiki.api
     - user.options
 
 enable: true
