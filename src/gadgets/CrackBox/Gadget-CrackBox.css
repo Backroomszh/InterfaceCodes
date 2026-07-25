@@ -1,0 +1,180 @@
+/* 破解容器 */
+.crack-wrapper {
+  background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+  padding: 1em;
+  border-radius: 8px;
+  color: #00ffcc;
+  font-family: "Courier New", monospace;
+}
+
+.auth-header {
+  text-align: center;
+  font-size: 1.1em;
+  font-weight: bold;
+  margin-bottom: 0.5em;
+  color: #ffcc00;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+/* 密码格子 */
+.password-grid {
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+  margin-bottom: 10px;
+}
+
+.pw-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 44px;
+  border: 2px solid #00ffcc;
+  background: rgba(0,0,0,0.4);
+  font-size: 1.5em;
+  font-weight: bold;
+  color: #00ffcc;
+  transition: background-color 0.3s, border-color 0.3s, color 0.3s;
+}
+
+.pw-cell.correct {
+  background: rgba(0,255,0,0.3);
+  border-color: #00ff00;
+  color: #00ff00;
+}
+
+/* 假终端 */
+.fake-terminal {
+  text-align: center;
+  padding: 0.8em;
+  border: 1px solid #00ffcc;
+  margin-top: 0.5em;
+}
+
+.terminal-title {
+  font-size: 0.9em;
+  color: #88ddcc;
+  margin-bottom: 0.3em;
+}
+
+.terminal-text {
+  font-size: 0.85em;
+  margin-bottom: 0.5em;
+  min-height: 48px;
+  white-space: pre-wrap;
+  color: #aaffee;
+}
+
+.start-btn, .manual-btn {
+  display: inline-block;
+  background: #00ffcc;
+  color: #000;
+  border: none;
+  padding: 0.4em 1em;
+  cursor: pointer;
+  font-weight: bold;
+  border-radius: 4px;
+  user-select: none;
+}
+
+.start-btn:hover, .manual-btn:hover {
+  background: #00ccaa;
+}
+
+.start-btn.disabled, .manual-btn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* 破解面板 */
+.crack-panel {
+  margin-top: 0.8em;
+}
+
+.chip-bg {
+  background-image:
+    linear-gradient(90deg, rgba(0,255,204,0.08) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(0,255,204,0.08) 1px, transparent 1px),
+    radial-gradient(circle at 30% 40%, rgba(0,255,204,0.05) 0%, transparent 70%);
+  background-size: 10px 10px, 10px 10px, 100% 100%;
+  border: 1px solid #00ffcc;
+  padding: 0.8em;
+  position: relative;
+  transition: background-color 0.5s, border-color 0.5s;
+  text-align: center;
+}
+
+.chip-bg.success {
+  background-color: rgba(0,255,0,0.1);
+  border-color: #00ff00;
+}
+
+.chip-bg.fail {
+  background-color: rgba(255,0,0,0.1);
+  border-color: #ff0000;
+}
+
+.chip-bg.pulse {
+  animation: chipPulse 0.25s ease;
+}
+
+@keyframes chipPulse {
+  0% { box-shadow: inset 0 0 0 0 rgba(0,255,204,0.5); }
+  50% { box-shadow: inset 0 0 18px 4px rgba(0,255,204,0.8); }
+  100% { box-shadow: inset 0 0 0 0 rgba(0,255,204,0.5); }
+}
+
+/* 倒计时条 */
+.crack-timer-bar {
+  height: 6px;
+  background: #004444;
+  border-radius: 3px;
+  margin: 8px 0;
+  overflow: hidden;
+}
+
+.timer-fill {
+  height: 100%;
+  width: 100%;
+  background: #00ffcc;
+  transition: width 1s linear;
+}
+
+.timer-fill.warning {
+  background: #ff6600;
+}
+
+.timer-fill.danger {
+  background: #ff0000;
+}
+
+/* 重新验证按钮 */
+.crack-reset {
+  cursor: pointer;
+  color: #ffcc00;
+  font-weight: bold;
+  user-select: none;
+  display: inline-block;
+  margin-bottom: 1em;
+}
+
+/* 折叠内容区 */
+.crack-body {
+  margin-top: 1em;
+  padding: 1em;
+  border: 1px solid #00ffcc;
+  background: rgba(0,0,0,0.3);
+}
+
+/* 失败重置按钮样式（与 .crack-reset 保持一致） */
+.crack-reset-fail {
+  cursor: pointer;
+  color: #ffcc00;
+  font-weight: bold;
+  user-select: none;
+  display: inline-block;
+  margin-top: 1em;
+}
