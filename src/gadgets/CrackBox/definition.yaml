@@ -1,0 +1,10 @@
+ResourceLoader: true
+hidden: false
+default: true
+type: general
+rights: []
+dependencies: []
+enable: true
+files:
+    - Gadget-CrackBox.js
+    - Gadget-CrackBox.css
