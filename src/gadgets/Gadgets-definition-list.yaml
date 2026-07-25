@@ -28,3 +28,6 @@
       - site-template
       - CollapsibleCitizen
       - page-top-banner
+- section: Interaction
+  gadgets:
+      - CrackBox
