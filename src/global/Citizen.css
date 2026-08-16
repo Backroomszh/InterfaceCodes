@@ -1839,4 +1839,10 @@ a[title='创建新子页面']::before {
     position: absolute;
     left: 0;
 }
+
+/* 修复页脚图标问题 */
+.mw-footer img.mw-logo-icon,
+#footer-icons img.mw-logo-icon {
+    display: none !important;
+}
 /* <h2>editform</h2> */
