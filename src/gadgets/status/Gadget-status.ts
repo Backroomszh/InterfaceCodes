@@ -157,6 +157,7 @@
 
     const passText = content ? buttonText('Pass', content) : 'Pass';
     const failText = content ? buttonText('Fail', content) : 'Fail';
+    const pendingText = content ? buttonText('Pend', content) : 'Pend';
 
     // ---- Create buttons ----
 
@@ -183,9 +184,14 @@
         });
     });
 
+    const pendingButton = createButton(pendingText, () => {
+        updateReviewPage('Pending');
+    });
+
     const header = document.querySelector('.citizen-header__end');
     if (header) {
         header.appendChild(passButton);
         header.appendChild(failButton);
+        header.appendChild(pendingButton);
     }
 })();
