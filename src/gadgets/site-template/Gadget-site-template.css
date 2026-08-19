@@ -114,6 +114,11 @@
     --ticket-border-color: green;
     --ticket-text-color: green;
 }
+.gray-ticket {
+--ticket-background-color: #E0E0E0;
+    --ticket-border-color: gray;
+    --ticket-text-color: gray;
+}
 .yellow-ticket {
     --ticket-background-color: #f0eb97;
     --ticket-border-color: yellow;
