@@ -1848,7 +1848,7 @@ a[title='创建新子页面']::before {
 
 /* 页面底部版权信息居中显示 */
 .page-info__text {
-    text-align: center;
+    text-align: center !important;
 }
 
 /* <h2>editform</h2> */
