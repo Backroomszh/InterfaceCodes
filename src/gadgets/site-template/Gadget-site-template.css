@@ -192,6 +192,9 @@
     border-top: 2px solid var(--ticket-border-color);
     text-align: center;
 }
+.ticket {
+    padding: 15px;
+}
 /* English Backrooms Fandom */
 /* Rainbow Text */
 .rainbow_text {
