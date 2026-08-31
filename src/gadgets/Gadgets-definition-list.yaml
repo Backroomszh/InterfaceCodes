@@ -8,6 +8,7 @@
       - checkSignature
       - topButton
       - shortlink
+      - quickReport
 
 - section: Edit
   gadgets:
