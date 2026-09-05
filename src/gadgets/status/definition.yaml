@@ -37,3 +37,4 @@ enable: true
 
 files:
     - Gadget-status.js
+    - Gadget-status.css

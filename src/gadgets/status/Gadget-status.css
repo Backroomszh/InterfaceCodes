@@ -1,0 +1,74 @@
+.status-review-menu {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.status-review-menu__toggle {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: var(--sidewrapper-button-size, 2.5rem);
+    min-width: var(--sidewrapper-button-size, 2.5rem);
+    height: var(--sidewrapper-button-size, 2.5rem);
+    min-height: var(--sidewrapper-button-size, 2.5rem);
+    padding: 0 !important;
+    border: 0;
+    border-radius: var(--border-radius-base, 0.5rem);
+    background: transparent;
+    color: var(--color-base, inherit);
+    font-size: var(--font-size-small, 0.875rem);
+    font-weight: 600;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.status-review-menu__toggle:hover,
+.status-review-menu__toggle:focus-visible,
+.status-review-menu__toggle[aria-expanded='true'] {
+    background: var(--background-color-button-quiet--hover, rgb(0 0 0 / 8%));
+}
+
+.status-review-menu__popup {
+    position: fixed;
+    z-index: 1100;
+    min-width: 9rem;
+    max-width: calc(100vw - 1rem);
+    padding: var(--space-xs, 0.25rem);
+    border: var(--border-width-base, 1px) solid var(--border-color-base, #a2a9b1);
+    border-radius: var(--border-radius-medium, 0.25rem);
+    background: var(--color-surface-1, #fff);
+    box-shadow: var(--box-shadow-drop-xx-large, 0 2px 8px rgb(0 0 0 / 20%));
+}
+
+.status-review-menu__popup[hidden] {
+    display: none !important;
+}
+
+.status-review-menu__popup:not([hidden]) {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2xs, 0.125rem);
+}
+
+.status-review-menu__button {
+    display: flex !important;
+    align-items: center;
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 2.25rem;
+    padding: var(--space-xs, 0.25rem) var(--space-sm, 0.5rem);
+    border: 0;
+    background: transparent !important;
+    color: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+    text-align: left;
+}
+
+.status-review-menu__button:hover,
+.status-review-menu__button:focus-visible {
+    background: var(--background-color-button-quiet--hover, rgb(0 0 0 / 8%)) !important;
+}
