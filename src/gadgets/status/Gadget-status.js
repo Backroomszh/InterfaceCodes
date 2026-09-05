@@ -50,7 +50,7 @@
     OO.inheritClass(D, OO.ui.ProcessDialog);
 
     D.static.name = 'failNoticeDialog';
-    D.static.title = '输入 FailNotice';
+    D.static.title = '输入 FailNotice 内容';
     D.static.actions = [
         { action: 'submit', label: '发布', flags: ['primary'] },
         { action: 'cancel', label: '取消', flags: ['safe'] },
