@@ -22,6 +22,18 @@ const deploy = async () => {
 
     const oldDeploy = await oldDeploymentJson();
     const currentDeploy = await contentHash();
+    const currentHashes = Object.fromEntries(
+        Object.entries(currentDeploy).map(([key, { hash }]) => [key, hash]),
+    );
+    const hashesChanged =
+        Object.keys(oldDeploy).length !== Object.keys(currentHashes).length ||
+        Object.entries(currentHashes).some(([key, hash]) => oldDeploy[key] !== hash);
+
+    if (!hashesChanged) {
+        console.log('No changes detected, skipping deploy.');
+        return;
+    }
+
     const deployment = needDeploy(oldDeploy, currentDeploy);
 
     await bot.batchOperation(Object.entries(deployment), async ([title, entry]) => {
@@ -35,9 +47,7 @@ const deploy = async () => {
         : 'Git deployment metadata update';
     await bot.save(
         'MediaWiki:Deployment.json',
-        JSON.stringify(
-            Object.fromEntries(Object.entries(currentDeploy).map(([key, { hash }]) => [key, hash])),
-        ),
+        JSON.stringify(currentHashes),
         deploymentSummary,
         {
             bot: true,
