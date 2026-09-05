@@ -4,3 +4,5 @@ document.head.append(
     type: 'module'
   })
 );
+
+console.log('InPageEdit gadget loaded');
