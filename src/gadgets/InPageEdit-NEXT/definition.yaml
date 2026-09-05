@@ -4,7 +4,7 @@ hidden: false
 
 default: false
 
-supportsUrlLoad: true
+supportsUrlLoad: false
 
 skins: []
 
