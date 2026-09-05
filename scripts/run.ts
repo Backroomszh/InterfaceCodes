@@ -5,7 +5,7 @@ import { deploy } from './deploy';
 
 const run = async () => {
     try {
-        const { mode, message, author } = minimist(process.argv.slice(2), {
+        const { mode } = minimist(process.argv.slice(2), {
             string: ['mode'],
         });
 
@@ -14,7 +14,7 @@ const run = async () => {
                 await build();
                 break;
             case 'deploy': {
-                await deploy(message, author);
+                await deploy();
                 break;
             }
             default:

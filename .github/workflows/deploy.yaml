@@ -9,8 +9,6 @@ on:
 env:
     USERAGENT: ${{ secrets.USERAGENT }}
     PASSWORD: ${{ secrets.PASSWORD }}
-    COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
-    COMMIT_AUTHOR: ${{ github.event.head_commit.author.username || github.actor }}
 
 jobs:
     deploy:
@@ -18,6 +16,8 @@ jobs:
         steps:
             - name: Checkout
               uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
             - uses: pnpm/action-setup@v4
             - name: Set Node Version
               uses: actions/setup-node@v4
@@ -27,4 +27,4 @@ jobs:
             - name: Install dependencies
               run: pnpm install --frozen-lockfile
             - name: Run Deploy Script
-              run: pnpm run deploy --message="$COMMIT_MESSAGE" --author="$COMMIT_AUTHOR"
+              run: pnpm run deploy

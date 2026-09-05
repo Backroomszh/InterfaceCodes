@@ -1,8 +1,9 @@
 import { Mwn } from 'mwn';
-import { contentHash, needDeploy } from './utils';
 import 'dotenv/config';
+import { formatSummary, getGitInfo } from './summary';
+import { contentHash, needDeploy } from './utils';
 
-const deploy = async (message: string, author: string) => {
+const deploy = async () => {
     const bot = await Mwn.init({
         apiUrl: 'https://mirror.backroomszh.org/w/api.php',
         userAgent: `${process.env['USERAGENT']} (Github Actions; Saoutax-bot)`,
@@ -19,20 +20,25 @@ const deploy = async (message: string, author: string) => {
         return content ? JSON.parse(content) : {};
     };
 
-    const oldDeploy = await oldDeploymentJson(),
-        currentDeploy = await contentHash(),
-        deployment = needDeploy(oldDeploy, currentDeploy);
+    const oldDeploy = await oldDeploymentJson();
+    const currentDeploy = await contentHash();
+    const deployment = needDeploy(oldDeploy, currentDeploy);
 
-    const summary = `Git commit${message ? `: ${message}, authored by ${author}` : ''}`;
-    await bot.batchOperation(Object.entries(deployment), async ([title, content]) =>
-        bot.save(title, content, summary, { bot: true, tags: 'Bot' }),
-    );
+    await bot.batchOperation(Object.entries(deployment), async ([title, entry]) => {
+        const summary = formatSummary(getGitInfo(entry.sourcePaths));
+        await bot.save(title, entry.content, summary, { bot: true, tags: 'Bot' });
+    });
+
+    const deploymentSourcePaths = Object.values(deployment).flatMap(({ sourcePaths }) => sourcePaths);
+    const deploymentSummary = deploymentSourcePaths.length
+        ? formatSummary(getGitInfo([...new Set(deploymentSourcePaths)]))
+        : 'Git deployment metadata update';
     await bot.save(
         'MediaWiki:Deployment.json',
         JSON.stringify(
             Object.fromEntries(Object.entries(currentDeploy).map(([key, { hash }]) => [key, hash])),
         ),
-        summary,
+        deploymentSummary,
         {
             bot: true,
             tags: 'Bot',

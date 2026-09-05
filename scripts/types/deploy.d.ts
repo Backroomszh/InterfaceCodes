@@ -3,6 +3,7 @@ type contentHashObj = Record<
     {
         content: string;
         hash: string;
+        sourcePaths: Array<string>;
     }
 >;
 
