@@ -4,7 +4,7 @@ import 'dotenv/config';
 
 const deploy = async (message: string, author: string) => {
     const bot = await Mwn.init({
-        apiUrl: 'https://wiki.backroomszh.org/w/api.php',
+        apiUrl: 'https://mirror.backroomszh.org/w/api.php',
         userAgent: `${process.env['USERAGENT']} (Github Actions; Saoutax-bot)`,
         username: 'MisakaNetwork@MisakaNetwork',
         password: process.env['PASSWORD']!,
