@@ -1,8 +1,3 @@
-document.head.append(
-  Object.assign(document.createElement('script'), {
-    src: 'https://cdn.jsdelivr.net/npm/@inpageedit/core/dist/index.js',
-    type: 'module'
-  })
-);
+mw.loader.load('https://xyy.miraheze.org/w/load.php?modules=ext.gadget.InPageEditNext');
 
 console.log('InPageEdit gadget loaded');
