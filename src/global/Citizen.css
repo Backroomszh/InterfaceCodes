@@ -1053,10 +1053,6 @@ li#pt-themes-label {
         transition-duration: 0.5s;
     }
 
-    /* .discord-mark {
-		filter: var(--icon-image-filter--inverted);
-	} */
-
     .citizen-header__discord .citizen-header__expand:hover {
         min-width: max-content;
         background-color: var(--color-surface-1);
@@ -1852,3 +1848,86 @@ a[title='创建新子页面']::before {
 }
 
 /* <h2>editform</h2> */
+
+:root.skin-theme-clientpref-day {
+    --utgheader: #fffce9 !important;
+    --mwheaderbg: linear-gradient(45deg, #faffe3, #fffce8, #faffe3) !important;
+    --utgwindow-img: url(https://static.wikitide.net/backroomszhwiki/8/85/StackdSandboxBGfixed.png) !important;
+    --width-toc: minmax(240px,280px);
+}
+:root.skin-theme-clientpref-night {
+    --utgheader: #000e33 !important;
+    --mwheaderbg: linear-gradient(45deg, #2a3d71, #0e1a40, #2a3d71) !important;
+}
+:root {
+    --utgwindow: #FAFAFA;
+    --utgheader: #F5F5F5 !important;
+    --mwheaderbg: linear-gradient(45deg, #F5F5F5, #F0F0F0, #F5F5F5) !important;
+    --utgwindow-img: none !important;
+}
+.mw-header {
+    background: var(--mwheaderbg);
+}
+.skin-theme-clientpref-night .citizen-header__logo .mw-logo-icon {
+    filter: invert(1);
+}
+.citizen-page-header {
+    margin-top: 0 !important;
+    border-radius: 0 0 0.5rem 0.5rem !important;
+    margin-bottom: 1.5rem !important;
+    box-shadow: 0px 0px 1.5px 3.5px #00000026 !important;
+}
+.citizen-toc-enabled .citizen-body-container{
+    grid-template-areas:
+       'content sidebar'
+       'footer sidebar';
+}
+.citizen-body-container {
+    border-radius: 0.5rem !important;
+    box-shadow: 0px 0px 1.5px 3.5px #00000026 !important;
+    padding: 0 !important;
+}
+.citizen-body {
+    padding: 15px 15px 15px 30px !important;
+}
+.citizen-page-sidebar {
+    margin-top: 0;
+    padding: var(--space-sm);
+    background: var(--utgheader);
+    border-radius: 0 0.5rem 0.5rem 0 !important;
+}
+.citizen-menu__card {
+    backdrop-filter: none;
+}
+#citizen-sidebar-lastmod, #citizen-toc, .sidebar-chunk {
+    background: none;
+    border: none;
+    border-radius: 0;
+}
+.citizen-page-footer {
+    padding-bottom:15px !important;
+    padding-left:30px !important;
+}
+.citizen-footer {
+    margin: 2rem 0 0 !important;
+}
+@media screen and (max-width: 760px) {
+    .citizen-toc {
+        bottom: 8rem;
+        right: 0;
+        left: auto;
+    }
+    .citizen-toc-card {
+        right: 0;
+    }
+}
+@media screen and (max-width: 1119.98px) {
+.citizen-page-sidebar {
+    background: #0000;
+}
+}
+@media screen and (width >= 1080px) {
+    .citizen-toc {
+        top: auto;
+    }
+}
