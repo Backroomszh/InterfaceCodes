@@ -26,12 +26,12 @@ body {
     --color-subtle: #5b638c;
     --color-link: #0959ff;
 
-    --utgwindow-border: black;
-    --utgwindow-img: url(https://static.miraheze.org/backroomszhwiki/4/4d/StackdSandboxBG.png);
-    --utgwindow: #ffffec;
-    --utgwindow-rgb: 255, 252, 221;
-    --utgheader: #faffe3;
-    --utgheader-rgb: 243, 239, 255;
+    --mbrwindow-border: black;
+    --mbrwindow-img: url(https://static.miraheze.org/backroomszhwiki/4/4d/StackdSandboxBG.png);
+    --mbrwindow: #ffffec;
+    --mbrwindow-rgb: 255, 252, 221;
+    --mbrheader: #faffe3;
+    --mbrheader-rgb: 243, 239, 255;
 }
 
 :root.skin-theme-clientpref-night {
@@ -48,11 +48,11 @@ body {
 
     --color-base: white;
 
-    --utgwindow-border: #3d63dd;
-    --utgwindow-rgb: 14, 26, 64;
-    --utgwindow: rgba(14, 26, 64, 0.8);
-    --utgheader: #101b3a;
-    --utgheader-rgb: 16, 27, 58;
+    --mbrwindow-border: #3d63dd;
+    --mbrwindow-rgb: 14, 26, 64;
+    --mbrwindow: rgba(14, 26, 64, 0.8);
+    --mbrheader: #101b3a;
+    --mbrheader-rgb: 16, 27, 58;
 }
 
 @supports (view-transition-name: none) {
@@ -117,7 +117,7 @@ body {
 
 @keyframes borderrainbow {
     0% {
-        border-color: var(--utgwindow-border);
+        border-color: var(--mbrwindow-border);
     }
     10% {
         border-color: #3dd20b;
@@ -147,7 +147,7 @@ body {
         border-color: #d2c600;
     }
     100% {
-        border-color: var(--utgwindow-border);
+        border-color: var(--mbrwindow-border);
     }
 }
 
@@ -171,8 +171,8 @@ body::after {
 }
 
 .citizen-body-container {
-    background-image: var(--utgwindow-img);
-    background-color: var(--utgwindow);
+    background-image: var(--mbrwindow-img);
+    background-color: var(--mbrwindow);
     background-position: bottom;
     background-repeat: repeat-x;
     background-size: 50% auto;
@@ -188,7 +188,7 @@ body::after {
     #citizen-sidebar-lastmod,
     #citizen-toc,
     .sidebar-chunk {
-        background: var(--utgheader);
+        background: var(--mbrheader);
         padding: 10px 5px;
         border-radius: 20px;
         border: 3px solid var(--border-color-base);
@@ -211,7 +211,7 @@ body::after {
 }
 
 .mw-header {
-    background: var(--utgheader);
+    background: var(--mbrheader);
 }
 
 .citizen-footer {
@@ -274,7 +274,7 @@ body::after {
     }
 
     body:not(.citizen-sticky-header-visible) .citizen-page-header {
-        background-color: var(--utgwindow);
+        background-color: var(--mbrwindow);
         border-radius: 1.5rem 1.5rem 0 0;
         margin-top: 15px;
         border-bottom: none;
@@ -301,9 +301,8 @@ body::after {
     }
 
     .citizen-page-header-inner .citizen-page-heading {
-        background: var(--utgwindow);
+        background: var(--mbrwindow);
         padding: 15px 20px 20px;
-        /* margin: 5px auto;  */
         border-radius: 2rem;
         margin-top: 0px;
         transition-property: border, background, width, max-width;
@@ -323,7 +322,7 @@ body::after {
 
     .citizen-sticky-header-visible .citizen-page-header-inner .citizen-page-heading {
         padding: calc(15px + 2.5px) 20px !important;
-        background: rgba(var(--utgwindow-rgb), 0.95);
+        background: rgba(var(--mbrwindow-rgb), 0.95);
     }
 
     .citizen-sticky-header-visible .citizen-page-header-inner .citizen-page-heading h1 {
@@ -339,18 +338,17 @@ body::after {
     .citizen-sticky-header-visible .citizen-page-header-inner .page-actions {
         border-radius: 0 0 2rem 2rem;
         border-top: unset !important;
-        /* margin-top: -3px; */
         transition-property: border, background;
         transition-duration: 0.5s;
         padding: 15px 20px;
     }
 
     .citizen-sticky-header-visible .citizen-page-header-inner .page-actions {
-        background: rgba(var(--utgwindow-rgb), 0.95);
+        background: rgba(var(--mbrwindow-rgb), 0.95);
     }
 
     .citizen-page-header-inner .page-actions {
-        background: var(--utgwindow);
+        background: var(--mbrwindow);
         padding: 15px 20px;
         border-radius: 2rem;
         margin-top: 0px;
@@ -387,11 +385,11 @@ body::after {
     }
 
     .skin-theme-clientpref-night .citizen-page-header {
-        background: rgba(var(--utgwindow-rgb), 0.5);
+        background: rgba(var(--mbrwindow-rgb), 0.5);
         padding: 5px 20px;
         margin: 15px auto;
         border-radius: 0 0 1.5rem 1.5rem;
-        border-color: var(--utgwindow-border);
+        border-color: var(--mbrwindow-border);
         margin-top: 0px;
         border-top: unset;
     }
@@ -409,24 +407,21 @@ body::after {
 }
 
 .citizen-header .citizen-dropdown-details[open] + .citizen-menu__card {
-    background: rgba(var(--utgwindow-rgb), 0.3);
+    background: rgba(var(--mbrwindow-rgb), 0.3);
     backdrop-filter: blur(30px) saturate(50%);
     transition: 0.5s background;
 }
 
 /* Night — <h2>L-354</h2> */
-/* .skin-theme-clientpref-night .citizen-discord {
-filter: invert(69%) sepia(7%) saturate(312%) hue-rotate(220deg) brightness(91%) contrast(89%); } */
-
 .skin-theme-clientpref-night .citizen-body-container {
-    background: rgb(var(--utgwindow-rgb));
+    background: rgb(var(--mbrwindow-rgb));
     border-radius: 1.5rem;
-    border-color: var(--utgwindow-border);
+    border-color: var(--mbrwindow-border);
 }
 
 .citizen-footer {
     background-image:
-        linear-gradient(rgba(var(--utgwindow-rgb), 0.8) 50%, rgba(var(--utgwindow-rgb), 0.3)),
+        linear-gradient(rgba(var(--mbrwindow-rgb), 0.8) 50%, rgba(var(--mbrwindow-rgb), 0.3)),
         url(https://static.wikitide.net/backroomszhwiki/2/25/Level_37-Background.png);
     background-size: 100% auto;
     background-position: top;
@@ -436,7 +431,7 @@ filter: invert(69%) sepia(7%) saturate(312%) hue-rotate(220deg) brightness(91%) 
 
 .skin-theme-clientpref-night .citizen-footer {
     background-image:
-        linear-gradient(rgba(var(--utgwindow-rgb), 0.9) 50%, rgba(var(--utgwindow-rgb), 0.3)),
+        linear-gradient(rgba(var(--mbrwindow-rgb), 0.9) 50%, rgba(var(--mbrwindow-rgb), 0.3)),
         url(https://static.wikitide.net/backroomszhwiki/9/95/Level0Original.jpg);
     background-size: 100% auto;
     background-position: top;
@@ -450,16 +445,6 @@ filter: invert(69%) sepia(7%) saturate(312%) hue-rotate(220deg) brightness(91%) 
     padding: 10px;
     border-radius: 20px;
 }
-
-/* .skin-theme-clientpref-night .citizen-page-header {
-	background: rgba(var(--utgwindow-rgb), 0.5);
-	padding: 5px 20px;
-	margin: 15px auto;
-	border-radius:0 0 1.5rem 1.5rem;
-	border-color: var(--utgwindow-border);
-	margin-top: 0px;
-	border-top: unset;
-} */
 
 /* Drawer menu — <h2>L-380</h2> */
 .citizen-drawer__header {
@@ -486,11 +471,6 @@ filter: invert(69%) sepia(7%) saturate(312%) hue-rotate(220deg) brightness(91%) 
     transition: all 0.25s;
 }
 
-/* Hamburger drawer — <h2>L-404</h2> */
-/* .mw-portlet-Legacy, .mw-portlet-Recode, .mw-portlet-Dev, .mw-portlet-navigation {
-	width:auto!important
-} */
-
 .citizen-main-menu .citizen-menu__heading {
     font-weight: 500;
     letter-spacing: 0;
@@ -510,8 +490,8 @@ filter: invert(69%) sepia(7%) saturate(312%) hue-rotate(220deg) brightness(91%) 
 
 /* Related pages — <h2>L-426</h2> */
 .cdx-card {
-    background: var(--utgheader);
-    border: 3px solid var(--utgwindow-border);
+    background: var(--mbrheader);
+    border: 3px solid var(--mbrwindow-border);
     border-radius: 0 0 20px 20px;
     display: flex;
     justify-content: center;
@@ -557,7 +537,6 @@ filter: invert(69%) sepia(7%) saturate(312%) hue-rotate(220deg) brightness(91%) 
 }
 
 /* Homepage CSS — <h2>L-471</h2> */
-/* move to MW:Blahaj.css? */
 .featured {
     background: white;
     width: 100%;
@@ -590,7 +569,6 @@ filter: invert(69%) sepia(7%) saturate(312%) hue-rotate(220deg) brightness(91%) 
 #footer-info-lastmod {
     margin: auto;
 }
-/* #footer-places-disclaimers { display:none } */
 .skin-theme-clientpref-day #footer-icons {
     filter: invert(30%);
 }
@@ -626,12 +604,10 @@ filter: invert(69%) sepia(7%) saturate(312%) hue-rotate(220deg) brightness(91%) 
     flex-direction: row;
     flex-wrap: wrap;
     justify-content: space-between !important;
-    /* column-count: 2 */
 }
 
 #footer-places a {
     text-align: center;
-    /* font-size: var(--font-size-small) */
 }
 
 #footer-sitetitle .mw-logo-wordmark {
@@ -661,23 +637,8 @@ filter: invert(69%) sepia(7%) saturate(312%) hue-rotate(220deg) brightness(91%) 
 }
 
 .skin-theme-clientpref-day .wikitable tr:first-child th {
-    border-bottom: 2px solid var(--utgwindow-border);
+    border-bottom: 2px solid var(--mbrwindow-border);
 }
-
-/* .wikitable th, .wikitable td {
-	border-left: var(--border-width-base) solid var(--border-color-base);
-	border-right: var(--border-width-base) solid var(--border-color-base);
-}
-
-.wikitable tr td:first-child,
-.wikitable tr th:first-child {
-	border-left: none;
-}
-
-.wikitable tr td:last-child,
-.wikitable tr th:last-child {
-	border-right: none;
-} */
 
 table.article-table,
 table.article-table th,
@@ -708,7 +669,7 @@ table.notepadtable tr:first-child th {
 }
 
 li.gallerybox div.thumb {
-    background-color: var(--utgheader);
+    background-color: var(--mbrheader);
     display: table;
 }
 
@@ -737,9 +698,7 @@ li.gallerybox div.thumb img {
     background: hsl(var(--color-primary__h), var(--color-primary__s), var(--color-primary__l));
     bottom: 0;
     left: 0;
-    /* Fancy shadow under progress */
     filter: drop-shadow(0 0 16px var(--color-progressive));
-    /* Align style with the form */
     border-radius: 0 0 var(--border-radius-large) var(--border-radius-large);
     transition: all 0.2s;
 }
@@ -751,11 +710,10 @@ li.gallerybox div.thumb img {
 
 /* Message boxes — <h2>L-650</h2> */
 .skin-theme-clientpref-night .utg-mbox {
-    background-color: rgba(var(--utgheader-rgb), 0.3);
+    background-color: rgba(var(--mbrheader-rgb), 0.3);
 }
 
 /* Sideicons — <h2>L-656</h2> */
-/* protection indicators moved to the side */
 .citizen-body-container {
     position: relative;
 }
@@ -874,7 +832,6 @@ body.ns-3004 #siteSub {
     display: none;
 }
 
-/* disable pure black mode and auto mode */
 #skin-client-prefs-skin-theme .citizen-client-prefs-radio:has(input[value='os']),
 #skin-client-prefs-citizen-feature-pure-black,
 #skin-client-prefs-citizen-feature-autohide-navigation {
@@ -882,7 +839,6 @@ body.ns-3004 #siteSub {
 }
 
 #skin-client-prefs-skin-theme form {
-    /* grid-template-columns: repeat(1, auto) repeat(2,1fr); */
     grid-template-columns: repeat(2, 1fr);
 }
 
@@ -931,12 +887,10 @@ body.ns-3004 #siteSub {
 }
 
 #pt-themes .ext-themetoggle-popup li:not(.mw-list-item) {
-    /* Heading */
     color: var(--color-subtle);
 }
 
 #pt-themes .ext-themetoggle-popup li:not(:first-child):hover {
-    /* Themes list items */
     text-decoration: underline;
     color: var(--color-link);
 }
@@ -1299,7 +1253,7 @@ li#pt-themes-label {
 }
 
 #citizen-main-menu.dropdown-click .citizen-menu__content ul.citizen-menu__open {
-    background: rgba(var(--utgwindow-rgb), 0.3);
+    background: rgba(var(--mbrwindow-rgb), 0.3);
 }
 
 #citizen-main-menu.dropdown-click .citizen-menu__content ul > .citizen-menu__content-2 {
@@ -1366,7 +1320,7 @@ li#pt-themes-label {
 
 @media (hover: hover) {
     #citizen-main-menu.dropdown-click li:hover {
-        background: rgba(var(--utgwindow-rgb), 0.3);
+        background: rgba(var(--mbrwindow-rgb), 0.3);
     }
 }
 
@@ -1425,7 +1379,7 @@ li#pt-themes-label {
 #mw-content-subtitle:has(.mw-redirectedfrom) {
     text-align: center;
     font-size: var(--font-size-normal);
-    background: rgba(var(--utgheader-rgb), 0.7);
+    background: rgba(var(--mbrheader-rgb), 0.7);
     backdrop-filter: blur(10px) saturate(200%);
     border-radius: 10px;
     border: var(--border-width-base) solid var(--border-color-base);
@@ -1456,7 +1410,7 @@ li#pt-themes-label {
 
 .skin-theme-clientpref-day .mw-editform,
 .skin-theme-clientpref-day #wikiPreview .mw-parser-output .mw-highlight > pre {
-    background: rgba(var(--utgwindow-rgb), 0.4);
+    background: rgba(var(--mbrwindow-rgb), 0.4);
     backdrop-filter: grayscale(100%);
 }
 
@@ -1591,11 +1545,9 @@ div[rel='heading'] > a {
 
 .tooltipster-default .tooltipster-content {
     font-family: var(--font-family-citizen-base);
-    /* padding-bottom: 20px; */
 }
 
 .tooltipster-default {
-    /* clip-path: polygon(0% 0%, 100% 0%, 100% 75%, 24% 75%, 0 100%, 0 75%, 0% 75%); */
     background: var(--color-surface-4);
 }
 
@@ -1620,7 +1572,7 @@ body:has(.custom-tabs) .citizen-page-sidebar {
 }
 
 .skin-theme-clientpref-night .updatebanner {
-    border: 3px solid var(--utgwindow-border) !important;
+    border: 3px solid var(--mbrwindow-border) !important;
     border-top: 0px solid !important;
 }
 .mw-portlet-External,
@@ -1677,11 +1629,6 @@ body:has(.custom-tabs) .citizen-page-sidebar {
     justify-content: space-between;
 }
 
-/* #p-personal > div > ul {
-	column-count: 2;
-	padding-bottom: 10px;
-} */
-
 #p-personal > div > ul > li > a:hover {
     font-weight: normal;
 }
@@ -1692,12 +1639,8 @@ body:has(.custom-tabs) .citizen-page-sidebar {
 
 .oo-ui-menuSelectWidget {
     border-radius: var(--border-radius--large);
-    background: var(--utgwindow);
+    background: var(--mbrwindow);
     backdrop-filter: blur(5px) saturate(200%);
-    /* flex-wrap: wrap;
-    gap: 5px;
-    padding: 10px 5px;
-    display: flex */
 }
 
 #ca-talk {
@@ -1718,24 +1661,20 @@ a[title='创建新子页面']::before {
     font-size: 16px;
 }
 
-/* RelatedArticles 优化 — 避免遮挡页脚许可信息并美化卡片 */
 .read-more-container,
 .read-more-container-large {
-    /* 移除负 margin，恢复正常的文档流占位，防止与 footer 重叠 */
     margin-top: 24px;
     margin-bottom: 24px;
     clear: both;
 }
 
 .read-more-container-large {
-    /* 保持居中 */
     margin-left: auto;
     margin-right: auto;
 }
 
-/* 卡片整体容器微调，增加柔和投影与过渡 */
 .cdx-card {
-    background: var(--color-surface-1); /* 使用更轻柔的表面色，贴合页面其他卡片 */
+    background: var(--color-surface-1);
     border: 2px solid var(--border-color-base);
     border-radius: 16px;
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
@@ -1748,12 +1687,11 @@ a[title='创建新子页面']::before {
 
 .cdx-card:hover {
     background: var(--color-surface-2) !important;
-    border-color: var(--utgwindow-border);
+    border-color: var(--mbrwindow-border);
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
     transform: translateY(-2px);
 }
 
-/* 卡片内文字颜色保持高对比度 */
 .cdx-card__text__title,
 .cdx-card__text__description {
     color: var(--color-emphasized) !important;
@@ -1766,22 +1704,20 @@ a[title='创建新子页面']::before {
 
 .cdx-card__text__description {
     font-size: 0.875rem;
-    height: auto !important; /* 取消固定高度限制，防止文本截断 */
+    height: auto !important;
     overflow: visible !important;
     color: var(--color-subtle);
 }
 
-/* 夜间模式微调：卡片背景更深，文字更亮 */
 .skin-theme-clientpref-night .cdx-card {
     background: var(--color-surface-2);
-    border-color: var(--utgwindow-border);
+    border-color: var(--mbrwindow-border);
 }
 
 .skin-theme-clientpref-night .cdx-card:hover {
     background: var(--color-surface-3) !important;
 }
 
-/* 网站默认版式优化 */
 .mw-body {
     padding: 0 3.5%;
 }
@@ -1836,98 +1772,13 @@ a[title='创建新子页面']::before {
     left: 0;
 }
 
-/* 修复页脚图标问题 */
 .mw-footer img.mw-logo-icon,
 #footer-icons img.mw-logo-icon {
     display: none !important;
 }
 
-/* 页面底部版权信息居中显示 */
 .page-info__text {
     text-align: center !important;
 }
 
 /* <h2>editform</h2> */
-
-:root.skin-theme-clientpref-day {
-    --utgheader: #fffce9 !important;
-    --mwheaderbg: linear-gradient(45deg, #faffe3, #fffce8, #faffe3) !important;
-    --utgwindow-img: url(https://static.wikitide.net/backroomszhwiki/8/85/StackdSandboxBGfixed.png) !important;
-    --width-toc: minmax(240px,280px);
-}
-:root.skin-theme-clientpref-night {
-    --utgheader: #000e33 !important;
-    --mwheaderbg: linear-gradient(45deg, #2a3d71, #0e1a40, #2a3d71) !important;
-}
-:root {
-    --utgwindow: #FAFAFA;
-    --utgheader: #F5F5F5 !important;
-    --mwheaderbg: linear-gradient(45deg, #F5F5F5, #F0F0F0, #F5F5F5) !important;
-    --utgwindow-img: none !important;
-}
-.mw-header {
-    background: var(--mwheaderbg);
-}
-.skin-theme-clientpref-night .citizen-header__logo .mw-logo-icon {
-    filter: invert(1);
-}
-.citizen-page-header {
-    margin-top: 0 !important;
-    border-radius: 0 0 0.5rem 0.5rem !important;
-    margin-bottom: 1.5rem !important;
-    box-shadow: 0px 0px 1.5px 3.5px #00000026 !important;
-}
-.citizen-toc-enabled .citizen-body-container{
-    grid-template-areas:
-       'content sidebar'
-       'footer sidebar';
-}
-.citizen-body-container {
-    border-radius: 0.5rem !important;
-    box-shadow: 0px 0px 1.5px 3.5px #00000026 !important;
-    padding: 0 !important;
-}
-.citizen-body {
-    padding: 15px 15px 15px 30px !important;
-}
-.citizen-page-sidebar {
-    margin-top: 0;
-    padding: var(--space-sm);
-    background: var(--utgheader);
-    border-radius: 0 0.5rem 0.5rem 0 !important;
-}
-.citizen-menu__card {
-    backdrop-filter: none;
-}
-#citizen-sidebar-lastmod, #citizen-toc, .sidebar-chunk {
-    background: none;
-    border: none;
-    border-radius: 0;
-}
-.citizen-page-footer {
-    padding-bottom:15px !important;
-    padding-left:30px !important;
-}
-.citizen-footer {
-    margin: 2rem 0 0 !important;
-}
-@media screen and (max-width: 760px) {
-    .citizen-toc {
-        bottom: 8rem;
-        right: 0;
-        left: auto;
-    }
-    .citizen-toc-card {
-        right: 0;
-    }
-}
-@media screen and (max-width: 1119.98px) {
-.citizen-page-sidebar {
-    background: #0000;
-}
-}
-@media screen and (width >= 1080px) {
-    .citizen-toc {
-        top: auto;
-    }
-}
