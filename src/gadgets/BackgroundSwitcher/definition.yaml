@@ -6,4 +6,4 @@ rights: []
 dependencies: []
 enable: true
 files:
-    - Gadget-BackgroundSwicher.js
+    - Gadget-BackgroundSwitcher.js
