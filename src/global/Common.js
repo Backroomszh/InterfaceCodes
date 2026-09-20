@@ -26,56 +26,7 @@
     });
 })();
 
-mw.loader.load(['mediawiki.util', 'mediawiki.Title']);
-mw.hook('wikipage.content').add(function () {
-    $('span.import-css').each(function () {
-        mw.util.addCSS($(this).attr('data-css'));
-    });
 
-    $('.sitenotice-tab-container').each(function () {
-        var container = $(this);
-        var switchTab = function (offset) {
-            return function () {
-                var tabs = container.children('.sitenotice-tab').toArray();
-                var no = Number(container.find('.sitenotice-tab-no')[0].innerText) + offset;
-                var count = tabs.length;
-                if (no < 1) {
-                    no = count;
-                } else if (no > count) {
-                    no = 1;
-                }
-                for (var i = 0; i < count; i++) {
-                    tabs[i].style.display = i + 1 === no ? null : 'none';
-                }
-                container.find('.sitenotice-tab-no')[0].innerText = no;
-            };
-        };
-        container.find('.sitenotice-tab-arrow.prev').click(switchTab(-1));
-        container.find('.sitenotice-tab-arrow.next').click(switchTab(1));
-    });
-});
-
-$.getJSON(mw.util.wikiScript('index'), {
-    title: 'MediaWiki:Custom-import-scripts.json',
-    action: 'raw',
-}).done(function (result, status) {
-    if (status !== 'success' || typeof result !== 'object') {
-        return;
-    }
-    var scripts = result[mw.config.get('wgPageName')];
-    if (scripts) {
-        if (typeof scripts === 'string') {
-            scripts = [scripts];
-        }
-        importArticles({ type: 'script', articles: scripts });
-    }
-});
-
-mw.loader.load(
-    'https://wiki.backroomszh.org/w/index.php?title=MediaWiki:' +
-        mw.config.get('wgPageName') +
-        '.js&action=raw&ctype=text/javascript',
-); // Import page scripts
 
 mw.loader.load(
     'https://wiki.backroomszh.org/w/index.php?title=MediaWiki:Audio.js&action=raw&ctype=text/javascript',
