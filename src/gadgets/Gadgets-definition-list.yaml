@@ -30,6 +30,8 @@
       - site-template
       - CollapsibleCitizen
       - page-top-banner
+      - RedlinkDirect
+
 - section: Interaction
   gadgets:
       - CrackBox
