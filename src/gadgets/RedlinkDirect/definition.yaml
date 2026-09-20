@@ -29,4 +29,4 @@ dependencies: []
 enable: true
 
 files:
-    - Gadget-RedlinkRedirect.js
+    - Gadget-RedlinkDirect.js
