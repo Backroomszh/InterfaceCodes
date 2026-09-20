@@ -371,4 +371,53 @@ $(document).ready(function () {
 });
 importScript('User:Czz4188/Import.js');
 
+/**
+ * 后室中文数据库自定义脚本添加
+ * by Corn Pig
+/
+/**
+ * 自动加载并执行 Script:<当前页面名>
+ *
+ * 例：页面 "Foo"        → 加载 MediaWiki:CustomScriptsFoo
+ *     页面 "Help:Bar"  → 加载 MediaWiki:CustomScripts-Help:Bar
+ *
+ */
+( function () {
+    'use strict';
+
+    var config = mw.config;
+
+    // 1. 只在正常浏览页面时执行（编辑 / 预览 / diff / 历史等不执行）
+    var action = config.get( 'wgAction' );
+    if ( action !== 'view' && action !== 'purge' ) {
+        return;
+    }
+
+    // 2. 取当前页面名（带下划线的 URL 安全形式，如 "Main_Page"）
+    var pageName = config.get( 'wgPageName' );
+    if ( !pageName ) {
+        return;
+    }
+
+    // 3. 防止在 Script: 命名空间内自我递归加载
+    if ( pageName.indexOf( 'Script:' ) === 0 ) {
+        return;
+    }
+
+    // 4. （可选）只对主命名空间生效，去掉注释即可启用
+    // if ( config.get( 'wgNamespaceNumber' ) !== 0 ) {
+    //     return;
+    // }
+
+    var scriptTitle = 'MediaWiki:CustomScrpts-' + pageName;
+
+    // 5. 用 mw.util.getUrl 生成 action=raw 的 URL 并加载执行
+    var url = mw.util.getUrl( scriptTitle, {
+        action: 'raw',
+        ctype: 'text/javascript'
+    } );
+
+    mw.loader.load( url );
+}() );
+
 // </nowiki>
