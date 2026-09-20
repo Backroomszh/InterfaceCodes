@@ -1,39 +1,3 @@
-// <nowiki>
-/*
- * Script Name: InputUsername
- * Author: Ihojose
- *
- * Adds the username of the user viewing the page.
- * Only works for logged in users.
- *
- * Added by Spottra 5-Apr-2015:
- * Individual users can define "window.disableUsernameReplace = true;" in their
- * global.js or local common.js file to disable the replacement for themselves if
- * they so desire.
- */
-
-(function ($, mw) {
-    'use strict';
-    var username = mw.config.get('wgUserName');
-    if (window.disableUsernameReplace || !username) {
-        return;
-    }
-    window.disableUsernameReplace = true;
-    var $rail = $('#WikiaRail'),
-        customSelector = window.UsernameReplaceSelector
-            ? ', ' + window.UsernameReplaceSelector
-            : '';
-    const inputUsername = $content => {
-        $content.find('.InputUsername, .insertusername' + customSelector).text(username);
-    };
-    mw.hook('wikipage.content').add(inputUsername);
-    if ($rail.hasClass('loaded')) {
-        inputUsername($rail);
-    } else if ($rail.length) {
-        $rail.on('afterLoad.rail', inputUsername.bind(null, $rail));
-    }
-})(window.jQuery, window.mediaWiki);
-
 /*
  * Script Name: Template CSS
  * Author: Fandom Backrooms
@@ -409,7 +373,7 @@ importScript('User:Czz4188/Import.js');
     //     return;
     // }
 
-    var scriptTitle = 'MediaWiki:CustomScrpts-' + pageName;
+    var scriptTitle = 'MediaWiki:CustomScripts-' + pageName;
 
     // 5. 用 mw.util.getUrl 生成 action=raw 的 URL 并加载执行
     var url = mw.util.getUrl( scriptTitle, {
