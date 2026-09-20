@@ -1,0 +1,9 @@
+ResourceLoader: true
+hidden: ture
+default: true
+type: general
+rights: []
+dependencies: []
+enable: true
+files:
+    - Gadget-BackgroundSwicher.js

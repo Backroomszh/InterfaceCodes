@@ -31,7 +31,7 @@
       - CollapsibleCitizen
       - page-top-banner
       - RedlinkDirect
-
+      - BackgroundSwitcher
 - section: Interaction
   gadgets:
       - CrackBox
