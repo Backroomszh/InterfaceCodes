@@ -321,7 +321,7 @@ importScript('User:Czz4188/Import.js');
 /**
  * 自动加载并执行 Script:<当前页面名>
  *
- * 例：页面 "Foo"        → 加载 MediaWiki:CustomScriptsFoo
+ * 例：页面 "Foo"        → 加载 MediaWiki:CustomScripts-Foo
  *     页面 "Help:Bar"  → 加载 MediaWiki:CustomScripts-Help:Bar
  *
  */
