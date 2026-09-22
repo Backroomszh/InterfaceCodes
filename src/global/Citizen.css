@@ -1850,20 +1850,20 @@ a[title='创建新子页面']::before {
 /* <h2>editform</h2> */
 
 :root.skin-theme-clientpref-day {
-    --utgheader: #fffce9 !important;
-    --mwheaderbg: linear-gradient(45deg, #faffe3, #fffce8, #faffe3) !important;
-    --utgwindow-img: url(https://static.wikitide.net/backroomszhwiki/8/85/StackdSandboxBGfixed.png) !important;
+    --utgheader: #fffce9;
+    --mwheaderbg: linear-gradient(45deg, #faffe3, #fffce8, #faffe3);
+    --utgwindow-img: url(https://static.wikitide.net/backroomszhwiki/8/85/StackdSandboxBGfixed.png);
     --width-toc: minmax(240px,280px);
 }
 :root.skin-theme-clientpref-night {
-    --utgheader: #000e33 !important;
-    --mwheaderbg: linear-gradient(45deg, #2a3d71, #0e1a40, #2a3d71) !important;
+    --utgheader: #000e33;
+    --mwheaderbg: linear-gradient(45deg, #2a3d71, #0e1a40, #2a3d71);
 }
 :root {
     --utgwindow: #FAFAFA;
-    --utgheader: #F5F5F5 !important;
-    --mwheaderbg: linear-gradient(45deg, #F5F5F5, #F0F0F0, #F5F5F5) !important;
-    --utgwindow-img: none !important;
+    --utgheader: #F5F5F5;
+    --mwheaderbg: linear-gradient(45deg, #F5F5F5, #F0F0F0, #F5F5F5);
+    --utgwindow-img: none;
 }
 .mw-header {
     background: var(--mwheaderbg);
@@ -3782,20 +3782,20 @@ a[title='创建新子页面']::before {
 /* <h2>editform</h2> */
 
 :root.skin-theme-clientpref-day {
-    --utgheader: #fffce9 !important;
-    --mwheaderbg: linear-gradient(45deg, #faffe3, #fffce8, #faffe3) !important;
-    --utgwindow-img: url(https://static.wikitide.net/backroomszhwiki/8/85/StackdSandboxBGfixed.png) !important;
+    --utgheader: #fffce9;
+    --mwheaderbg: linear-gradient(45deg, #faffe3, #fffce8, #faffe3);
+    --utgwindow-img: url(https://static.wikitide.net/backroomszhwiki/8/85/StackdSandboxBGfixed.png);
     --width-toc: minmax(240px,280px);
 }
 :root.skin-theme-clientpref-night {
-    --utgheader: #000e33 !important;
-    --mwheaderbg: linear-gradient(45deg, #2a3d71, #0e1a40, #2a3d71) !important;
+    --utgheader: #000e33;
+    --mwheaderbg: linear-gradient(45deg, #2a3d71, #0e1a40, #2a3d71);
 }
 :root {
     --utgwindow: #FAFAFA;
-    --utgheader: #F5F5F5 !important;
-    --mwheaderbg: linear-gradient(45deg, #F5F5F5, #F0F0F0, #F5F5F5) !important;
-    --utgwindow-img: none !important;
+    --utgheader: #F5F5F5;
+    --mwheaderbg: linear-gradient(45deg, #F5F5F5, #F0F0F0, #F5F5F5);
+    --utgwindow-img: none;
 }
 .mw-header {
     background: var(--mwheaderbg);
