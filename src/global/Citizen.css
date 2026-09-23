@@ -1928,7 +1928,12 @@ a[title='创建新子页面']::before {
 }
 @media screen and (width >= 1080px) {
     .citizen-toc {
-        top: auto;
+        top: 80px;
+    }
+	.citizen-toc .citizen-dropdown-details[open] + .citizen-menu__card {
+        pointer-events: auto;
+        bottom: 0;
+        left: 0;
     }
     }/* All CSS here will be loaded for users of the Citizen skin */
 /* hi! you might be looking for MW:Gadget-citizenlegacy.css and MW:Gadget-citizendev.css for their namespace css. */
@@ -3860,6 +3865,11 @@ a[title='创建新子页面']::before {
 }
 @media screen and (width >= 1080px) {
     .citizen-toc {
-        top: auto;
+        top: 80px;
+    }
+	.citizen-toc .citizen-dropdown-details[open] + .citizen-menu__card {
+        pointer-events: auto;
+        bottom: 0;
+        left: 0;
     }
 }
