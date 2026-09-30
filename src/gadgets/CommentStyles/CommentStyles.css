@@ -1,0 +1,123 @@
+/* ============================================================
+ * CommentStyles —— 用户专属评论样式
+ * ============================================================ */
+
+/* ===== 湫汐 ===== */
+.cs-stream .cs-comment.qiuxi-special-comment, .cs-stream .cs-comment.cs-head-comment.qiuxi-special-comment {
+    background: none !important;
+}
+div.cs-stream .cs-comment.qiuxi-special-comment .cs-comment-header {
+    background: linear-gradient(135deg, #ffffff 0%, #fff0f5 50%, #ffebf0 100%) !important;
+    border: 3px solid #FFC9C9 !important;
+    border-radius: 18px !important;
+    padding: 16px 25px !important;
+    position: relative !important;
+    overflow: visible !important;
+}
+div.cs-stream .cs-comment.qiuxi-special-comment .cs-comment-header::before {
+    content: "🌸";
+    position: absolute;
+    top: -5px;
+    left: 1px;
+    font-size: 20px;
+    border-radius: 50%;
+    padding: 2px 5px;
+    z-index: 2;
+}
+div.cs-stream .cs-comment.qiuxi-special-comment .cs-comment-header::after {
+    content: "🌸";
+    position: absolute;
+    bottom: 5px;
+    right: 1px;
+    font-size: 20px;
+    border-radius: 50%;
+    padding: 2px 5px;
+    z-index: 2;
+}
+div.cs-stream .cs-comment.qiuxi-special-comment .cs-comment-author a {
+    color: #FF69B4 !important;
+    font-weight: bold !important;
+    text-shadow: 
+        1px 1px 0 #ffffff,
+        -1px -1px 0 #ffffff,
+        0 0 4px rgba(255, 105, 180, 0.4) !important;
+}
+div.cs-stream .cs-comment.qiuxi-special-comment .cs-comment-footer {
+    border-left: 1px solid rgba(255, 105, 180, 0.4);
+    border-right: 1px solid rgba(255, 105, 180, 0.4);
+    border-bottom: 2px solid rgba(255, 105, 180, 0.4);
+    border-top: 1px solid #0000;
+    border-radius: 50%;
+}
+div.cs-stream .cs-comment.qiuxi-special-comment .cs-comment-body{
+    color: #FF99CC !important;
+    text-shadow:
+        1px 1px 0 #ffffff,
+        -1px -1px 0 #ffffff,
+        1px -1px 0 #ffffff,
+        -1px 1px 0 #ffffff,
+        1.5px 1.5px 0 #ffffff,
+        -1.5px -1.5px 0 #ffffff,
+        0 0 3.5px rgba(0, 0, 0, 0.15) !important;
+    margin: 0 10px !important;
+    border-bottom: 3px solid !important;
+    border-left: 3px solid !important;
+    border-right: 3px solid !important;
+    border-color: #ffc7e3c4 !important;
+    border-radius: 0 0 10px 10px !important;
+    background: #fff !important;
+    padding: 18px 15px !important;
+}
+
+div.cs-stream .cs-comment.qiuxi-special-comment .cs-comment-body p {
+	margin: 0 !important;
+}
+
+div.cs-stream .cs-comment.qiuxi-special-comment .cs-comment-title {
+    color: #FF99CC !important;
+    text-shadow:
+        1.5px 1.5px 0 #ffffff,
+        -1.5px -1.5px 0 #ffffff,
+        1.5px -1.5px 0 #ffffff,
+        -1.5px 1.5px 0 #ffffff !important;
+}
+div.cs-stream .cs-comment.qiuxi-special-comment .cs-comment-details {
+    color: #FFB6C1 !important;
+}
+div.cs-stream .cs-comment.cs-reply-comment.qiuxi-special-comment:before {
+    background-color: #0000;
+    width: 0;
+    height: 0;
+    display: none;
+    position: absolute;
+    left: 0;
+}
+div.cs-stream .cs-comment.cs-reply-comment.qiuxi-special-comment .cs-comment-header {
+    background: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 5px 8px !important;
+}
+div.cs-stream .cs-comment.cs-reply-comment.qiuxi-special-comment .cs-comment-header::before,div.cs-stream .cs-comment.cs-reply-comment.qiuxi-special-comment .cs-comment-header::after {
+    content: "";
+}
+div.cs-stream .cs-comment.cs-reply-comment.qiuxi-special-comment .oo-ui-icon-ellipsis {
+    background-image: none !important;
+    -webkit-mask-image: none !important;
+    mask-image: none !important;
+}
+div.cs-stream .cs-comment.cs-reply-comment.qiuxi-special-comment .oo-ui-icon-ellipsis::before {
+    background-image: none !important;
+    content: "🌸" !important;
+    font-size: 20px;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    line-height: 1;
+    display: inline-block;
+}
+div.cs-stream .cs-comment.cs-reply-comment.qiuxi-special-comment .cs-comment-body {
+	padding: 5px 8px !important;
+    border: none !important;
+    background: none !important;
+}

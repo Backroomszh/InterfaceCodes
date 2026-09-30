@@ -1,0 +1,7 @@
+default: true
+dependencies:
+  - mediawiki.user
+scripts:
+  - CommentStyles.js
+styles:
+  - CommentStyles.css
