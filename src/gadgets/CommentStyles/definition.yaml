@@ -1,7 +1,11 @@
+ResourceLoader: true
+hidden: false
 default: true
+type: general
+rights: []
 dependencies:
   - mediawiki.user
-scripts:
-  - CommentStyles.js
-styles:
-  - CommentStyles.css
+enable: true
+files:
+  - Gadget-CommentStyles.js
+  - Gadget-CommentStyles.css
