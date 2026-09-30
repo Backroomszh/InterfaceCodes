@@ -9,6 +9,7 @@
       - topButton
       - shortlink
       - quickReport
+      - CommentStyles
 
 - section: Edit
   gadgets:
