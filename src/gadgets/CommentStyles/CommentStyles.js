@@ -9,7 +9,7 @@
     // 匿名用户直接跳过
     if (mw.user.isAnon()) return;
 
-    var CONFIG_PAGE = 'MediaWiki:CommentStyles';
+    var CONFIG_PAGE = 'MediaWiki:CommentStyles.json';
     var configCache = null;
 
     /* ---------- 加载 JSON 配置（失败则返回空配置） ---------- */
