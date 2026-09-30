@@ -1,18 +1,12 @@
-/* ============================================================
- * CommentStyles —— 用户专属评论样式管理器
- * 依赖：jquery, mw.util, mw.config, mediawiki.user
- * 失败时静默处理，页面保持正常样式
- * ============================================================ */
 (function () {
     'use strict';
 
-    // 匿名用户直接跳过
     if (mw.user.isAnon()) return;
 
     var CONFIG_PAGE = 'MediaWiki:CommentStyles.json';
     var configCache = null;
 
-    /* ---------- 加载 JSON 配置（失败则返回空配置） ---------- */
+    /* ---------- 加载 JSON 配置 ---------- */
     function loadConfig() {
         if (configCache) return Promise.resolve(configCache);
         var url = mw.config.get('wgScriptPath') + '/index.php?title=' +
@@ -68,9 +62,7 @@
             new MutationObserver(function (mutations) {
                 if (mutations.some(function (m) { return m.addedNodes.length; })) fn();
             }).observe(document.body, { childList: true, subtree: true });
-        } catch (e) {
-            /* 静默失败 */
-        }
+        } catch (e) { /* 静默失败 */ }
     }
 
     /* ---------- 渲染管理界面 ---------- */
@@ -124,24 +116,18 @@
     /* ---------- 初始化 ---------- */
     function init() {
         try {
-            // 没有评论区也没有管理容器就跳过
-            if (!document.querySelector('.cs-comment') &&
-                !document.getElementById('comment-style-manager')) {
-                return;
-            }
-
             loadConfig().then(function (config) {
                 try {
                     applyStyles(config);
+
+                    // 始终启动监听，等 CommentStreams 异步加载评论
                     observe(function () { applyStyles(config); });
 
                     var mgr = document.getElementById('comment-style-manager');
                     if (mgr) renderManager(mgr, config);
-                } catch (e) {
-                }
+                } catch (e) { /* 静默失败 */ }
             });
-        } catch (e) {
-        }
+        } catch (e) { /* 静默失败 */ }
     }
 
     if (document.readyState === 'loading') {
