@@ -1,0 +1,10 @@
+ResourceLoader: true
+hidden: false
+default: true
+type: general
+rights: []
+dependencies: []
+enable: true
+files:
+  - Gadget-StaffComment.js
+  - Gadget-StaffComment.css

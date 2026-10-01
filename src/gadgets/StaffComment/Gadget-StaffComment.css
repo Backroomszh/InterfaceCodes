@@ -1,0 +1,83 @@
+.cs-stream .cs-comment.staff-mode-comment {
+    background: linear-gradient(135deg, #f8f9fa 0%, #eef2f7 100%) !important;
+    border: 3px solid #4a90d9 !important;
+    border-radius: 10px !important;
+    padding: 16px 20px !important;
+    margin: 10px 0 !important;
+    position: relative !important;
+    overflow: visible !important;
+}
+.cs-stream .cs-comment.staff-mode-comment::before {
+    content: "职员贴";
+    position: absolute;
+    top: -14px;
+    left: 16px;
+    font-size: 16px;
+    font-weight: bold;
+    color: #ffffff;
+    background: linear-gradient(135deg, #4a90d9, #357abd);
+    padding: 4px 12px;
+    border-radius: 5px;
+    z-index: 2;
+    letter-spacing: 1px;
+}
+.cs-stream .cs-comment.staff-mode-comment .cs-comment-author a {
+    color: #357abd !important;
+    font-weight: bold !important;
+    text-shadow: 0 0 4px rgba(74, 144, 217, 0.3) !important;
+}
+.cs-stream .cs-comment.staff-mode-comment .cs-comment-body,
+.cs-stream .cs-comment.staff-mode-comment .cs-comment-body p {
+    color: #2c3e50 !important;
+    line-height: 1.6 !important;
+}
+.cs-stream .cs-comment.staff-mode-comment .cs-comment-title {
+    color: #357abd !important;
+    font-weight: bold !important;
+}
+.cs-stream .cs-comment.staff-mode-comment .cs-comment-details {
+    color: #6b8cae !important;
+}
+
+.cs-stream .cs-comment.staff-mode-comment .cs-comment-header {
+    background: #c5eaff57 !important;
+    border: none !important;
+    border-radius: 9px !important;
+    box-shadow: none !important;
+}
+.cs-stream .cs-comment.staff-mode-comment .cs-comment-header-left,
+.cs-stream .cs-comment.staff-mode-comment .cs-comment-header-center,
+.cs-stream .cs-comment.staff-mode-comment .cs-comment-header-right {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+.cs-stream .cs-comment.staff-mode-comment .cs-comment-footer {
+    display: none !important;
+}
+.cs-stream .cs-comment.staff-mode-comment .cs-comment-body {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+.cs-stream .cs-comment.cs-reply-comment.staff-mode-comment {
+    margin-right: 32px !important;
+    padding: 10px 14px !important;
+    overflow: visible !important;
+}
+.cs-stream .cs-comment.cs-reply-comment.staff-mode-comment::before {
+    white-space: nowrap !important;
+    min-width: max-content !important;
+    left: 20px !important;
+    top: -12px !important;
+    font-size: 12px;
+    max-height: 25px;
+}
+.cs-stream .cs-comment.cs-reply-comment.staff-mode-comment .cs-comment-header {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+}
+.cs-stream .cs-comment.cs-reply-comment.staff-mode-comment .cs-comment-body {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+}
