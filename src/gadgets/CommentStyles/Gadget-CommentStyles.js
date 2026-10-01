@@ -1,12 +1,13 @@
 /* ============================================================
  * CommentStyles —— 用户专属评论样式管理器
- * 监听 body（只监听 childList + 防抖）
+ * 与 StaffComment 互斥：有站务样式的评论不套用个人专属样式
  * 失败时静默处理
  * ============================================================ */
 (function () {
     'use strict';
 
     var CONFIG_PAGE = 'MediaWiki:CommentStyles.json';
+    var STAFF_CLASS = 'staff-mode-comment';   // 站务样式类名，互斥用
     var configCache = null;
 
     /* ---------- 加载 JSON 配置 ---------- */
@@ -36,6 +37,16 @@
         if (!config || !config.users) return;
 
         document.querySelectorAll('.cs-comment').forEach(function (comment) {
+
+            // 互斥：已有站务样式 → 移除个人专属样式
+            if (comment.classList.contains(STAFF_CLASS)) {
+                if (comment.dataset.csClass) {
+                    comment.classList.remove(comment.dataset.csClass);
+                    delete comment.dataset.csClass;
+                }
+                return;
+            }
+
             if (comment.dataset.csStyled) return;
 
             var link = comment.querySelector('.cs-comment-author a');
@@ -54,13 +65,14 @@
             var cfg = config.users[name];
             if (cfg && cfg.enabled !== false && cfg.class) {
                 comment.classList.add(cfg.class);
+                comment.dataset.csClass = cfg.class;   // 记录，便于互斥时移除
                 comment.dataset.csUser = name;
             }
             comment.dataset.csStyled = '1';
         });
     }
 
-    /* ---------- 监听 body（只监听 childList + 防抖） ---------- */
+    /* ---------- 监听 body（childList + class 变化 + 防抖） ---------- */
     function observePage(fn) {
         var timer = null;
         function debounced() {
@@ -71,7 +83,9 @@
         try {
             new MutationObserver(debounced).observe(document.body, {
                 childList: true,
-                subtree: true
+                subtree: true,
+                attributes: true,                    // 监听 class 变化
+                attributeFilter: ['class']           // 只关心 class 属性
             });
         } catch (e) { /* 静默失败 */ }
     }
@@ -129,13 +143,9 @@
         try {
             loadConfig().then(function (config) {
                 try {
-                    // 初次执行
                     applyStyles(config);
-
-                    // 监听 body，任何 DOM 变化都会触发（防抖后）
                     observePage(function () { applyStyles(config); });
 
-                    // 渲染管理界面
                     var mgr = document.getElementById('comment-style-manager');
                     if (mgr) renderManager(mgr, config);
                 } catch (e) { /* 静默失败 */ }
