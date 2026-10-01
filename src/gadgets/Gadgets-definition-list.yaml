@@ -33,6 +33,7 @@
       - RedlinkDirect
       - BackgroundSwitcher
       - StaffComment
+      - versionNav
 
 - section: Interaction
   gadgets:
