@@ -1,6 +1,8 @@
 /**
  * Gadget-versionNav
- * 点击 CNList 卡片里的左右箭头，切换中间链接，不跳转。
+ *
+ * 点击 CNList 卡片里的左右箭头，切换中间链接（不跳转）。
+ * 切换时同步更新 href、textContent 和红链/蓝链 class。
  * 只有点击中间链接本身才会跳转到对应页面。
  */
 (function () {
@@ -22,13 +24,14 @@
         var stash = nav.querySelectorAll('.VN-ver');
         for (var i = 0; i < stash.length; i++) {
             versions.push({
-                page:  stash[i].getAttribute('data-page')  || '',
-                label: stash[i].getAttribute('data-label') || '',
+                page:   stash[i].getAttribute('data-page')  || '',
+                label:  stash[i].getAttribute('data-label') || '',
+                exists: stash[i].getAttribute('data-exists') === '1',
             });
         }
         if (versions.length === 0) return;
 
-        // 2. 拿三个关键元素（箭头是 span，CNList 里唯一的 <a> 就是中间链接）
+        // 2. 中间链接 = CNList 里唯一的 <a>
         var titleLink = nav.querySelector('a');
         var prevBtn   = nav.querySelector('.VN-prev');
         var nextBtn   = nav.querySelector('.VN-next');
@@ -39,10 +42,20 @@
         // 3. 渲染：更新中间链接 + 箭头禁用状态
         function render() {
             var v = versions[cur - 1];
+
             if (titleLink) {
                 titleLink.href = urlFor(v.page);
                 titleLink.textContent = v.label;
+
+                // 同步红链/蓝链 class
+                if (v.exists) {
+                    titleLink.classList.remove('new');
+                    titleLink.classList.remove('mw-new');
+                } else {
+                    titleLink.classList.add('new');
+                }
             }
+
             if (prevBtn) {
                 if (cur <= 1) prevBtn.setAttribute('data-disabled', '1');
                 else          prevBtn.removeAttribute('data-disabled');
@@ -61,15 +74,27 @@
         }
 
         if (prevBtn) {
-            prevBtn.addEventListener('click',   function (ev) { ev.preventDefault(); go(-1); });
+            prevBtn.addEventListener('click', function (ev) {
+                ev.preventDefault();
+                go(-1);
+            });
             prevBtn.addEventListener('keydown', function (ev) {
-                if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); go(-1); }
+                if (ev.key === 'Enter' || ev.key === ' ') {
+                    ev.preventDefault();
+                    go(-1);
+                }
             });
         }
         if (nextBtn) {
-            nextBtn.addEventListener('click',   function (ev) { ev.preventDefault(); go(1); });
+            nextBtn.addEventListener('click', function (ev) {
+                ev.preventDefault();
+                go(1);
+            });
             nextBtn.addEventListener('keydown', function (ev) {
-                if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); go(1); }
+                if (ev.key === 'Enter' || ev.key === ' ') {
+                    ev.preventDefault();
+                    go(1);
+                }
             });
         }
 
@@ -83,10 +108,13 @@
     }
 
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', function () { init(document); });
+        document.addEventListener('DOMContentLoaded', function () {
+            init(document);
+        });
     } else {
         init(document);
     }
+
     if (window.mw && mw.hook) {
         mw.hook('wikipage.content').add(function ($c) {
             init(($c && $c[0]) ? $c[0] : document);
