@@ -3,8 +3,7 @@ hidden: false
 default: true
 type: general
 rights: []
-dependencies:
-  - mediawiki.user
+dependencies: []
 enable: true
 files:
   - Gadget-CommentStyles.js
