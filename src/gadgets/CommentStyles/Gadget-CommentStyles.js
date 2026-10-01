@@ -1,8 +1,6 @@
 (function () {
     'use strict';
 
-    if (mw.user.isAnon()) return;
-
     var CONFIG_PAGE = 'MediaWiki:CommentStyles.json';
     var configCache = null;
 
