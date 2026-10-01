@@ -1,3 +1,8 @@
+/* ============================================================
+ * CommentStyles —— 用户专属评论样式管理器
+ * 监听 body（只监听 childList + 防抖）
+ * 失败时静默处理
+ * ============================================================ */
 (function () {
     'use strict';
 
@@ -29,6 +34,7 @@
     /* ---------- 给评论套上对应 class ---------- */
     function applyStyles(config) {
         if (!config || !config.users) return;
+
         document.querySelectorAll('.cs-comment').forEach(function (comment) {
             if (comment.dataset.csStyled) return;
 
@@ -54,12 +60,19 @@
         });
     }
 
-    /* ---------- 监听动态加载的评论 ---------- */
-    function observe(fn) {
+    /* ---------- 监听 body（只监听 childList + 防抖） ---------- */
+    function observePage(fn) {
+        var timer = null;
+        function debounced() {
+            if (timer) clearTimeout(timer);
+            timer = setTimeout(fn, 200);
+        }
+
         try {
-            new MutationObserver(function (mutations) {
-                if (mutations.some(function (m) { return m.addedNodes.length; })) fn();
-            }).observe(document.body, { childList: true, subtree: true });
+            new MutationObserver(debounced).observe(document.body, {
+                childList: true,
+                subtree: true
+            });
         } catch (e) { /* 静默失败 */ }
     }
 
@@ -116,11 +129,13 @@
         try {
             loadConfig().then(function (config) {
                 try {
+                    // 初次执行
                     applyStyles(config);
 
-                    // 始终启动监听，等 CommentStreams 异步加载评论
-                    observe(function () { applyStyles(config); });
+                    // 监听 body，任何 DOM 变化都会触发（防抖后）
+                    observePage(function () { applyStyles(config); });
 
+                    // 渲染管理界面
                     var mgr = document.getElementById('comment-style-manager');
                     if (mgr) renderManager(mgr, config);
                 } catch (e) { /* 静默失败 */ }
