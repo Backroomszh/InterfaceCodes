@@ -1,0 +1,8 @@
+/* 自定义头衔徽章默认继承 .profile-user-group 样式。
+   如需为特定头衔定制颜色，在下方按 data-group 值添加。
+   示例：
+.profile-user-group[data-group="全站最美！（测试头衔）"] {
+    background-color: #e83e8c;
+    color: #fff;
+}
+*/
