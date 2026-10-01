@@ -1,0 +1,15 @@
+ResourceLoader: true
+hidden: false
+default: true
+type: general
+rights: []
+dependencies:
+    - mediawiki.util
+skins: []
+actions: []
+namespaces: []
+peers: []
+package: false
+enable: true
+files:
+    - Gadget-versionNav.js
