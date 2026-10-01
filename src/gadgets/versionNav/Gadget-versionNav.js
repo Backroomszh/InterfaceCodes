@@ -1,16 +1,10 @@
 /**
  * Gadget-versionNav
- *
- * 只为 CNList 卡片内、紧贴链接两侧的 VN-arrow 箭头绑定点击/键盘跳转。
- * 三重防护，绝不误伤其它元素：
- *   1) 选择器要求同时满足：.CNList > .VN-arrow[role="button"][data-page]
- *   2) 绑定前二次校验父节点确实是 .CNList
- *   3) 每个元素只绑定一次（dataset.vnBound 标记）
+ * 点击 CNList 卡片里的左右箭头，切换中间链接，不跳转。
+ * 只有点击中间链接本身才会跳转到对应页面。
  */
 (function () {
     'use strict';
-
-    var SELECTOR = '.CNList > .VN-arrow[role="button"][data-page]';
 
     function urlFor(page) {
         if (window.mw && mw.util && typeof mw.util.getUrl === 'function') {
@@ -19,64 +13,83 @@
         return '/wiki/' + encodeURIComponent(String(page).replace(/ /g, '_'));
     }
 
-    function bindOne(btn) {
-        if (btn.dataset.vnBound === '1') {
-            return;
-        }
+    function initOne(nav) {
+        if (nav.dataset.vnReady === '1') return;
+        nav.dataset.vnReady = '1';
 
-        if (btn.getAttribute('role') !== 'button') {
-            return;
+        // 1. 读全部版本
+        var versions = [];
+        var stash = nav.querySelectorAll('.VN-ver');
+        for (var i = 0; i < stash.length; i++) {
+            versions.push({
+                page:  stash[i].getAttribute('data-page')  || '',
+                label: stash[i].getAttribute('data-label') || '',
+            });
         }
-        if (!btn.hasAttribute('data-page')) {
-            return;
-        }
-        var parent = btn.parentElement;
-        if (!parent || !parent.classList || !parent.classList.contains('CNList')) {
-            return;
-        }
+        if (versions.length === 0) return;
 
-        btn.dataset.vnBound = '1';
+        // 2. 拿三个关键元素（箭头是 span，CNList 里唯一的 <a> 就是中间链接）
+        var titleLink = nav.querySelector('a');
+        var prevBtn   = nav.querySelector('.VN-prev');
+        var nextBtn   = nav.querySelector('.VN-next');
 
-        function jump() {
-            var page = btn.getAttribute('data-page');
-            if (page) {
-                window.location.href = urlFor(page);
+        var cur = parseInt(nav.getAttribute('data-cur'), 10) || versions.length;
+        if (cur < 1 || cur > versions.length) cur = versions.length;
+
+        // 3. 渲染：更新中间链接 + 箭头禁用状态
+        function render() {
+            var v = versions[cur - 1];
+            if (titleLink) {
+                titleLink.href = urlFor(v.page);
+                titleLink.textContent = v.label;
+            }
+            if (prevBtn) {
+                if (cur <= 1) prevBtn.setAttribute('data-disabled', '1');
+                else          prevBtn.removeAttribute('data-disabled');
+            }
+            if (nextBtn) {
+                if (cur >= versions.length) nextBtn.setAttribute('data-disabled', '1');
+                else                        nextBtn.removeAttribute('data-disabled');
             }
         }
 
-        btn.addEventListener('click', function (ev) {
-            ev.preventDefault();
-            jump();
-        });
+        function go(delta) {
+            var nxt = cur + delta;
+            if (nxt < 1 || nxt > versions.length) return;
+            cur = nxt;
+            render();
+        }
 
-        btn.addEventListener('keydown', function (ev) {
-            if (ev.key === 'Enter' || ev.key === ' ') {
-                ev.preventDefault();
-                jump();
-            }
-        });
+        if (prevBtn) {
+            prevBtn.addEventListener('click',   function (ev) { ev.preventDefault(); go(-1); });
+            prevBtn.addEventListener('keydown', function (ev) {
+                if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); go(-1); }
+            });
+        }
+        if (nextBtn) {
+            nextBtn.addEventListener('click',   function (ev) { ev.preventDefault(); go(1); });
+            nextBtn.addEventListener('keydown', function (ev) {
+                if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); go(1); }
+            });
+        }
+
+        render();
     }
 
     function init(root) {
-        var scope = root && root.querySelectorAll ? root : document;
-        var list = scope.querySelectorAll(SELECTOR);
-        for (var i = 0; i < list.length; i++) {
-            bindOne(list[i]);
-        }
+        var scope = (root && root.querySelectorAll) ? root : document;
+        var list = scope.querySelectorAll('.CNList.VN-root');
+        for (var i = 0; i < list.length; i++) initOne(list[i]);
     }
 
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', function () {
-            init(document);
-        });
+        document.addEventListener('DOMContentLoaded', function () { init(document); });
     } else {
         init(document);
     }
-
     if (window.mw && mw.hook) {
-        mw.hook('wikipage.content').add(function ($content) {
-            var el = $content && $content[0] ? $content[0] : document;
-            init(el);
+        mw.hook('wikipage.content').add(function ($c) {
+            init(($c && $c[0]) ? $c[0] : document);
         });
     }
 })();
