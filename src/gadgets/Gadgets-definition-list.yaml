@@ -32,6 +32,8 @@
       - page-top-banner
       - RedlinkDirect
       - BackgroundSwitcher
+      - StaffComment
+
 - section: Interaction
   gadgets:
       - CrackBox
