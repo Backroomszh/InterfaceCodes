@@ -1,6 +1,6 @@
 /*
  * Script Name: Template CSS
- * Author: Fandom Backrooms
+ * Author: Fandom Backrooms(CC BY-SA 4.0 International)
  */
 (function () {
     const eles = document.querySelectorAll('.js-action-play');
@@ -319,48 +319,23 @@ importScript('User:Czz4188/Import.js');
  * by Corn Pig
 /
 /**
- * 自动加载并执行 Script:<当前页面名>
- *
- * 例：页面 "Foo"        → 加载 MediaWiki:CustomScripts-Foo
- *     页面 "Help:Bar"  → 加载 MediaWiki:CustomScripts-Help:Bar
- *
+ * 自动加载并执行自定义JS
  */
-( function () {
-    'use strict';
-
-    var config = mw.config;
-
-    // 1. 只在正常浏览页面时执行（编辑 / 预览 / diff / 历史等不执行）
-    var action = config.get( 'wgAction' );
-    if ( action !== 'view' && action !== 'purge' ) {
-        return;
-    }
-
-    // 2. 取当前页面名（带下划线的 URL 安全形式，如 "Main_Page"）
-    var pageName = config.get( 'wgPageName' );
-    if ( !pageName ) {
-        return;
-    }
-
-    // 3. 防止在 Script: 命名空间内自我递归加载
-    if ( pageName.indexOf( 'Script:' ) === 0 ) {
-        return;
-    }
-
-    // 4. （可选）只对主命名空间生效，去掉注释即可启用
-    // if ( config.get( 'wgNamespaceNumber' ) !== 0 ) {
-    //     return;
-    // }
-
-    var scriptTitle = 'MediaWiki:CustomScripts-' + pageName;
-
-    // 5. 用 mw.util.getUrl 生成 action=raw 的 URL 并加载执行
-    var url = mw.util.getUrl( scriptTitle, {
-        action: 'raw',
-        ctype: 'text/javascript'
+/**
+ * 执行模板 {{JS|...}} 中嵌入的 JavaScript
+ * 用法：{{JS|1=JS 代码}}
+ */
+mw.hook( 'wikipage.content' ).add( function ( $content ) {
+    $content.find( '.mw-inline-js' ).each( function () {
+        var code = this.textContent;
+        if ( !code.trim() ) {
+            return;
+        }
+        try {
+            // new Function 让代码在全局作用域执行，等价于 <script>
+            ( new Function( code ) )();
+        } catch ( e ) {
+            console.error( '[JS模板] 执行失败：', e, '\n源码：', code );
+        }
     } );
-
-    mw.loader.load( url );
-}() );
-
-// </nowiki>
+} );
