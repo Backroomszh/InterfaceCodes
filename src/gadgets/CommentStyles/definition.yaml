@@ -7,4 +7,3 @@ dependencies: []
 enable: true
 files:
   - Gadget-CommentStyles.js
-  - Gadget-CommentStyles.css
