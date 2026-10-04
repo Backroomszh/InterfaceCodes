@@ -3,12 +3,10 @@
  * ============================================================ */
 
 /* ===== 湫汐 ===== */
-.cs-stream.cs-stream .cs-comment.cs-comment.qiuxi-special-comment.qiuxi-special-comment,
-.cs-stream.cs-stream .cs-comment.cs-comment.cs-head-comment.cs-head-comment.qiuxi-special-comment.qiuxi-special-comment {
+.cs-stream .cs-comment.qiuxi-special-comment, .cs-stream .cs-comment.cs-head-comment.qiuxi-special-comment {
     background: none !important;
 }
-
-div.cs-stream.cs-stream .cs-comment.cs-comment.qiuxi-special-comment.qiuxi-special-comment .cs-comment-header {
+div.cs-stream .cs-comment.qiuxi-special-comment .cs-comment-header {
     background: linear-gradient(135deg, #ffffff 0%, #fff0f5 50%, #ffebf0 100%) !important;
     border: 3px solid #FFC9C9 !important;
     border-radius: 18px !important;
@@ -16,8 +14,7 @@ div.cs-stream.cs-stream .cs-comment.cs-comment.qiuxi-special-comment.qiuxi-speci
     position: relative !important;
     overflow: visible !important;
 }
-
-div.cs-stream.cs-stream .cs-comment.cs-comment.qiuxi-special-comment.qiuxi-special-comment .cs-comment-header::before {
+div.cs-stream .cs-comment.qiuxi-special-comment .cs-comment-header::before {
     content: "🌸" !important;
     position: absolute !important;
     top: -5px !important;
@@ -27,8 +24,7 @@ div.cs-stream.cs-stream .cs-comment.cs-comment.qiuxi-special-comment.qiuxi-speci
     padding: 2px 5px !important;
     z-index: 2 !important;
 }
-
-div.cs-stream.cs-stream .cs-comment.cs-comment.qiuxi-special-comment.qiuxi-special-comment .cs-comment-header::after {
+div.cs-stream .cs-comment.qiuxi-special-comment .cs-comment-header::after {
     content: "🌸" !important;
     position: absolute !important;
     bottom: 5px !important;
@@ -38,25 +34,22 @@ div.cs-stream.cs-stream .cs-comment.cs-comment.qiuxi-special-comment.qiuxi-speci
     padding: 2px 5px !important;
     z-index: 2 !important;
 }
-
-div.cs-stream.cs-stream .cs-comment.cs-comment.qiuxi-special-comment.qiuxi-special-comment .cs-comment-author a {
+div.cs-stream .cs-comment.qiuxi-special-comment .cs-comment-author a {
     color: #FF69B4 !important;
     font-weight: bold !important;
-    text-shadow:
+    text-shadow: 
         1px 1px 0 #ffffff,
         -1px -1px 0 #ffffff,
         0 0 4px rgba(255, 105, 180, 0.4) !important;
 }
-
-div.cs-stream.cs-stream .cs-comment.cs-comment.qiuxi-special-comment.qiuxi-special-comment .cs-comment-footer {
+div.cs-stream .cs-comment.qiuxi-special-comment .cs-comment-footer {
     border-left: 1px solid rgba(255, 105, 180, 0.4) !important;
     border-right: 1px solid rgba(255, 105, 180, 0.4) !important;
     border-bottom: 2px solid rgba(255, 105, 180, 0.4) !important;
     border-top: 1px solid #0000 !important;
     border-radius: 50% !important;
 }
-
-div.cs-stream.cs-stream .cs-comment.cs-comment.qiuxi-special-comment.qiuxi-special-comment .cs-comment-body {
+div.cs-stream .cs-comment.qiuxi-special-comment .cs-comment-body{
     color: #FF99CC !important;
     text-shadow:
         1px 1px 0 #ffffff,
@@ -76,20 +69,13 @@ div.cs-stream.cs-stream .cs-comment.cs-comment.qiuxi-special-comment.qiuxi-speci
     padding: 18px 15px !important;
 }
 
-div.cs-stream.cs-stream .cs-comment.cs-comment.qiuxi-special-comment.qiuxi-special-comment .cs-comment-body p {
-    margin: 0 !important;
-    color: #f9c !important;
-    text-shadow:
-        1px 1px #fff,
-        -1px -1px #fff,
-        1px -1px #fff,
-        -1px 1px #fff,
-        1.5px 1.5px #fff,
-        -1.5px -1.5px #fff,
-        0 0 3.5px #00000026 !important;
+div.cs-stream .cs-comment.qiuxi-special-comment .cs-comment-body p {
+	margin: 0 !important;
+	color: #f9c !important;
+    text-shadow: 1px 1px #fff, -1px -1px #fff, 1px -1px #fff, -1px 1px #fff, 1.5px 1.5px #fff, -1.5px -1.5px #fff, 0 0 3.5px #00000026 !important;
 }
 
-div.cs-stream.cs-stream .cs-comment.cs-comment.qiuxi-special-comment.qiuxi-special-comment .cs-comment-title {
+div.cs-stream .cs-comment.qiuxi-special-comment .cs-comment-title {
     color: #FF99CC !important;
     text-shadow:
         1.5px 1.5px 0 #ffffff,
@@ -97,16 +83,13 @@ div.cs-stream.cs-stream .cs-comment.cs-comment.qiuxi-special-comment.qiuxi-speci
         1.5px -1.5px 0 #ffffff,
         -1.5px 1.5px 0 #ffffff !important;
 }
-
-div.cs-stream.cs-stream .cs-comment.cs-comment.qiuxi-special-comment.qiuxi-special-comment .cs-comment-details {
+div.cs-stream .cs-comment.qiuxi-special-comment .cs-comment-details {
     color: #FFB6C1 !important;
 }
-
-div.cs-stream.cs-stream .cs-comment.cs-comment.qiuxi-special-comment.qiuxi-special-comment .oo-ui-widget {
+div.cs-stream .cs-comment.qiuxi-special-comment .oo-ui-widget {
     background-color: #0000 !important;
 }
-
-div.cs-stream.cs-stream .cs-comment.cs-comment.cs-reply-comment.cs-reply-comment.qiuxi-special-comment.qiuxi-special-comment::before {
+div.cs-stream .cs-comment.cs-reply-comment.qiuxi-special-comment:before {
     background-color: #0000 !important;
     width: 0 !important;
     height: 0 !important;
@@ -114,26 +97,21 @@ div.cs-stream.cs-stream .cs-comment.cs-comment.cs-reply-comment.cs-reply-comment
     position: absolute !important;
     left: 0 !important;
 }
-
-div.cs-stream.cs-stream .cs-comment.cs-comment.cs-reply-comment.cs-reply-comment.qiuxi-special-comment.qiuxi-special-comment .cs-comment-header {
+div.cs-stream .cs-comment.cs-reply-comment.qiuxi-special-comment .cs-comment-header {
     background: none !important;
     border: none !important;
     border-radius: 0 !important;
     padding: 5px 8px !important;
 }
-
-div.cs-stream.cs-stream .cs-comment.cs-comment.cs-reply-comment.cs-reply-comment.qiuxi-special-comment.qiuxi-special-comment .cs-comment-header::before,
-div.cs-stream.cs-stream .cs-comment.cs-comment.cs-reply-comment.cs-reply-comment.qiuxi-special-comment.qiuxi-special-comment .cs-comment-header::after {
+div.cs-stream .cs-comment.cs-reply-comment.qiuxi-special-comment .cs-comment-header::before,div.cs-stream .cs-comment.cs-reply-comment.qiuxi-special-comment .cs-comment-header::after {
     content: "" !important;
 }
-
-div.cs-stream.cs-stream .cs-comment.cs-comment.cs-reply-comment.cs-reply-comment.qiuxi-special-comment.qiuxi-special-comment .oo-ui-icon-ellipsis {
+div.cs-stream .cs-comment.cs-reply-comment.qiuxi-special-comment .oo-ui-icon-ellipsis {
     background-image: none !important;
     -webkit-mask-image: none !important;
     mask-image: none !important;
 }
-
-div.cs-stream.cs-stream .cs-comment.cs-comment.cs-reply-comment.cs-reply-comment.qiuxi-special-comment.qiuxi-special-comment .oo-ui-icon-ellipsis::before {
+div.cs-stream .cs-comment.cs-reply-comment.qiuxi-special-comment .oo-ui-icon-ellipsis::before {
     background-image: none !important;
     content: "🌸" !important;
     font-size: 20px !important;
@@ -143,9 +121,8 @@ div.cs-stream.cs-stream .cs-comment.cs-comment.cs-reply-comment.cs-reply-comment
     line-height: 1 !important;
     display: inline-block !important;
 }
-
-div.cs-stream.cs-stream .cs-comment.cs-comment.cs-reply-comment.cs-reply-comment.qiuxi-special-comment.qiuxi-special-comment .cs-comment-body {
-    padding: 5px 8px !important;
+div.cs-stream .cs-comment.cs-reply-comment.qiuxi-special-comment .cs-comment-body {
+	padding: 5px 8px !important;
     border: none !important;
     background: none !important;
 }
