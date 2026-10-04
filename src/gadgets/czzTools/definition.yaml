@@ -1,0 +1,16 @@
+ResourceLoader: true
+hidden: false
+default: false
+type: general
+rights: []
+dependencies:
+    - mediawiki.util
+    - mediawiki.legacy.wikibits
+skins: []
+actions: []
+namespaces: []
+peers: []
+package: false
+enable: true
+files:
+    - Gadget-czzTools.js
