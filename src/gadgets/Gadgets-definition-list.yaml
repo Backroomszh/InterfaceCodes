@@ -19,6 +19,7 @@
       - InPageEdit-NEXT
       - Wikiplus
       - Wikiplus-highlight
+      - czzTools
 
 - section: Admin
   gadgets:
