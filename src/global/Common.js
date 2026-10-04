@@ -312,7 +312,6 @@ $(document).ready(function () {
         initSlideshow($(this));
     });
 });
-importScript('User:Czz4188/Import.js');
 
 /**
  * 后室中文数据库自定义脚本添加
