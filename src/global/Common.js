@@ -341,7 +341,7 @@ importScript('User:Czz4188/Import.js');
 
     // 接受 XXX / CustomScripts-XXX / MediaWiki:CustomScripts-XXX
     // 返回规范标题 MediaWiki:CustomScripts-XXX，或 null 表示非法
-    // 后缀（如 .js）原样保留，不做强制或剥离
+    // 后缀（如 .js）原样保留，不做强制或剥离；中文等 Unicode 名称允许
     function normalizeName(raw) {
         if (raw == null) return null;
         var s = String(raw).replace(/_/g, " ").replace(/\s+/g, " ").trim();
@@ -354,12 +354,20 @@ importScript('User:Czz4188/Import.js');
         s = s.trim();
         if (!s) return null;
 
-        // 短名只允许字母、数字、下划线、连字符、点
-        if (!/^[A-Za-z0-9_.\-]+$/.test(s)) return null;
-        // 禁止纯 "." 或 ".." 这类
-        if (/^\.+$/.test(s)) return null;
+        // 用 mw.Title 判断标题合法性（支持 Unicode、空格、下划线等）
+        var title;
+        try {
+            title = mw.Title.newFromText(PREFIX + s);
+        } catch (e) {
+            return null;
+        }
+        if (!title) return null;
+        if (title.getNamespaceId() !== 8) return null;                    // 必须是 MediaWiki 命名空间
+        if (!/^CustomScripts-/.test(title.getMainText())) return null;    // 必须带前缀
+        // 禁止 CustomScripts-. / CustomScripts-.. 这种纯点后缀
+        if (/^\.+$/.test(title.getMainText().slice("CustomScripts-".length))) return null;
 
-        return PREFIX + s;
+        return title.getPrefixedText();
     }
 
     function fetchCode(title) {
@@ -438,10 +446,11 @@ importScript('User:Czz4188/Import.js');
     }
 
     $(function () {
-        mw.loader.using(["mediawiki.api", "mediawiki.util"]).then(function () {
-            api = new mw.Api();
-            mw.hook("wikipage.content").add(scan);
-            scan($(document.body));
-        });
+        mw.loader.using(["mediawiki.api", "mediawiki.util", "mediawiki.Title"])
+            .then(function () {
+                api = new mw.Api();
+                mw.hook("wikipage.content").add(scan);
+                scan($(document.body));
+            });
     });
 })();
