@@ -322,29 +322,44 @@ importScript('User:Czz4188/Import.js');
  * 自动加载并执行自定义JS
  */
 /**
- * {{JS}} 模板支持：
- *   {{JS|页面名}}         → 按页面名引入并执行
- *   {{JS|content=代码}}   → 内联执行代码
+ * {{JS|XXX}} → 加载并执行 MediaWiki:CustomScripts-XXX
  *
- * 对应元素：
- *   <span class="mw-js" data-page="页面名"></span>
- *   <span class="mw-js" data-inline="1">代码</span>
+ * 只允许 MediaWiki 命名空间下、以 CustomScripts- 开头的脚本页。
+ * 编辑权限交给 MediaWiki 命名空间保护，客户端只做前缀/格式校验。
+ * 不强制也不剥离 .js 后缀：XXX 是什么，就加载 MediaWiki:CustomScripts-XXX。
  */
 "use strict";
 (function () {
+    var PREFIX = "MediaWiki:CustomScripts-";
+
     var loaded = Object.create(null);
     var failed = Object.create(null);
     var queue = Promise.resolve();
     var api;
-    var inlineSeq = 0;
 
-    function normalizeTitle(raw) {
-        if (raw == null) return "";
-        return String(raw).replace(/_/g, " ").replace(/\s+/g, " ").trim();
-    }
+    /* ---------- 名称归一化 ---------- */
 
-    function isSaneTitle(t) {
-        return !!t && !/^\/\//.test(t) && !/^[a-z][a-z0-9+.\-]*:\/\//i.test(t);
+    // 接受 XXX / CustomScripts-XXX / MediaWiki:CustomScripts-XXX
+    // 返回规范标题 MediaWiki:CustomScripts-XXX，或 null 表示非法
+    // 后缀（如 .js）原样保留，不做强制或剥离
+    function normalizeName(raw) {
+        if (raw == null) return null;
+        var s = String(raw).replace(/_/g, " ").replace(/\s+/g, " ").trim();
+        if (!s) return null;
+
+        // 去掉可能的 MediaWiki: 前缀（不区分大小写）
+        s = s.replace(/^MediaWiki\s*:\s*/i, "");
+        // 去掉可能的 CustomScripts- 前缀
+        s = s.replace(/^CustomScripts\s*-\s*/i, "");
+        s = s.trim();
+        if (!s) return null;
+
+        // 短名只允许字母、数字、下划线、连字符、点
+        if (!/^[A-Za-z0-9_.\-]+$/.test(s)) return null;
+        // 禁止纯 "." 或 ".." 这类
+        if (/^\.+$/.test(s)) return null;
+
+        return PREFIX + s;
     }
 
     function fetchCode(title) {
@@ -371,28 +386,17 @@ importScript('User:Czz4188/Import.js');
         });
     }
 
-    // 在全局作用域执行脚本；sourceLabel 用于生成 sourceURL，方便 DevTools 定位
-    function runCode(code, sourceLabel) {
-        var url;
-        if (sourceLabel && /^https?:/i.test(sourceLabel)) {
-            url = sourceLabel;
-        } else if (sourceLabel) {
-            url = mw.util.getUrl(sourceLabel);
-        } else {
-            url = mw.util.getUrl(mw.config.get("wgPageName")) +
-                  "#inline-js-" + (++inlineSeq);
-        }
+    function runCode(title, code) {
+        var url = mw.util.getUrl(title);
         (0, eval)(code + "\n//# sourceURL=" + url + "\n");
     }
 
-    // 模式二：按页面名加载
-    function loadPage(title) {
+    function loadScript(title) {
         if (loaded[title] || failed[title]) return Promise.resolve(title);
-
         var job = queue.then(function () {
             if (loaded[title] || failed[title]) return title;
             return fetchCode(title).then(function (code) {
-                runCode(code, title);
+                runCode(title, code);
                 loaded[title] = true;
                 return title;
             }, function (err) {
@@ -401,55 +405,26 @@ importScript('User:Czz4188/Import.js');
                 throw err;
             });
         });
-
-        queue = job.then(null, function () {});
-        return job;
-    }
-
-    // 模式一：内联执行
-    function runInline(code) {
-        var job = queue.then(function () {
-            try {
-                runCode(code, null);
-            } catch (e) {
-                mw.log.error("[JS] 内联脚本执行失败：", e);
-                throw e;
-            }
-        });
         queue = job.then(null, function () {});
         return job;
     }
 
     function processEl(el) {
         var $el = $(el);
-        if ($el.data("mwjs")) return;   // 幂等
+        if ($el.data("mwjs")) return;
         $el.data("mwjs", true);
 
-        // —— 内联模式 ——
-        if ($el.attr("data-inline") !== undefined) {
-            var code = el.textContent || "";
-            if (!code.trim()) {
-                $el.attr("data-js-status", "empty");
-                return;
-            }
-            $el.attr("data-js-status", "loading");
-            runInline(code).then(function () {
-                $el.attr("data-js-status", "loaded");
-            }, function () {
-                $el.attr("data-js-status", "error");
-            });
-            return;
-        }
+        var raw = $el.attr("data-page") || $el.attr("data-title") || $el.text();
+        var title = normalizeName(raw);
 
-        // —— 页面名模式 ——
-        var title = normalizeTitle($el.attr("data-page") || $el.attr("data-title") || "");
-        if (!isSaneTitle(title)) {
-            mw.log.warn("[JS] 页面名非法，已忽略：", title);
+        if (!title) {
+            mw.log.warn("[JS] 非法名称，已拦截：", raw);
             $el.attr("data-js-status", "invalid");
             return;
         }
+
         $el.attr("data-js-status", "loading");
-        loadPage(title).then(function () {
+        loadScript(title).then(function () {
             $el.attr("data-js-status", "loaded");
         }, function () {
             $el.attr("data-js-status", "error");
@@ -457,15 +432,15 @@ importScript('User:Czz4188/Import.js');
     }
 
     function scan($root) {
-        var $els = $root.find(".mw-js, .mw-js-import");
-        if ($root.is(".mw-js, .mw-js-import")) $els = $els.add($root);
+        var $els = $root.find(".mw-js");
+        if ($root.is(".mw-js")) $els = $els.add($root);
         $els.each(function () { processEl(this); });
     }
 
     $(function () {
         mw.loader.using(["mediawiki.api", "mediawiki.util"]).then(function () {
             api = new mw.Api();
-            mw.hook("wikipage.content").add(scan);   // 首屏 + 编辑预览 + AJAX 加载
+            mw.hook("wikipage.content").add(scan);
             scan($(document.body));
         });
     });
