@@ -3,5 +3,5 @@ importStylesheetURI("https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/an
 //代码高亮工具Prism.js
 //由于MediaWiki的<pre>元素会阻止其中内容编辑，我修改了部分内容
 //现在可以通过<div class="language-*">xxx</div>
-importScript('User:Czz4188/Prism.js');
-importStylesheet('User:Czz4188/Prism.css');
+importScript('MediaWiki:Prism.js');
+importStylesheet('MediaWiki:Prism.css');
