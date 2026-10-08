@@ -81,3 +81,10 @@
     padding-left: 8px !important;
     padding-right: 8px !important;
 }
+.cs-stream .cs-comment.staff-mode-comment .oo-ui-widget {
+    background-color: #0000 !important;
+    --filter-invert: none !important;
+}
+.cs-stream .cs-comment.staff-mode-comment .cs-vote-up-count, .cs-vote-down-count {
+    color: #000 !important;
+}
