@@ -1611,7 +1611,7 @@ div[rel='heading'] > a {
     color: white !important;
 }
 
-body:has(.custom-tabs) .citizen-page-sidebar {
+body:has(.custom-tabs) .citizen-page-aside {
     margin-top: 30px;
 }
 
@@ -1890,7 +1890,7 @@ a[title='创建新子页面']::before {
 .citizen-body {
     padding: 15px 15px 15px 30px !important;
 }
-.citizen-page-sidebar {
+.citizen-page-aside {
     margin-top: 0;
     padding: var(--space-sm);
     background: var(--utgheader);
@@ -1922,7 +1922,7 @@ a[title='创建新子页面']::before {
     }
 }
 @media screen and (max-width: 1119.98px) {
-.citizen-page-sidebar {
+.citizen-page-aside {
     background: #0000;
 }
 }
@@ -3548,7 +3548,7 @@ div[rel='heading'] > a {
     color: white !important;
 }
 
-body:has(.custom-tabs) .citizen-page-sidebar {
+body:has(.custom-tabs) .citizen-page-aside {
     margin-top: 30px;
 }
 
@@ -3827,7 +3827,7 @@ a[title='创建新子页面']::before {
 .citizen-body {
     padding: 15px 15px 15px 30px !important;
 }
-.citizen-page-sidebar {
+.citizen-page-aside {
     margin-top: 0;
     padding: var(--space-sm);
     background: var(--utgheader);
@@ -3859,7 +3859,7 @@ a[title='创建新子页面']::before {
     }
 }
 @media screen and (max-width: 1119.98px) {
-.citizen-page-sidebar {
+.citizen-page-aside {
     background: #0000;
 }
 }
