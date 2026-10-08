@@ -1853,7 +1853,7 @@ a[title='创建新子页面']::before {
     --utgheader: #fffce9;
     --mwheaderbg: linear-gradient(45deg, #faffe3, #fffce8, #faffe3);
     --utgwindow-img: url(https://static.wikitide.net/backroomszhwiki/8/85/StackdSandboxBGfixed.png);
-    --width-toc: minmax(240px,280px);
+    --width-page-aside: minmax(240px,280px);
 }
 :root.skin-theme-clientpref-night {
     --utgheader: #000e33;
