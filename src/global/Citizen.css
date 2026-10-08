@@ -1877,10 +1877,10 @@ a[title='创建新子页面']::before {
     margin-bottom: 1.5rem !important;
     box-shadow: 0px 0px 1.5px 3.5px #00000026 !important;
 }
-.citizen-toc-enabled .citizen-body-container{
+.citizen-page-aside-enabled .citizen-body-container{
     grid-template-areas:
-       'content sidebar'
-       'footer sidebar';
+       'content aside'
+       'footer aside';
 }
 .citizen-body-container {
     border-radius: 0.5rem !important;
@@ -3814,10 +3814,10 @@ a[title='创建新子页面']::before {
     margin-bottom: 1.5rem !important;
     box-shadow: 0px 0px 1.5px 3.5px #00000026 !important;
 }
-.citizen-toc-enabled .citizen-body-container{
+.citizen-page-aside-enabled .citizen-body-container{
     grid-template-areas:
-       'content sidebar'
-       'footer sidebar';
+       'content aside'
+       'footer aside';
 }
 .citizen-body-container {
     border-radius: 0.5rem !important;
