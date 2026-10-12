@@ -2,6 +2,11 @@
  * UserTitles gadget
  * 在用户页头部的用户组标签后追加自定义头衔。
  * 数据来源：MediaWiki:UserTitles.json
+ *
+ * JSON 格式：
+ *   {
+ *     "用户名": [ "纯文本头衔", { "title": "头衔", "class": "自定义类名" } ]
+ *   }
  */
 ( function () {
     'use strict';
@@ -9,10 +14,58 @@
     var DATA_PAGE = 'MediaWiki:UserTitles.json';
     var userTitles = {};
 
+    // 只允许安全的类名片段
+    var SAFE_CLASS = /^[A-Za-z0-9_-]+$/;
+
+    /**
+     * 把 JSON 里的条目统一成 { title, classes }
+     * 兼容两种写法：
+     *   "头衔文字"
+     *   { title: "头衔文字", class: "a b" }
+     */
+    function normalize( list ) {
+        if ( !Array.isArray( list ) ) {
+            return [];
+        }
+        var out = [];
+        list.forEach( function ( item ) {
+            var title, extraClass;
+
+            if ( typeof item === 'string' ) {
+                title = item;
+            } else if ( item && typeof item === 'object' ) {
+                title = item.title;
+                extraClass = item['class']; // class 是保留字，用中括号
+            }
+
+            if ( typeof title !== 'string' || !title.trim() ) {
+                return;
+            }
+
+            var classes = String( extraClass || '' )
+                .split( /\s+/ )
+                .filter( function ( c ) {
+                    return c && SAFE_CLASS.test( c );
+                } );
+
+            out.push( {
+                title: title,
+                classes: classes
+            } );
+        } );
+        return out;
+    }
+
     function buildBadges( titles ) {
         return titles.map( function ( t ) {
-            return '<span class="profile-user-group" data-group="' +
-                mw.html.escape( t ) + '">' + mw.html.escape( t ) + '</span>';
+            var cls = 'profile-user-group';
+            if ( t.classes.length ) {
+                cls += ' ' + t.classes.join( ' ' );
+            }
+
+            return '<span class="' + mw.html.escape( cls ) + '"' +
+                ' data-group="' + mw.html.escape( t.title ) + '">' +
+                mw.html.escape( t.title ) + '</span>';
         } ).join( '' );
     }
 
@@ -30,8 +83,8 @@
             return;
         }
 
-        var titles = userTitles[ username ];
-        if ( !titles || !titles.length ) {
+        var titles = normalize( userTitles[ username ] );
+        if ( !titles.length ) {
             return;
         }
 
