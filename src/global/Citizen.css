@@ -1930,11 +1930,23 @@ a[title='创建新子页面']::before {
 }
 @media screen and (width >= 1080px) {
     .citizen-page-aside .citizen-toc {
-        top: 80px;
+        top: 0;
     }
 	.citizen-page-aside .citizen-toc .citizen-dropdown-details[open] + .citizen-menu__card {
         pointer-events: auto;
         bottom: 0;
         left: 0;
     }
+}
+
+@media (min-width: 1120px) {
+    .citizen-page-aside {
+        padding: 0;
+	}
+	.citizen-body-container {
+		gap: 0 !important;
+	}
+	.citizen-body {
+    	padding: 15px 30px 15px 30px !important;
+	}
 }
