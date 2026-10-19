@@ -1950,3 +1950,8 @@ a[title='创建新子页面']::before {
     	padding: 15px 30px 15px 30px !important;
 	}
 }
+
+.cs-comments {
+    box-shadow: none;
+	border-radius: 10px !important;
+}
