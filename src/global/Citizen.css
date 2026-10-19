@@ -1939,7 +1939,7 @@ a[title='创建新子页面']::before {
     }
 }
 
-@media (min-width: 1120px) {
+@media (max-width: 1120px) {
     .citizen-page-aside {
         padding: 0;
 	}
