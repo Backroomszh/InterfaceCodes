@@ -309,7 +309,7 @@
             '<div class="resv-form-title">新增预定</div>' +
             '<div class="resv-field">' +
             '<label for="resv-input">页面名称</label>' +
-            '<input class="resv-input" id="resv-input" type="text" placeholder="输入主命名空间页面名，例如 001" />' +
+            '<input class="resv-input" id="resv-input" type="text" placeholder="输入主命名空间页面名，例如 Level CN 11" />' +
             '</div>' +
             ownerFieldHtml +
             '<button class="resv-btn" id="resv-submit" type="button">提交预定</button>' +
