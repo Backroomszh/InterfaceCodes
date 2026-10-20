@@ -1,3 +1,11 @@
+/**
+ * 编号预定系统
+ * - 表单提交（普通用户/高权限用户双模式）
+ * - 查看页注入提示 / 投稿完成自动删行
+ * - 编辑页拦截遮罩
+ * - 临期弹窗（右下角 toast）
+ * - 全站作用，本地缓存 + 请求合并 + 空闲执行
+ */
 ( function () {
     'use strict';
 
@@ -49,6 +57,7 @@
             }
             if ( !inTable ) continue;
             if ( line.indexOf( '!' ) === 0 ) continue;
+            if ( line.indexOf( '|+' ) === 0 ) continue;
             if ( line.indexOf( '|-' ) === 0 ) {
                 if ( currentRow ) rows.push( currentRow );
                 currentRow = [];
@@ -125,7 +134,7 @@
         }
     }
 
-    // ---------- 数据页读取（带缓存 + 合并） ----------
+    // ---------- 数据页读取（缓存 + 合并） ----------
 
     var dataPromise = null;
 
@@ -159,7 +168,6 @@
     }
 
     function readDataPage() {
-        // 缓存命中直接返回，零 API 请求
         try {
             var raw = mw.storage.get( CACHE_KEY );
             if ( raw ) {
@@ -174,7 +182,6 @@
             }
         } catch ( e ) { /* 忽略缓存异常 */ }
 
-        // 网络请求，成功后写缓存
         return fetchDataPage().then( function ( result ) {
             try {
                 mw.storage.set( CACHE_KEY, JSON.stringify( {
@@ -302,7 +309,7 @@
             '<div class="resv-form-title">新增预定</div>' +
             '<div class="resv-field">' +
             '<label for="resv-input">页面名称</label>' +
-            '<input class="resv-input" id="resv-input" type="text" placeholder="例如 Level CN 1" />' +
+            '<input class="resv-input" id="resv-input" type="text" placeholder="输入主命名空间页面名，例如 001" />' +
             '</div>' +
             ownerFieldHtml +
             '<button class="resv-btn" id="resv-submit" type="button">提交预定</button>' +
@@ -332,6 +339,16 @@
         if ( !shortName ) { status.textContent = '请输入页面名称。'; return; }
         if ( !currentUser ) { status.textContent = '请先登录。'; return; }
 
+        // 目标页面就是主命名空间页面，不拼接 PREFIX
+        var fullTitle = normalizeTitle( shortName );
+
+        // 防止预定系统自身页面
+        if ( fullTitle === normalizeTitle( MAIN_PAGE ) ||
+             fullTitle === normalizeTitle( DATA_PAGE ) ) {
+            status.textContent = '此名称为系统保留，请换一个。';
+            return;
+        }
+
         var ownerRaw = '';
         if ( canBookForOthers() && ownerInput ) {
             ownerRaw = ownerInput.value.replace( /^\s+|\s+$/g, '' );
@@ -340,7 +357,6 @@
         var owner = normalizeUserName( ownerRaw || currentUser );
         var ownerCell = '[[User:' + owner + '|' + owner + ']]';
 
-        var fullTitle = PREFIX + '/' + shortName;
         status.textContent = '正在检查页面...';
 
         new mw.Api().get( {
@@ -367,7 +383,7 @@
                 var content = revision.content;
                 var rows = parseTable( content );
                 for ( var i = 0; i < rows.length; i++ ) {
-                    if ( rows[ i ].length >= 1 && extractPageName( rows[ i ][ 0 ] ) === fullTitle ) {
+                    if ( rows[ i ].length >= 1 && normalizeTitle( extractPageName( rows[ i ][ 0 ] ) ) === fullTitle ) {
                         throw new Error( 'already-reserved' );
                     }
                 }
@@ -405,30 +421,45 @@
 
     // ---------- 目标页面：查看页注入提示 / 完成删行 ----------
 
-    function findContainer() {
-        var ids = [ 'mw-content-text', 'bodyContent', 'content' ];
-        for ( var i = 0; i < ids.length; i++ ) {
-            var el = document.getElementById( ids[ i ] );
-            if ( el ) return el;
+    function findNoticeSlot() {
+        var custom = document.getElementById( 'resv-notice-slot' );
+        if ( custom && custom.parentNode ) {
+            return { mode: 'before', el: custom };
         }
+
+        var contentSub = document.getElementById( 'contentSub' );
+        if ( contentSub && contentSub.parentNode ) {
+            return { mode: 'after', el: contentSub };
+        }
+
+        var indicators = document.getElementById( 'mw-indicators' );
+        if ( indicators && indicators.parentNode ) {
+            return { mode: 'after', el: indicators };
+        }
+
+        var content = document.getElementById( 'mw-content-text' );
+        if ( content ) {
+            var parserOutput = content.querySelector( '.mw-parser-output' );
+            return { mode: 'prepend', el: parserOutput || content };
+        }
+
         return null;
     }
 
     function injectNotice( text, variant ) {
-        var container = findContainer();
-        if ( !container ) return;
+        var slot = findNoticeSlot();
+        if ( !slot ) return;
 
         var notice = document.createElement( 'div' );
         notice.className = 'resv-notice' + ( variant === 'success' ? ' resv-notice--success' : '' );
         notice.textContent = text;
 
-        var target = container.querySelector( '.mw-editform, form, #editform, .ve-init-mw-desktopArticleTarget' );
-        if ( target && target.parentNode ) {
-            target.parentNode.insertBefore( notice, target );
-        } else if ( container.firstChild ) {
-            container.insertBefore( notice, container.firstChild );
+        if ( slot.mode === 'before' ) {
+            slot.el.parentNode.insertBefore( notice, slot.el );
+        } else if ( slot.mode === 'after' ) {
+            slot.el.parentNode.insertBefore( notice, slot.el.nextSibling );
         } else {
-            container.appendChild( notice );
+            slot.el.insertBefore( notice, slot.el.firstChild );
         }
     }
 
