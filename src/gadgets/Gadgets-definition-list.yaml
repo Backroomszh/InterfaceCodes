@@ -9,6 +9,7 @@
       - topButton
       - shortlink
       - quickReport
+      - reservationTable
 
 - section: Edit
   gadgets:
