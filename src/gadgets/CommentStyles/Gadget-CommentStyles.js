@@ -33,6 +33,7 @@
                 } catch (e) {
                     configCache = { users: {} };
                 }
+                if (!configCache.users) configCache.users = {};
                 return configCache;
             })
             .catch(function () {
@@ -158,9 +159,87 @@
         for (var i = 0; i < list.length; i++) clearInline(list[i]);
     }
 
+    /* ---------- 用户名解析（增强版） ---------- */
+    function safeDecode(s) {
+        try { return decodeURIComponent(s); } catch (e) { return s; }
+    }
+
+    function pushName(list, raw) {
+        if (!raw) return;
+        var name = String(raw).trim();
+        if (!name) return;
+        name = safeDecode(name).replace(/_/g, ' ');
+        // 去掉 "User:" / "用户:" 前缀（纯文本兜底时可能出现）
+        name = name.replace(/^(?:User|用户)(?::|%3A)\s*/i, '');
+        name = name.trim();
+        if (!name) return;
+        if (list.indexOf(name) === -1) list.push(name);
+    }
+
+    var USER_IN_URL = [
+        /(?:^|[\/?&=])User(?::|%3A)([^\/?&#]+)/i,
+        /(?:^|[\/?&=])用户(?::|%3A)([^\/?&#]+)/i,
+        /Special(?::|%3A)Contributions\/([^\/?&#]+)/i,
+        /特殊(?::|%3A)贡献\/([^\/?&#]+)/i
+    ];
+
+    function collectUserCandidates(comment) {
+        var names = [];
+
+        // 1) 容器与作者区的 data-* 属性
+        var dataNodes = [comment].concat(
+            Array.prototype.slice.call(
+                comment.querySelectorAll('[data-user],[data-username],[data-author]')
+            )
+        );
+        dataNodes.forEach(function (el) {
+            if (!el || !el.getAttribute) return;
+            pushName(names, el.getAttribute('data-user'));
+            pushName(names, el.getAttribute('data-username'));
+            pushName(names, el.getAttribute('data-author'));
+        });
+
+        // 2) 作者链接：href / title / 链接文本
+        var links = comment.querySelectorAll('.cs-comment-author a');
+        Array.prototype.forEach.call(links, function (a) {
+            var href = a.getAttribute('href') || '';
+            USER_IN_URL.forEach(function (re) {
+                var m = href.match(re);
+                if (m) pushName(names, m[1]);
+            });
+
+            var title = a.getAttribute('title') || '';
+            var mt = title.match(/^(?:User|用户)(?::|%3A)\s*(.+)$/i);
+            if (mt) pushName(names, mt[1]);
+
+            pushName(names, a.textContent);
+        });
+
+        // 3) 作者区域纯文本兜底（wikitext / 无链接渲染）
+        var box = comment.querySelector('.cs-comment-author');
+        if (box) pushName(names, box.textContent);
+
+        return names;
+    }
+
+    function findConfiguredUser(users, names) {
+        if (!names || !names.length) return null;
+        var keys = Object.keys(users);
+        for (var i = 0; i < names.length; i++) {
+            var n = names[i];
+            if (Object.prototype.hasOwnProperty.call(users, n)) return n;
+            var lower = n.toLowerCase();
+            for (var k = 0; k < keys.length; k++) {
+                if (keys[k].toLowerCase() === lower) return keys[k];
+            }
+        }
+        return null;
+    }
+
     /* ---------- 给评论套上对应 class ---------- */
     function applyStyles(config) {
         if (!config || !config.users) return;
+        var users = config.users;
 
         document.querySelectorAll('.cs-comment').forEach(function (comment) {
 
@@ -176,26 +255,22 @@
 
             if (comment.dataset.csStyled) return;
 
-            var link = comment.querySelector('.cs-comment-author a');
-            if (!link) return;
+            var candidates = collectUserCandidates(comment);
+            var name = findConfiguredUser(users, candidates);
 
-            var m = (link.getAttribute('href') || '').match(/\/User:([^\/]+)/);
-            if (!m) return;
-
-            var name;
-            try {
-                name = decodeURIComponent(m[1]);
-            } catch (e) {
-                name = m[1];
+            if (name) {
+                var cfg = users[name];
+                if (cfg && cfg.enabled !== false && cfg.class) {
+                    comment.classList.add(cfg.class);
+                    comment.dataset.csClass = cfg.class;   // 记录，便于互斥时移除
+                    comment.dataset.csUser = name;
+                }
+                comment.dataset.csStyled = '1';
+            } else if (candidates.length) {
+                // 有作者信息但没配置，也标记，避免重复扫描
+                comment.dataset.csStyled = '1';
             }
-
-            var cfg = config.users[name];
-            if (cfg && cfg.enabled !== false && cfg.class) {
-                comment.classList.add(cfg.class);
-                comment.dataset.csClass = cfg.class;   // 记录，便于互斥时移除
-                comment.dataset.csUser = name;
-            }
-            comment.dataset.csStyled = '1';
+            // 候选为空 → 不标记，等作者链接 / 文本异步出现后再重试
         });
     }
 
