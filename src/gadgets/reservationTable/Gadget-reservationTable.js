@@ -413,7 +413,7 @@
             if ( msg === 'already-reserved' ) {
                 status.textContent = '此页面已被预定。';
             } else if ( msg === 'editconflict' ) {
-                status.textContent = '提交失败：其他人刚刚编辑了预定列表，请稍后重试。';
+                status.textContent = '提交失败：其它用户刚刚编辑了预定列表，请稍后重试。';
             } else if ( msg === 'data-page-broken' ) {
                 status.textContent = '提交失败：数据页面表格结构异常。';
             } else if ( msg === 'query-failed' ) {
@@ -505,7 +505,7 @@
                     return;
                 }
                 if ( pageExists ) {
-                    injectNotice( '此页面已被 ' + owner + ' 预定，但已被他人填充，待管理员处理。' );
+                    injectNotice( '此页面已被 ' + owner + ' 预定，但已被另外的用户填充，待管理员处理。' );
                     return;
                 }
                 injectNotice( '此页面已被 ' + owner + ' 预定，请勿编辑或移动文章至此。' );
