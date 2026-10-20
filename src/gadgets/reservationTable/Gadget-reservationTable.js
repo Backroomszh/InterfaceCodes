@@ -1,11 +1,3 @@
-/**
- * 编号预定系统
- * - 表单提交（普通用户/高权限用户双模式）
- * - 查看页注入提示 / 投稿完成自动删行
- * - 编辑页拦截遮罩
- * - 临期弹窗（右下角 toast）
- * - 全站作用，本地缓存 + 请求合并 + 空闲执行
- */
 ( function () {
     'use strict';
 
@@ -38,6 +30,29 @@
             if ( groups.indexOf( PRIVILEGED_GROUPS[ i ] ) !== -1 ) return true;
         }
         return false;
+    }
+
+    // ---------- 用户名规范化 ----------
+
+    /**
+     * 统一用户名比较键：
+     * - 下划线转空格（MediaWiki 用户名中两者等价）
+     * - 压缩连续空格、去首尾空格
+     * - 首字母大写（MediaWiki 用户名首字母不区分大小写）
+     * 其余字母保持原样（MediaWiki 用户名其余部分区分大小写）
+     */
+    function userNameKey( name ) {
+        if ( !name ) return '';
+        var s = String( name )
+            .replace( /_/g, ' ' )
+            .replace( /\s+/g, ' ' )
+            .replace( /^\s+|\s+$/g, '' );
+        if ( !s ) return '';
+        return s.charAt( 0 ).toUpperCase() + s.slice( 1 );
+    }
+
+    function normalizeUserName( name ) {
+        return userNameKey( name );
     }
 
     // ---------- 工具 ----------
@@ -86,14 +101,6 @@
         if ( m ) return m[ 1 ].replace( /^\s+|\s+$/g, '' );
         s = s.replace( /^(?:User|用户)\s*:\s*/i, '' );
         return s.replace( /^\s+|\s+$/g, '' );
-    }
-
-    function normalizeUserName( name ) {
-        try {
-            return new mw.Title( name, 2 ).getName();
-        } catch ( e ) {
-            return name;
-        }
     }
 
     function normalizeTitle( s ) {
@@ -339,10 +346,8 @@
         if ( !shortName ) { status.textContent = '请输入页面名称。'; return; }
         if ( !currentUser ) { status.textContent = '请先登录。'; return; }
 
-        // 目标页面就是主命名空间页面，不拼接 PREFIX
         var fullTitle = normalizeTitle( shortName );
 
-        // 防止预定系统自身页面
         if ( fullTitle === normalizeTitle( MAIN_PAGE ) ||
              fullTitle === normalizeTitle( DATA_PAGE ) ) {
             status.textContent = '此名称为系统保留，请换一个。';
@@ -494,7 +499,8 @@
 
                 var owner = extractUserName( rows[ i ][ 1 ] );
 
-                if ( pageExists && currentUser && currentUser === owner ) {
+                if ( pageExists && currentUser &&
+                     userNameKey( currentUser ) === userNameKey( owner ) ) {
                     removeRowAndNotify();
                     return;
                 }
@@ -570,7 +576,8 @@
                 if ( rows[ i ].length < 2 ) continue;
                 if ( normalizeTitle( extractPageName( rows[ i ][ 0 ] ) ) !== targetTitle ) continue;
                 var owner = extractUserName( rows[ i ][ 1 ] );
-                if ( !currentUser || currentUser !== owner ) {
+                if ( !currentUser ||
+                     userNameKey( currentUser ) !== userNameKey( owner ) ) {
                     blockEditing( owner );
                 }
                 return;
@@ -727,8 +734,8 @@
             for ( var i = 0; i < rows.length; i++ ) {
                 if ( rows[ i ].length < 4 ) continue;
                 var pageFullName = extractPageName( rows[ i ][ 0 ] );
-                var owner = normalizeUserName( extractUserName( rows[ i ][ 1 ] ) );
-                if ( owner !== currentUser ) continue;
+                var owner = extractUserName( rows[ i ][ 1 ] );
+                if ( userNameKey( owner ) !== userNameKey( currentUser ) ) continue;
 
                 var reservedDate = parseDateStr( rows[ i ][ 2 ] );
                 if ( !reservedDate ) continue;
