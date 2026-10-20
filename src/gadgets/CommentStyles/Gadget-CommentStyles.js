@@ -33,7 +33,10 @@
                 } catch (e) {
                     configCache = { users: {} };
                 }
-                if (!configCache.users) configCache.users = {};
+                if (!configCache || !configCache.users) {
+                    configCache = configCache || {};
+                    configCache.users = {};
+                }
                 return configCache;
             })
             .catch(function () {
@@ -159,19 +162,24 @@
         for (var i = 0; i < list.length; i++) clearInline(list[i]);
     }
 
-    /* ---------- 用户名解析（增强版） ---------- */
+    /* ---------- 用户名解析（加固版） ---------- */
     function safeDecode(s) {
+        // 只有含 % 才尝试解码，避免对中文名做无谓处理
+        if (s.indexOf('%') === -1) return s;
         try { return decodeURIComponent(s); } catch (e) { return s; }
     }
 
     function pushName(list, raw) {
         if (!raw) return;
-        var name = String(raw).trim();
+        var name = String(raw);
+        // 清掉零宽字符 / BOM / 软连字符，统一空白
+        name = name.replace(/[\u200B-\u200D\uFEFF\u00AD]/g, '')
+                   .replace(/\s+/g, ' ')
+                   .trim();
         if (!name) return;
-        name = safeDecode(name).replace(/_/g, ' ');
+        name = safeDecode(name).replace(/_/g, ' ').trim();
         // 去掉 "User:" / "用户:" 前缀（纯文本兜底时可能出现）
-        name = name.replace(/^(?:User|用户)(?::|%3A)\s*/i, '');
-        name = name.trim();
+        name = name.replace(/^(?:User|用户)(?::|%3A)\s*/i, '').trim();
         if (!name) return;
         if (list.indexOf(name) === -1) list.push(name);
     }
@@ -241,6 +249,9 @@
         if (!config || !config.users) return;
         var users = config.users;
 
+        // JSON 为空（加载失败或真的没配置）→ 什么都不标记，等下次刷新重试
+        if (Object.keys(users).length === 0) return;
+
         document.querySelectorAll('.cs-comment').forEach(function (comment) {
 
             // 互斥：已有站务样式 → 移除个人专属样式 + 清掉内联样式
@@ -267,10 +278,10 @@
                 }
                 comment.dataset.csStyled = '1';
             } else if (candidates.length) {
-                // 有作者信息但没配置，也标记，避免重复扫描
+                // 有作者信息但没配置 → 标记，避免重复扫描
                 comment.dataset.csStyled = '1';
             }
-            // 候选为空 → 不标记，等作者链接 / 文本异步出现后再重试
+            // 候选为空 → 不标记，等作者文本异步出现后再试
         });
     }
 
