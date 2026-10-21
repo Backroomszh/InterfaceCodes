@@ -1,3 +1,11 @@
+/**
+ * 编号预定系统
+ * - 表单提交（普通用户/高权限用户双模式）
+ * - 查看页注入提示 / 投稿完成自动删行
+ * - 编辑页拦截遮罩
+ * - 临期弹窗（右下角 toast）
+ * - 全站作用，本地缓存 + 请求合并 + 空闲执行
+ */
 ( function () {
     'use strict';
 
@@ -39,7 +47,6 @@
      * - 下划线转空格（MediaWiki 用户名中两者等价）
      * - 压缩连续空格、去首尾空格
      * - 首字母大写（MediaWiki 用户名首字母不区分大小写）
-     * 其余字母保持原样（MediaWiki 用户名其余部分区分大小写）
      */
     function userNameKey( name ) {
         if ( !name ) return '';
@@ -95,12 +102,25 @@
         return m ? m[ 1 ] : cell;
     }
 
+    /**
+     * 从用户单元格中提取纯用户名。只认以下合法格式：
+     * 1. [[User:X|...]] 或 [[用户:X|...]]
+     * 2. 纯文本 User:X 或 用户:X
+     * 3. 整格就是纯文本用户名（不含 [[ ]]）
+     * 其他（如 [[Corn Pig]] 普通页面链接）不当作用户名，原样返回。
+     */
     function extractUserName( cell ) {
         var s = cell.replace( /^\s+|\s+$/g, '' );
+
         var m = s.match( /\[\[\s*(?:User|用户)\s*:\s*([^\]|]+)/i );
         if ( m ) return m[ 1 ].replace( /^\s+|\s+$/g, '' );
-        s = s.replace( /^(?:User|用户)\s*:\s*/i, '' );
-        return s.replace( /^\s+|\s+$/g, '' );
+
+        var m2 = s.match( /^(?:User|用户)\s*:\s*(.+)$/i );
+        if ( m2 ) return m2[ 1 ].replace( /^\s+|\s+$/g, '' );
+
+        if ( s.indexOf( '[[' ) === -1 ) return s;
+
+        return s;
     }
 
     function normalizeTitle( s ) {
@@ -175,28 +195,35 @@
     }
 
     function readDataPage() {
-        try {
-            var raw = mw.storage.get( CACHE_KEY );
-            if ( raw ) {
-                var obj = JSON.parse( raw );
-                if ( obj && obj.t && ( Date.now() - obj.t ) < CACHE_TTL &&
-                     typeof obj.content === 'string' ) {
-                    return Promise.resolve( {
-                        content: obj.content,
-                        timestamp: obj.timestamp || null
-                    } );
+        // 调试模式：?resvdebug=1 跳过本地缓存，强制走网络
+        var debug = mw.util.getParamValue( 'resvdebug' ) === '1';
+
+        if ( !debug ) {
+            try {
+                var raw = mw.storage.get( CACHE_KEY );
+                if ( raw ) {
+                    var obj = JSON.parse( raw );
+                    if ( obj && obj.t && ( Date.now() - obj.t ) < CACHE_TTL &&
+                         typeof obj.content === 'string' ) {
+                        return Promise.resolve( {
+                            content: obj.content,
+                            timestamp: obj.timestamp || null
+                        } );
+                    }
                 }
-            }
-        } catch ( e ) { /* 忽略缓存异常 */ }
+            } catch ( e ) { /* 忽略缓存异常 */ }
+        }
 
         return fetchDataPage().then( function ( result ) {
-            try {
-                mw.storage.set( CACHE_KEY, JSON.stringify( {
-                    t: Date.now(),
-                    content: result.content,
-                    timestamp: result.timestamp
-                } ) );
-            } catch ( e ) { /* 忽略写入异常 */ }
+            if ( !debug ) {
+                try {
+                    mw.storage.set( CACHE_KEY, JSON.stringify( {
+                        t: Date.now(),
+                        content: result.content,
+                        timestamp: result.timestamp
+                    } ) );
+                } catch ( e ) { /* 忽略写入异常 */ }
+            }
             return result;
         } );
     }
@@ -316,7 +343,7 @@
             '<div class="resv-form-title">新增预定</div>' +
             '<div class="resv-field">' +
             '<label for="resv-input">页面名称</label>' +
-            '<input class="resv-input" id="resv-input" type="text" placeholder="输入主命名空间页面名，例如 Level CN 11" />' +
+            '<input class="resv-input" id="resv-input" type="text" placeholder="输入主命名空间页面名，例如 001" />' +
             '</div>' +
             ownerFieldHtml +
             '<button class="resv-btn" id="resv-submit" type="button">提交预定</button>' +
@@ -413,7 +440,7 @@
             if ( msg === 'already-reserved' ) {
                 status.textContent = '此页面已被预定。';
             } else if ( msg === 'editconflict' ) {
-                status.textContent = '提交失败：其它用户刚刚编辑了预定列表，请稍后重试。';
+                status.textContent = '提交失败：其他人刚刚编辑了预定列表，请稍后重试。';
             } else if ( msg === 'data-page-broken' ) {
                 status.textContent = '提交失败：数据页面表格结构异常。';
             } else if ( msg === 'query-failed' ) {
@@ -505,7 +532,7 @@
                     return;
                 }
                 if ( pageExists ) {
-                    injectNotice( '此页面已被 ' + owner + ' 预定，但已被另外的用户填充，待管理员处理。' );
+                    injectNotice( '此页面已被 ' + owner + ' 预定，但已被他人填充，待管理员处理。' );
                     return;
                 }
                 injectNotice( '此页面已被 ' + owner + ' 预定，请勿编辑或移动文章至此。' );
