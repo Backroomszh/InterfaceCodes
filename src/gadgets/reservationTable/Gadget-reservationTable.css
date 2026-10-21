@@ -48,17 +48,19 @@
 .resv-form {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 220px;
-    gap: 14px 24px;
-    padding: 22px 24px;
-    margin: 16px 0;
-    background: var(--resv-canvas);
-    border: 1px solid var(--resv-line);
-    border-radius: var(--resv-radius);
-    box-shadow: var(--resv-shadow);
-    font-family: var(--resv-font);
-    font-size: 14px;
-    color: var(--resv-text);
-    line-height: 1.55;
+    column-gap: 2.4em;
+    row-gap: 0;
+    padding: 0;
+    margin: 0;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    font-family: -apple-system, "PingFang SC", "Hiragino Sans GB",
+                 "Microsoft YaHei", "Source Han Sans SC", sans-serif;
+    font-size: 14.5px;
+    color: #191a1d;
+    line-height: 1.8;
 }
 
 .resv-form > * {
@@ -68,176 +70,159 @@
 .resv-form-title {
     grid-column: 1 / -1;
     display: flex;
-    align-items: center;
-    gap: 14px;
-    margin-bottom: 4px;
-    font-size: 15px;
-    font-weight: 600;
-    letter-spacing: 0.01em;
-    color: var(--resv-text);
+    align-items: baseline;
+    margin: 0 0 1.6em;
+    padding-bottom: .55em;
+    border-bottom: 1px solid #191a1d;
+    font-family: Georgia, "Songti SC", "SimSun", serif;
+    font-size: 1.45rem;
+    font-weight: 400;
+    letter-spacing: .06em;
+    color: #191a1d;
     user-select: none;
 }
 
-.resv-form-title::before,
 .resv-form-title::after {
     content: "";
     flex: 1;
     height: 1px;
-    background: var(--resv-line);
+    background: #dcd7ce;
+    align-self: center;
+    margin-left: .9em;
 }
 
 .resv-field {
     display: flex;
-    align-items: center;
-    gap: 14px;
+    align-items: baseline;
+    gap: 1.2em;
     min-width: 0;
+    padding: .9em 0;
+    border-bottom: 1px dotted #dcd7ce;
 }
 
 .resv-field label {
-    flex: 0 0 5em;
+    flex: 0 0 7em;
     font-size: 13px;
-    font-weight: 500;
-    color: var(--resv-text-muted);
+    font-weight: 400;
+    letter-spacing: .08em;
+    color: #726d66;
     user-select: none;
 }
 
 .resv-input {
     flex: 1;
     min-width: 0;
-    max-width: 320px;
-    padding: 9px 14px;
+    max-width: 340px;
+    padding: .3em 0;
     box-sizing: border-box;
-    background: var(--resv-canvas);
-    border: 1px solid var(--resv-line-strong);
-    border-radius: var(--resv-radius-sm);
-    color: var(--resv-text);
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid #dcd7ce;
+    border-radius: 0;
+    color: #191a1d;
     font-family: inherit;
-    font-size: 14px;
-    line-height: 1.4;
+    font-size: 14.5px;
+    line-height: 1.6;
     -webkit-appearance: none;
     appearance: none;
     outline: none;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+    transition: border-color .18s ease, box-shadow .18s ease;
 }
 
 .resv-input::placeholder {
-    color: var(--resv-text-subtle);
+    color: #b8b2a8;
+    font-style: italic;
     opacity: 1;
 }
 
 .resv-input:hover {
-    border-color: #c3cabf;
+    border-bottom-color: #726d66;
 }
 
 .resv-input:focus {
-    background: var(--resv-mint);
-    border-color: var(--resv-primary);
-    box-shadow: 0 0 0 3px var(--resv-primary-ring);
+    border-bottom-color: #9e3327;
+    box-shadow: 0 1px 0 0 #9e3327;
 }
 
 .resv-btn {
+    grid-column: 1;
     align-self: start;
     justify-self: start;
-    grid-column: 1;
-    margin-top: 6px;
-    padding: 9px 22px;
-    background: var(--resv-primary);
-    color: #ffffff;
-    border: none;
-    border-radius: var(--resv-radius-sm);
-    font-family: inherit;
-    font-size: 14px;
-    font-weight: 500;
+    margin-top: 2em;
+    padding: .75em 1.8em;
+    background: #191a1d;
+    color: #f4f1ea;
+    border: 0;
+    border-radius: 0;
+    font-family: Georgia, "Songti SC", "SimSun", serif;
+    font-size: 13px;
+    letter-spacing: .16em;
     line-height: 1.4;
     cursor: pointer;
     -webkit-appearance: none;
     appearance: none;
-    transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
-    box-shadow: 0 1px 2px rgba(74, 122, 62, 0.25);
+    transition: background .18s ease, color .18s ease;
 }
 
 .resv-btn:hover {
-    background: var(--resv-primary-hover);
-    box-shadow: 0 2px 6px rgba(74, 122, 62, 0.3);
+    background: #9e3327;
+    color: #f4f1ea;
 }
 
 .resv-btn:active {
-    transform: translateY(1px);
-    box-shadow: 0 1px 1px rgba(74, 122, 62, 0.25);
+    transform: none;
 }
 
 .resv-btn:focus-visible {
-    outline: none;
-    box-shadow: 0 0 0 3px var(--resv-primary-ring);
+    outline: 2px solid #9e3327;
+    outline-offset: 2px;
 }
 
 .resv-btn:disabled {
-    opacity: 0.55;
+    opacity: .4;
     cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
 }
 
 .resv-btn--danger {
     background: transparent;
-    color: var(--resv-danger);
-    border: 1px solid var(--resv-danger);
-    box-shadow: none;
+    color: #9e3327;
+    border: 1px solid #9e3327;
 }
 
 .resv-btn--danger:hover {
-    background: var(--resv-danger-soft);
-    color: var(--resv-danger-hover);
-    border-color: var(--resv-danger-hover);
-    box-shadow: none;
-}
-
-.resv-btn--danger:active {
-    transform: translateY(1px);
+    background: #9e3327;
+    color: #f4f1ea;
+    border-color: #9e3327;
 }
 
 .resv-btn--danger:focus-visible {
-    outline: none;
-    box-shadow: 0 0 0 3px rgba(194, 67, 59, 0.2);
+    outline-color: #9e3327;
 }
 
 .resv-status {
     grid-column: 2;
     grid-row: 2 / span 3;
-    position: relative;
     display: flex;
     align-items: center;
-    gap: 12px;
     min-height: 100%;
-    padding: 16px 16px 16px 46px;
-    background: var(--resv-mint);
-    border: 1px solid var(--resv-mint-edge);
-    border-radius: var(--resv-radius-sm);
-    color: var(--resv-text);
-    font-family: var(--resv-font);
+    padding: 1.2em 1.4em;
+    background: #f4f1ea;
+    border: 0;
+    border-left: 3px solid #9e3327;
+    border-radius: 0;
+    color: #191a1d;
+    font-family: inherit;
     font-size: 13px;
-    line-height: 1.55;
+    line-height: 1.7;
     word-break: break-word;
     overflow-wrap: anywhere;
-    transition: background 0.2s ease, border-color 0.2s ease;
 }
 
 .resv-status:empty::after {
     content: "等待操作";
-    color: var(--resv-text-muted);
+    color: #726d66;
     font-style: italic;
     font-size: 13px;
-}
-
-@keyframes resv-status-pulse {
-    0%, 100% {
-        box-shadow: 0 0 0 0 rgba(74, 122, 62, 0.5);
-        background: transparent;
-    }
-    50% {
-        box-shadow: 0 0 0 5px rgba(74, 122, 62, 0);
-        background: rgba(74, 122, 62, 0.15);
-    }
 }
 
 .resv-notice {
@@ -599,25 +584,74 @@
                           0 16px 40px rgba(0, 0, 0, 0.55);
 }
 
-.skin-theme-clientpref-night .resv-btn {
-    color: #1c1f1b;
-    box-shadow: none;
+.skin-theme-clientpref-night .resv-form {
+    color: #e8e4d8;
 }
 
-.skin-theme-clientpref-night .resv-btn:hover {
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+.skin-theme-clientpref-night .resv-form-title {
+    color: #e8e4d8;
+    border-bottom-color: #e8e4d8;
 }
 
-.skin-theme-clientpref-night .resv-btn--danger {
+.skin-theme-clientpref-night .resv-form-title::after {
+    background: #3a352c;
+}
+
+.skin-theme-clientpref-night .resv-field {
+    border-bottom-color: #3a352c;
+}
+
+.skin-theme-clientpref-night .resv-field label {
+    color: #a8a196;
+}
+
+.skin-theme-clientpref-night .resv-input {
+    color: #e8e4d8;
+    border-bottom-color: #3a352c;
+}
+
+.skin-theme-clientpref-night .resv-input::placeholder {
+    color: #6f6a60;
+}
+
+.skin-theme-clientpref-night .resv-input:hover {
+    border-bottom-color: #a8a196;
+}
+
+.skin-theme-clientpref-night .resv-input:focus {
+    border-bottom-color: #c47a6e;
+    box-shadow: 0 1px 0 0 #c47a6e;
+}
+
+.skin-theme-clientpref-night .resv-form .resv-btn {
+    background: #e8e4d8;
+    color: #191a1d;
+}
+
+.skin-theme-clientpref-night .resv-form .resv-btn:hover {
+    background: #c47a6e;
+    color: #191a1d;
+}
+
+.skin-theme-clientpref-night .resv-form .resv-btn--danger {
     background: transparent;
-    color: var(--resv-danger);
-    border-color: var(--resv-danger);
+    color: #c47a6e;
+    border-color: #c47a6e;
 }
 
-.skin-theme-clientpref-night .resv-btn--danger:hover {
-    background: var(--resv-danger-soft);
-    color: var(--resv-danger-hover);
-    border-color: var(--resv-danger-hover);
+.skin-theme-clientpref-night .resv-form .resv-btn--danger:hover {
+    background: #c47a6e;
+    color: #191a1d;
+    border-color: #c47a6e;
+}
+
+.skin-theme-clientpref-night .resv-status {
+    background: #2a2620;
+    color: #e8e4d8;
+}
+
+.skin-theme-clientpref-night .resv-status:empty::after {
+    color: #a8a196;
 }
 
 .skin-theme-clientpref-night .resv-notice {
@@ -631,8 +665,9 @@
 @media (max-width: 640px) {
     .resv-form {
         grid-template-columns: 1fr;
-        gap: 12px;
-        padding: 18px 16px;
+        column-gap: 0;
+        row-gap: 0;
+        padding: 0;
     }
 
     .resv-form > *,
@@ -644,12 +679,14 @@
 
     .resv-status {
         min-height: 64px;
+        margin-top: 1.6em;
     }
 
     .resv-field {
         flex-direction: column;
         align-items: stretch;
-        gap: 6px;
+        gap: .35em;
+        padding: 1em 0;
     }
 
     .resv-field label {
@@ -692,12 +729,6 @@
     .resv-popup,
     .resv-block-card {
         animation: none;
-    }
-
-    .resv-status::before {
-        animation: none;
-        background: var(--resv-primary);
-        box-shadow: none;
     }
 
     .resv-input,
