@@ -1,10 +1,6 @@
 ( function () {
 'use strict';
 
-if ( typeof mw === 'undefined' || typeof mw.Api !== 'function' || typeof mw.util === 'undefined' ) {
-    return;
-}
-
 function runAll() {
     var VOTING_PANEL_SELECTOR = '.voting-panel';
     var PLACEHOLDER_CLASS = 'voting-panel-placeholder';
@@ -54,7 +50,9 @@ function runAll() {
 
     function vsNotify( text, opts ) {
         try {
-            if ( typeof mw.notify === 'function' ) mw.notify( text, opts || {} );
+            if ( typeof mw !== 'undefined' && typeof mw.notify === 'function' ) {
+                mw.notify( text, opts || {} );
+            }
         } catch ( e ) {}
     }
 
@@ -1133,6 +1131,9 @@ function runAll() {
         } );
     }
 
+    /* ============================================================
+     * 排名入口（嵌入模式绕过白名单）
+     * ============================================================ */
     function initRanking() {
         var allowGlobal = isAllowed( 'globalRanking' );
         var allowMonthly = isAllowed( 'monthlyRanking' );
@@ -1150,6 +1151,7 @@ function runAll() {
                 var isMonthly = wrap.classList.contains( 'voting-ranking--monthly' );
                 var embedMode = wrap.classList.contains( 'voting-ranking--embed' );
 
+                /* 非嵌入模式才检查白名单 */
                 if ( !embedMode ) {
                     if ( isMonthly && !allowMonthly ) return;
                     if ( !isMonthly && !allowGlobal ) return;
@@ -1982,6 +1984,14 @@ function runAll() {
     }
 }
 
-runAll();
+if ( typeof mw === 'undefined' ) return;
+if ( typeof mw.Api === 'function' && typeof mw.util !== 'undefined' ) {
+    runAll();
+    return;
+}
+if ( typeof mw.loader === 'undefined' || typeof mw.loader.using !== 'function' ) return;
+mw.loader.using( [ 'mediawiki.api', 'mediawiki.util' ] ).then( function () {
+    runAll();
+} ).catch( function () {} );
 
 } )();
