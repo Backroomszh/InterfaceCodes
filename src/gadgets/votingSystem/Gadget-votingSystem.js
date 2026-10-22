@@ -1,6 +1,10 @@
 ( function () {
 'use strict';
 
+if ( typeof mw === 'undefined' || typeof mw.Api !== 'function' || typeof mw.util === 'undefined' ) {
+    return;
+}
+
 function runAll() {
     var VOTING_PANEL_SELECTOR = '.voting-panel';
     var PLACEHOLDER_CLASS = 'voting-panel-placeholder';
@@ -50,9 +54,7 @@ function runAll() {
 
     function vsNotify( text, opts ) {
         try {
-            if ( typeof mw !== 'undefined' && typeof mw.notify === 'function' ) {
-                mw.notify( text, opts || {} );
-            }
+            if ( typeof mw.notify === 'function' ) mw.notify( text, opts || {} );
         } catch ( e ) {}
     }
 
@@ -89,6 +91,9 @@ function runAll() {
         'panel-details-delete-error': '撤销失败。',
         'panel-scoring-root-note': '本页面的投票计入 $1 的评分。',
         'panel-not-saved': '此页面尚未保存，无法投票。',
+        'panel-score-label': '当前评分：',
+        'panel-score-count': '（$1 人）',
+        'panel-score-none': '暂无评分',
         'rewrite-login-required': '请先登录后再提交申请。',
         'rewrite-title': '申请重写页面参与评分',
         'rewrite-page-label': '页面名称：',
@@ -173,6 +178,13 @@ function runAll() {
         if ( n > 0 ) return '+' + n.toFixed( 1 ).replace( /\.0$/, '' );
         if ( n < 0 ) return n.toFixed( 1 ).replace( /\.0$/, '' );
         return '0';
+    }
+
+    function formatAvgScore( v ) {
+        var n = Number( v );
+        var s = n.toFixed( 2 );
+        if ( n > 0 ) return '+' + s;
+        return s;
     }
 
     function getUserGroups() { return mw.config.get( 'wgUserGroups' ) || []; }
@@ -516,6 +528,61 @@ function runAll() {
         }
         var C = 3, m = 0;
         return { score: ( C * m + S ) / ( C + W ), count: n };
+    }
+
+    function computePanelScore( records, ncw ) {
+        if ( !records || !records.length ) return null;
+        var weighted = [];
+        for ( var i = 0; i < records.length; i++ ) {
+            var r = records[ i ];
+            var w = ( r.cid > 0 ) ? r.weight : ncw;
+            weighted.push( { value: r.value, weight: w } );
+        }
+        return computeScore( weighted );
+    }
+
+    function updatePanelScoreBox( panel, scoreData ) {
+        var box = panel.querySelector( '.voting-panel-score-box' );
+        if ( !box ) return;
+
+        var valEl = box.querySelector( '.voting-panel-score-value' );
+        var cntEl = box.querySelector( '.voting-panel-score-count' );
+        if ( !valEl || !cntEl ) return;
+
+        if ( !scoreData || scoreData.score === null ) {
+            valEl.textContent = '–';
+            valEl.removeAttribute( 'data-sign' );
+            cntEl.textContent = msg( 'panel-score-none' );
+            box.classList.add( 'voting-score-empty' );
+            return;
+        }
+
+        box.classList.remove( 'voting-score-empty' );
+        valEl.textContent = formatAvgScore( scoreData.score );
+        cntEl.textContent = scoreData.count + ' 人';
+
+        if ( scoreData.score > 0.005 ) valEl.setAttribute( 'data-sign', 'positive' );
+        else if ( scoreData.score < -0.005 ) valEl.setAttribute( 'data-sign', 'negative' );
+        else valEl.setAttribute( 'data-sign', 'zero' );
+    }
+
+    function refreshPanelScore( panel, pageId ) {
+        var rootId = panel.dataset.scoringRootId
+            ? parseInt( panel.dataset.scoringRootId, 10 )
+            : pageId;
+        return Promise.all( [ getRecordsForPage( rootId ), loadConfig() ] ).then( function ( results ) {
+            var records = results[ 0 ];
+            var cfg = results[ 1 ];
+            var ncw = ( cfg.noCommentWeight !== undefined && cfg.noCommentWeight !== null )
+                ? cfg.noCommentWeight : 0.2;
+            var s = computePanelScore( records, ncw );
+            updatePanelScoreBox( panel, s );
+            return s;
+        } );
+    }
+
+    function loadPanelScore( panel, pageId ) {
+        refreshPanelScore( panel, pageId ).catch( function () {} );
     }
 
     function appendVote( line, summary ) {
@@ -1131,9 +1198,6 @@ function runAll() {
         } );
     }
 
-    /* ============================================================
-     * 排名入口（嵌入模式绕过白名单）
-     * ============================================================ */
     function initRanking() {
         var allowGlobal = isAllowed( 'globalRanking' );
         var allowMonthly = isAllowed( 'monthlyRanking' );
@@ -1151,7 +1215,6 @@ function runAll() {
                 var isMonthly = wrap.classList.contains( 'voting-ranking--monthly' );
                 var embedMode = wrap.classList.contains( 'voting-ranking--embed' );
 
-                /* 非嵌入模式才检查白名单 */
                 if ( !embedMode ) {
                     if ( isMonthly && !allowMonthly ) return;
                     if ( !isMonthly && !allowGlobal ) return;
@@ -1224,7 +1287,20 @@ function runAll() {
                             messageEl.className = 'voting-panel-message voting-success';
                         }
                         vsNotify( msg( 'vote-success' ), { type: 'success' } );
-                        setTimeout( function () { location.reload(); }, 400 );
+
+                        refreshPanelScore( panel, pageId ).catch( function () {} );
+
+                        var detailsBox = panel.querySelector( '.voting-panel-details' );
+                        if ( detailsBox && detailsBox.style.display === 'block' ) {
+                            var refreshRootId = panel.dataset.scoringRootId
+                                ? parseInt( panel.dataset.scoringRootId, 10 )
+                                : pageId;
+                            getRecordsForPage( refreshRootId ).then( function ( records ) {
+                                renderDetailsTable( detailsBox, records );
+                                detailsBox.dataset.loaded = '1';
+                                if ( hasRight( 'voting-delete' ) ) bindDeleteButtons( detailsBox );
+                            } ).catch( function () {} );
+                        }
                     } ).catch( function ( e ) {
                         var err = ( e && e.error && e.error.info ) || String( e );
                         if ( messageEl ) {
@@ -1238,7 +1314,7 @@ function runAll() {
         } );
     }
 
-    function revokeVote( voteId, btn ) {
+    function revokeVote( voteId, btn, panel ) {
         if ( !confirm( msg( 'panel-details-delete-confirm' ) ) ) return;
         btn.disabled = true;
         var line = '<!-- V v1 del id=' + voteId + ' by=' + mw.config.get( 'wgUserName' ) + ' t=' + nowSec() + ' -->';
@@ -1252,7 +1328,21 @@ function runAll() {
                 markSnapshotStale( getMonthlySnapshotTitle( curMonth ), 'votemark:snapshot|invalidate|monthly-' + curMonth )
             ] );
         } ).then( function () {
-            location.reload();
+            if ( panel ) {
+                var pageId = parseInt( panel.dataset.pageId, 10 );
+                var rootId = panel.dataset.scoringRootId ? parseInt( panel.dataset.scoringRootId, 10 ) : pageId;
+                refreshPanelScore( panel, pageId ).catch( function () {} );
+                var detailsBox = panel.querySelector( '.voting-panel-details' );
+                if ( detailsBox ) {
+                    getRecordsForPage( rootId ).then( function ( records ) {
+                        renderDetailsTable( detailsBox, records );
+                        detailsBox.dataset.loaded = '1';
+                        if ( hasRight( 'voting-delete' ) ) bindDeleteButtons( detailsBox );
+                    } ).catch( function () {} );
+                }
+            } else {
+                location.reload();
+            }
         } ).catch( function () {
             btn.disabled = false;
             vsNotify( msg( 'panel-details-delete-error' ), { type: 'error' } );
@@ -1260,7 +1350,7 @@ function runAll() {
     }
 
     function showCommentDialog( panel, pageId, value ) {
-        var exist = panel.querySelector( '.voting-comment-overlay' );
+        var exist = document.querySelector( '.voting-comment-overlay' );
         if ( exist ) exist.parentNode.removeChild( exist );
 
         var overlay = el( 'div', 'voting-comment-overlay' );
@@ -1269,7 +1359,8 @@ function runAll() {
         dialog.appendChild( el( 'div', 'voting-comment-no-comment-hint', msg( 'vote-no-comment-hint' ) ) );
 
         var ta = el( 'textarea', 'voting-comment-textarea' );
-        ta.rows = 4; ta.placeholder = msg( 'vote-comment-placeholder' );
+        ta.rows = 4;
+        ta.placeholder = msg( 'vote-comment-placeholder' );
         dialog.appendChild( ta );
 
         var hideRow = el( 'label', 'voting-comment-hide-row' );
@@ -1291,29 +1382,62 @@ function runAll() {
         btnRow.appendChild( cancelBtn );
         dialog.appendChild( btnRow );
         overlay.appendChild( dialog );
-        panel.appendChild( overlay );
+        document.body.appendChild( overlay );
+        document.body.style.overflow = 'hidden';
 
         var messageEl = panel.querySelector( '.voting-panel-message' );
+
+        function cleanup() {
+            if ( overlay.parentNode ) overlay.parentNode.removeChild( overlay );
+            document.body.style.overflow = '';
+        }
 
         function clearActive() {
             var btns = panel.querySelectorAll( '.voting-btn' );
             for ( var i = 0; i < btns.length; i++ ) btns[ i ].classList.remove( 'voting-active' );
         }
 
-        cancelBtn.onclick = function () { overlay.parentNode.removeChild( overlay ); clearActive(); };
+        cancelBtn.onclick = function () {
+            cleanup();
+            clearActive();
+        };
+
         submitWithComment.onclick = function () {
             var txt = ta.value.trim();
-            if ( !txt ) { ta.classList.add( 'voting-comment-error' ); ta.focus(); return; }
-            overlay.parentNode.removeChild( overlay );
+            if ( !txt ) {
+                ta.classList.add( 'voting-comment-error' );
+                ta.focus();
+                return;
+            }
+            cleanup();
             doVote( panel, value, txt, hideCb.checked, messageEl );
         };
+
         submitWithoutComment.onclick = function () {
-            overlay.parentNode.removeChild( overlay );
+            cleanup();
             doVote( panel, value, '', hideCb.checked, messageEl );
         };
+
+        overlay.addEventListener( 'click', function ( e ) {
+            if ( e.target === overlay ) {
+                cleanup();
+                clearActive();
+            }
+        } );
+
+        function onEsc( e ) {
+            if ( e.key === 'Escape' ) {
+                cleanup();
+                clearActive();
+                document.removeEventListener( 'keydown', onEsc );
+            }
+        }
+        document.addEventListener( 'keydown', onEsc );
+
         ta.addEventListener( 'keydown', function ( e ) {
             if ( e.ctrlKey && e.key === 'Enter' ) submitWithComment.click();
         } );
+
         ta.focus();
     }
 
@@ -1331,10 +1455,20 @@ function runAll() {
     function buildBasePanel( pageId ) {
         var panel = el( 'div', 'voting-panel' );
         panel.dataset.pageId = String( pageId );
+
+        var inner = el( 'div', 'voting-panel-inner' );
+
+        var scoreBox = el( 'div', 'voting-panel-score-box voting-score-empty' );
+        scoreBox.appendChild( el( 'div', 'voting-panel-score-value', '–' ) );
+        scoreBox.appendChild( el( 'div', 'voting-panel-score-count', msg( 'panel-score-none' ) ) );
+        inner.appendChild( scoreBox );
+
+        var content = el( 'div', 'voting-panel-content' );
+
         var header = el( 'div', 'voting-panel-header' );
         header.appendChild( el( 'div', 'voting-panel-title', msg( 'panel-title' ) ) );
         header.appendChild( el( 'span', 'voting-panel-details-button-slot' ) );
-        panel.appendChild( header );
+        content.appendChild( header );
 
         var btns = el( 'div', 'voting-panel-buttons' );
         var values = [
@@ -1347,12 +1481,19 @@ function runAll() {
             b.dataset.value = values[ i ].value;
             btns.appendChild( b );
         }
-        panel.appendChild( btns );
-        panel.appendChild( el( 'div', 'voting-panel-message' ) );
+        content.appendChild( btns );
+
+        content.appendChild( el( 'div', 'voting-panel-message' ) );
+
         var details = el( 'div', 'voting-panel-details' );
         details.style.display = 'none';
-        panel.appendChild( details );
-        panel.appendChild( el( 'div', 'voting-panel-login-slot' ) );
+        content.appendChild( details );
+
+        content.appendChild( el( 'div', 'voting-panel-login-slot' ) );
+
+        inner.appendChild( content );
+        panel.appendChild( inner );
+
         return panel;
     }
 
@@ -1374,9 +1515,10 @@ function runAll() {
                         a.href = mw.util.getUrl( rootTitle );
                         note.appendChild( a );
                         note.appendChild( document.createTextNode( parts[ 1 ] || '' ) );
-                        var loginSlot = panel.querySelector( '.voting-panel-login-slot' );
-                        if ( loginSlot ) panel.insertBefore( note, loginSlot );
-                        else panel.appendChild( note );
+                        var contentEl = panel.querySelector( '.voting-panel-content' ) || panel;
+                        var loginSlot = contentEl.querySelector( '.voting-panel-login-slot' );
+                        if ( loginSlot && loginSlot.parentNode === contentEl ) contentEl.insertBefore( note, loginSlot );
+                        else contentEl.appendChild( note );
                     } ).catch( function () {} );
                 }
                 highlightMyVote( panel, pageId );
@@ -1392,6 +1534,8 @@ function runAll() {
                 panel.dataset.bound = '1';
                 var pageId = parseInt( panel.dataset.pageId, 10 );
                 if ( !pageId ) return;
+
+                loadPanelScore( panel, pageId );
 
                 var buttons = panel.querySelectorAll( '.voting-btn' );
                 for ( var j = 0; j < buttons.length; j++ ) {
@@ -1413,7 +1557,8 @@ function runAll() {
                 }
 
                 if ( !isLoggedIn() ) {
-                    var loginSlot = panel.querySelector( '.voting-panel-login-slot' );
+                    var contentEl = panel.querySelector( '.voting-panel-content' ) || panel;
+                    var loginSlot = contentEl.querySelector( '.voting-panel-login-slot' );
                     if ( loginSlot && loginSlot.dataset.filled !== '1' ) {
                         loginSlot.dataset.filled = '1';
                         var wrap = el( 'div', 'voting-panel-login' );
@@ -1517,7 +1662,10 @@ function runAll() {
                 if ( !lastTd ) return;
                 var btn = el( 'button', 'voting-details-delete', msg( 'panel-details-delete' ) );
                 btn.type = 'button';
-                btn.addEventListener( 'click', function () { revokeVote( tr.dataset.voteId, btn ); } );
+                btn.addEventListener( 'click', function () {
+                    var panel = tr.closest( '.voting-panel' );
+                    revokeVote( tr.dataset.voteId, btn, panel );
+                } );
                 lastTd.appendChild( btn );
             } )( rows[ i ] );
         }
@@ -1598,6 +1746,58 @@ function runAll() {
         repositionPanel();
         initPanels();
         enhancePanelAsync( panel, pageId, title, ns, pageName );
+    }
+
+    function initScoreDisplays() {
+        var displays = document.querySelectorAll( '.voting-score' );
+        if ( !displays.length ) return;
+
+        var pageId = parseInt( mw.config.get( 'wgArticleId' ), 10 ) || 0;
+        if ( !pageId ) {
+            for ( var i = 0; i < displays.length; i++ ) displays[ i ].style.display = 'none';
+            return;
+        }
+
+        var title = mw.config.get( 'wgTitle' ) || '';
+        var ns = mw.config.get( 'wgNamespaceNumber' );
+        var pageName = mw.config.get( 'wgPageName' ) || '';
+
+        isExcludedPage( pageName, pageId, title, ns ).then( function ( excluded ) {
+            if ( excluded ) {
+                for ( var i = 0; i < displays.length; i++ ) displays[ i ].style.display = 'none';
+                return;
+            }
+            resolveScoringRoot( pageId, title, ns ).then( function ( rootId ) {
+                Promise.all( [ getRecordsForPage( rootId ), loadConfig() ] ).then( function ( results ) {
+                    var records = results[ 0 ];
+                    var cfg = results[ 1 ];
+                    var ncw = ( cfg.noCommentWeight !== undefined && cfg.noCommentWeight !== null )
+                        ? cfg.noCommentWeight : 0.2;
+                    var s = computePanelScore( records, ncw );
+
+                    for ( var i = 0; i < displays.length; i++ ) {
+                        ( function ( d ) {
+                            if ( !s || s.score === null ) {
+                                d.textContent = msg( 'panel-score-none' );
+                                d.classList.add( 'voting-score-empty' );
+                                return;
+                            }
+                            d.innerHTML = '';
+                            d.appendChild( el( 'span', 'voting-score-label', msg( 'panel-score-label' ) ) );
+                            d.appendChild( el( 'span', 'voting-score-value', formatAvgScore( s.score ) ) );
+                            d.appendChild( el( 'span', 'voting-score-count',
+                                msg( 'panel-score-count', String( s.count ) ) ) );
+                        } )( displays[ i ] );
+                    }
+                } ).catch( function () {
+                    for ( var i = 0; i < displays.length; i++ ) displays[ i ].textContent = '';
+                } );
+            } ).catch( function () {
+                for ( var i = 0; i < displays.length; i++ ) displays[ i ].style.display = 'none';
+            } );
+        } ).catch( function () {
+            for ( var i = 0; i < displays.length; i++ ) displays[ i ].style.display = 'none';
+        } );
     }
 
     function readRewriteRequests() {
@@ -1971,6 +2171,7 @@ function runAll() {
 
     function init() {
         try { setupPanels(); } catch ( e ) {}
+        try { initScoreDisplays(); } catch ( e ) {}
         try { initRanking(); } catch ( e ) {}
         try { initRewriteForm(); } catch ( e ) {}
         try { initReview(); } catch ( e ) {}
@@ -1984,14 +2185,6 @@ function runAll() {
     }
 }
 
-if ( typeof mw === 'undefined' ) return;
-if ( typeof mw.Api === 'function' && typeof mw.util !== 'undefined' ) {
-    runAll();
-    return;
-}
-if ( typeof mw.loader === 'undefined' || typeof mw.loader.using !== 'function' ) return;
-mw.loader.using( [ 'mediawiki.api', 'mediawiki.util' ] ).then( function () {
-    runAll();
-} ).catch( function () {} );
+runAll();
 
 } )();
