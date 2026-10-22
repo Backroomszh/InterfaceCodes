@@ -1,6 +1,3 @@
-/* ============================================================
-   一、外层：只负责外部框，不写任何布局属性
-   ============================================================ */
 @media screen and (width >= 1080px) {
     .read-more-container {
         max-width: 90%;
@@ -27,9 +24,6 @@ ul.read-more-container-card-list {
     gap: var(--space-md, 1em);
 }
 
-/* ============================================================
-   二、内层：内部背景 + padding + overlay 定位上下文
-   ============================================================ */
 .read-more-container-large {
     background: var(--color-surface-0);
     border-radius: var(--border-radius-medium, 8px);
@@ -51,17 +45,9 @@ ul.read-more-container-card-list {
     z-index: 1;
 }
 
-/* ============================================================
-   三、ul：一个字不碰 display / gap / padding / margin，保留原样
-   ============================================================ */
-
-/* ============================================================
-   四、li：只加等宽能力，不写 margin / padding
-   ============================================================ */
 ul.read-more-container-card-list > li {
-    flex: 1 1 0;          /* 同一行等宽 */
-    min-width: 0;         /* 防止长内容撑破 */
-    /* 不写 margin / padding / display */
+    flex: 1 1 0;
+    min-width: 0;
 }
 
 ul.read-more-container-card-list > li > a {
@@ -71,9 +57,6 @@ ul.read-more-container-card-list > li > a {
     color: inherit;
 }
 
-/* ============================================================
-   五、卡片内部：不设高度，缩略图固定正方形居中
-   ============================================================ */
 ul.read-more-container-card-list .cdx-card {
     display: flex;
     flex-direction: row;
@@ -89,7 +72,6 @@ ul.read-more-container-card-list .cdx-card {
     overflow: hidden;
     position: relative;
     transition: background-color 0.4s ease, border-color 0.4s ease;
-    /* 不写 height / min-height / aspect-ratio */
 }
 
 ul.read-more-container-card-list > li > a:hover .cdx-card {
@@ -101,7 +83,7 @@ ul.read-more-container-card-list .cdx-card__thumbnail {
     flex: 0 0 48px;
     width: 48px;
     height: 48px;
-    align-self: center;      /* 不 stretch，卡片高度由文字决定 */
+    align-self: center;
     overflow: hidden;
     border-radius: var(--border-radius-base, 4px);
     position: relative;
@@ -162,25 +144,45 @@ ul.read-more-container-card-list .cdx-card__text__description {
     margin-top: 2px;
 }
 
-/* ============================================================
-   六、overlay：挂在内层，默认半透明显示 Level0 背景图
-   ============================================================ */
 .read-more-hover-overlay {
     position: absolute;
-    inset: 0;                 /* 相对 .read-more-container-large 铺满 */
-    z-index: -1;              /* 永远在卡片和文字之后 */
+    inset: 0;
+    z-index: -1;
     background-image: url('https://static.wikitide.net/backroomszhwiki/9/95/Level0Original.jpg');
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
     border-radius: inherit;
-    opacity: 0.25;            /* 无 hover 时也半透明可见 */
+    opacity: 0.25;
     pointer-events: none;
     transition: opacity 1.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 @media (prefers-reduced-motion: reduce) {
     .read-more-hover-overlay {
+        transition: none;
+    }
+}
+
+.read-more-hover-overlay-hover {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    border-radius: inherit;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.read-more-hover-overlay-hover.is-visible {
+    opacity: 0.25;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .read-more-hover-overlay-hover {
         transition: none;
     }
 }
