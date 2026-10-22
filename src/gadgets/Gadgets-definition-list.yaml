@@ -36,6 +36,7 @@
       - StaffComment
       - votingSystem
       - wikiwalkNav
+      - RelatedArticlesOverlay
 
 - section: Interaction
   gadgets:
