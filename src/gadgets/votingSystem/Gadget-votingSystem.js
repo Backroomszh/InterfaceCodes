@@ -1286,7 +1286,8 @@ function runAll() {
                     var line = '<!-- V v1 u=' + mw.config.get( 'wgUserName' )
                         + ' p=' + rootId + ' v=' + value + ' w=' + weight + ' t=' + nowSec()
                         + ' h=' + ( hideScore ? 1 : 0 ) + ' c=' + commentId + ' id=' + uuid() + ' -->';
-                    var summary = 'votemark:vote|' + value + '|' + weight + '|' + ( hideScore ? 1 : 0 );
+                    var summaryPrefix = isFirstVote ? 'votemark:vote|' : 'votemark:update|';
+                    var summary = summaryPrefix + value + '|' + weight + '|' + ( hideScore ? 1 : 0 );
                     return appendVote( line, summary ).then( function () {
                         invalidateAllRecords();
                         return purgePages( [ getDataPageTitle( 'Votes/' + isoMonth() ), mw.config.get( 'wgPageName' ) ] );
