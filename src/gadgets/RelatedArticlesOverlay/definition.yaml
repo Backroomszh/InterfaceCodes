@@ -1,0 +1,15 @@
+ResourceLoader: true
+hidden: false
+default: true
+type: general
+rights: []
+dependencies:
+    - mediawiki.api
+skins:
+    - citizen
+actions: []
+namespaces: []
+enable: true
+files:
+    - Gadget-RelatedArticlesOverlay.js
+    - Gadget-RelatedArticlesOverlay.css

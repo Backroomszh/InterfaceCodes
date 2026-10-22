@@ -1,0 +1,186 @@
+/* ============================================================
+   一、外层：只负责外部框，不写任何布局属性
+   ============================================================ */
+@media screen and (width >= 1080px) {
+    .read-more-container {
+        max-width: 90%;
+    }
+}
+
+#mw-data-after-content {
+    padding-inline: 3.5%;
+    box-sizing: border-box;
+}
+
+.read-more-container {
+    width: auto;
+    margin-inline: auto;
+    box-sizing: border-box;
+    background: var(--utgheader);
+    border-radius: var(--border-radius-large, 12px);
+    padding: 0 !important;
+    box-shadow: 0 0 1.5px 3.5px #00000026;
+}
+
+ul.read-more-container-card-list {
+    margin: var(--space-md, 1em) !important;
+    gap: var(--space-md, 1em);
+}
+
+/* ============================================================
+   二、内层：内部背景 + padding + overlay 定位上下文
+   ============================================================ */
+.read-more-container-large {
+    background: var(--color-surface-0);
+    border-radius: var(--border-radius-medium, 8px);
+    padding: var(--space-lg, 1.5em) !important;
+    margin: 10px;
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    box-shadow: none;
+    border: solid 1px #4d36145c;
+}
+
+.read-more-container-heading {
+    margin: 0 0 var(--space-md, 1em) 0;
+    font-size: 1.1em;
+    font-weight: 600;
+    color: var(--color-emphasized);
+    position: relative;
+    z-index: 1;
+}
+
+/* ============================================================
+   三、ul：一个字不碰 display / gap / padding / margin，保留原样
+   ============================================================ */
+
+/* ============================================================
+   四、li：只加等宽能力，不写 margin / padding
+   ============================================================ */
+ul.read-more-container-card-list > li {
+    flex: 1 1 0;          /* 同一行等宽 */
+    min-width: 0;         /* 防止长内容撑破 */
+    /* 不写 margin / padding / display */
+}
+
+ul.read-more-container-card-list > li > a {
+    display: flex;
+    width: 100%;
+    text-decoration: none;
+    color: inherit;
+}
+
+/* ============================================================
+   五、卡片内部：不设高度，缩略图固定正方形居中
+   ============================================================ */
+ul.read-more-container-card-list .cdx-card {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    background: var(--color-surface-2);
+    border: 1px solid var(--border-color-base, rgba(0, 0, 0, 0.06));
+    border-radius: var(--border-radius-medium, 8px);
+    padding-left: 12px;
+    padding-right: 12px;
+    overflow: hidden;
+    position: relative;
+    transition: background-color 0.4s ease, border-color 0.4s ease;
+    /* 不写 height / min-height / aspect-ratio */
+}
+
+ul.read-more-container-card-list > li > a:hover .cdx-card {
+    background: var(--color-surface-2--hover, var(--color-surface-2));
+    border-color: var(--border-color-interactive, rgba(0, 0, 0, 0.14));
+}
+
+ul.read-more-container-card-list .cdx-card__thumbnail {
+    flex: 0 0 48px;
+    width: 48px;
+    height: 48px;
+    align-self: center;      /* 不 stretch，卡片高度由文字决定 */
+    overflow: hidden;
+    border-radius: var(--border-radius-base, 4px);
+    position: relative;
+    z-index: 1;
+}
+
+ul.read-more-container-card-list .cdx-thumbnail__image {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+ul.read-more-container-card-list .cdx-thumbnail__placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-surface-3);
+}
+
+ul.read-more-container-card-list .cdx-card__text {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding-left: 10px;
+    padding-right: 4px;
+    position: relative;
+    z-index: 1;
+}
+
+ul.read-more-container-card-list .cdx-card__text__title {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-size: 0.9em;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--color-emphasized);
+    overflow-wrap: break-word;
+}
+
+ul.read-more-container-card-list .cdx-card__text__description {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-size: 0.75em;
+    line-height: 1.35;
+    color: var(--color-subtle);
+    overflow-wrap: break-word;
+    margin-top: 2px;
+}
+
+/* ============================================================
+   六、overlay：挂在内层，默认半透明显示 Level0 背景图
+   ============================================================ */
+.read-more-hover-overlay {
+    position: absolute;
+    inset: 0;                 /* 相对 .read-more-container-large 铺满 */
+    z-index: -1;              /* 永远在卡片和文字之后 */
+    background-image: url('https://static.wikitide.net/backroomszhwiki/9/95/Level0Original.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    border-radius: inherit;
+    opacity: 0.25;            /* 无 hover 时也半透明可见 */
+    pointer-events: none;
+    transition: opacity 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .read-more-hover-overlay {
+        transition: none;
+    }
+}
