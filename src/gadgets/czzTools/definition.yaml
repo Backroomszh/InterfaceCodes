@@ -1,6 +1,6 @@
 ResourceLoader: true
 hidden: false
-default: false
+default: true
 type: general
 rights: []
 dependencies:
