@@ -1,0 +1,10 @@
+ResourceLoader: true
+hidden: false
+default: true
+type: general
+rights: []
+dependencies:
+    - mediawiki.util
+enable: true
+files:
+    - Gadget-wikiwalkNav.js
