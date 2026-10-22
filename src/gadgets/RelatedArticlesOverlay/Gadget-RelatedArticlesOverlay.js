@@ -2,14 +2,14 @@
     'use strict';
 
     var OVERLAY_CLASS = 'read-more-hover-overlay';
-    var DEFAULT_IMAGE = "url('https://static.wikitide.net/backroomszhwiki/9/95/Level0Original.jpg')";
+    var LAYER_A_CLASS = 'read-more-hover-overlay-hover-a';
+    var LAYER_B_CLASS = 'read-more-hover-overlay-hover-b';
     var prefetchedLists = new WeakSet();
 
     function normalizeTitle( t ) {
         return ( t || '' ).replace( /_/g, ' ' ).trim();
     }
 
-    /* 卡片一出现就批量请求原图，写入 li.dataset.originalImage */
     function prefetchImages( list ) {
         if ( prefetchedLists.has( list ) ) return;
         prefetchedLists.add( list );
@@ -53,7 +53,6 @@
         var list = container.querySelector( '.read-more-container-card-list' );
         if ( !list ) return;
 
-        /* 卡片一渲染就预取，不等 hover */
         prefetchImages( list );
 
         var overlay = container.querySelector( '.' + OVERLAY_CLASS );
@@ -63,8 +62,57 @@
             container.insertBefore( overlay, container.firstChild );
         }
 
+        var layerA = container.querySelector( '.' + LAYER_A_CLASS );
+        if ( !layerA ) {
+            layerA = document.createElement( 'div' );
+            layerA.className = LAYER_A_CLASS;
+            container.insertBefore( layerA, overlay.nextSibling );
+        }
+
+        var layerB = container.querySelector( '.' + LAYER_B_CLASS );
+        if ( !layerB ) {
+            layerB = document.createElement( 'div' );
+            layerB.className = LAYER_B_CLASS;
+            container.insertBefore( layerB, layerA.nextSibling );
+        }
+
         if ( container.dataset.hoverBound ) return;
         container.dataset.hoverBound = '1';
+
+        var layers = [ layerA, layerB ];
+        var activeIndex = 0;
+
+        function hideHoverLayers() {
+            layers[ 0 ].classList.remove( 'is-visible' );
+            layers[ 1 ].classList.remove( 'is-visible' );
+        }
+
+        function showImage( url ) {
+            if ( !url ) {
+                overlay.classList.remove( 'is-dimmed' );
+                hideHoverLayers();
+                return;
+            }
+
+            overlay.classList.add( 'is-dimmed' );
+
+            var nextIndex = activeIndex === 0 ? 1 : 0;
+            var nextLayer = layers[ nextIndex ];
+            var prevLayer = layers[ activeIndex ];
+
+            nextLayer.style.backgroundImage = 'url("' + url.replace( /"/g, '\\"' ) + '")';
+            nextLayer.offsetHeight;
+
+            nextLayer.classList.add( 'is-visible' );
+            prevLayer.classList.remove( 'is-visible' );
+
+            activeIndex = nextIndex;
+        }
+
+        function hideImage() {
+            overlay.classList.remove( 'is-dimmed' );
+            hideHoverLayers();
+        }
 
         list.addEventListener( 'mouseover', function ( e ) {
             var link = e.target.closest( 'a' );
@@ -72,16 +120,10 @@
             var li = link.closest( 'li' );
             if ( !li ) return;
 
-            var url = li.dataset.originalImage;
-            if ( url ) {
-                overlay.style.backgroundImage = 'url("' + url.replace( /"/g, '\\"' ) + '")';
-            }
-            /* 无原图时保持默认 Level0 背景，不切空 */
+            showImage( li.dataset.originalImage );
         } );
 
-        list.addEventListener( 'mouseleave', function () {
-            overlay.style.backgroundImage = DEFAULT_IMAGE;   /* 恢复默认图 */
-        } );
+        list.addEventListener( 'mouseleave', hideImage );
     }
 
     function scan() {
