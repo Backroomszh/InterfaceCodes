@@ -14,7 +14,7 @@ function runAll() {
     var SNAPSHOT_VERSION = 2;
     var RANKING_SNAPSHOT_MAX_AGE = 120;
     var RANKING_SNAPSHOT_DEBOUNCE = 60;
-    var RANKING_RENDER_CHUNK = 100;
+    var RANKING_RENDER_CHUNK = 50;
 
     var ALLOWED_PAGES = {
         globalRanking:  [ 'The_Backrooms_Wiki:全站投票排名' ],
@@ -375,7 +375,7 @@ function runAll() {
         if ( store.h.length >= 20 || store.d.length >= 80 ) return true;
         return false;
     }
-    
+
     function recordVoteTimestamp() {
         var key = 'voting_rl_' + ( mw.config.get( 'wgUserName' ) || 'anon' );
         var store = JSON.parse( localStorage.getItem( key ) || '{"h":[],"d":[]}' );
@@ -631,7 +631,15 @@ function runAll() {
                 try {
                     var obj = JSON.parse( m[ 2 ] );
                     if ( obj && Array.isArray( obj.rows ) ) {
-                        lastSnap = { ts: Math.floor( new Date( m[ 1 ] ).getTime() / 1000 ), rows: obj.rows };
+                        lastSnap = {
+                            ts: Math.floor( new Date( m[ 1 ] ).getTime() / 1000 ),
+                            rows: obj.rows,
+                            done: ( typeof obj.done === 'number' ) ? obj.done : obj.rows.length,
+                            total: ( typeof obj.total === 'number' ) ? obj.total : obj.rows.length,
+                            complete: ( typeof obj.complete === 'undefined' )
+                                ? true
+                                : ( obj.complete === 1 || obj.complete === true )
+                        };
                     }
                 } catch ( e ) {}
             }
@@ -644,14 +652,18 @@ function runAll() {
         } );
     }
 
-    function writeSnapshot( title, marker, rows ) {
+    function writeSnapshot( title, marker, rows, extra ) {
         var now = nowSec();
         var iso = new Date( now * 1000 ).toISOString();
-        var json = JSON.stringify( { rows: rows } );
-        var line = '<!-- ' + marker + '_v' + SNAPSHOT_VERSION + ':' + iso + '|' + json + ' -->';
+        var obj = { rows: rows };
+        if ( extra ) {
+            for ( var k in extra ) obj[ k ] = extra[ k ];
+        }
+        var json = JSON.stringify( obj );
+        var content = '<!-- ' + marker + '_v' + SNAPSHOT_VERSION + ':' + iso + '|' + json + ' -->';
         return new mw.Api().postWithToken( 'csrf', {
             action: 'edit', title: title,
-            appendtext: '\n' + line,
+            text: content,
             summary: 'votemark:snapshot|' + marker.toLowerCase() + '|v' + SNAPSHOT_VERSION + '|' + rows.length,
             minor: true
         } ).then( function () { return true; } ).catch( function () { return false; } );
@@ -666,11 +678,11 @@ function runAll() {
     }
 
     function readGlobalSnapshot() { return readSnapshot( getGlobalSnapshotTitle(), 'SNAPSHOT' ); }
-    function writeGlobalSnapshot( rows ) { return writeSnapshot( getGlobalSnapshotTitle(), 'SNAPSHOT', rows ); }
+    function writeGlobalSnapshot( rows, extra ) { return writeSnapshot( getGlobalSnapshotTitle(), 'SNAPSHOT', rows, extra ); }
     function readMonthlySnapshot( month ) { return readSnapshot( getMonthlySnapshotTitle( month ), 'SNAPSHOT' ); }
-    function writeMonthlySnapshot( month, rows ) { return writeSnapshot( getMonthlySnapshotTitle( month ), 'SNAPSHOT', rows ); }
+    function writeMonthlySnapshot( month, rows, extra ) { return writeSnapshot( getMonthlySnapshotTitle( month ), 'SNAPSHOT', rows, extra ); }
 
-    function computeGlobalRankingRows( onProgress ) {
+    function computeGlobalRankingRows( onProgress, onChunk ) {
         return getAllNSMainPageIds().then( function ( pageIds ) {
             if ( !pageIds.length ) return [];
             var infoMap = {};
@@ -728,7 +740,7 @@ function runAll() {
                     var calcIdx = 0;
                     var doCalcBatch = function () {
                         if ( calcIdx >= filtered.length ) return Promise.resolve( rows );
-                        var end = Math.min( calcIdx + 100, filtered.length );
+                        var end = Math.min( calcIdx + 50, filtered.length );
                         for ( var i = calcIdx; i < end; i++ ) {
                             var pid = filtered[ i ];
                             var recs = [];
@@ -745,6 +757,7 @@ function runAll() {
                         }
                         calcIdx = end;
                         if ( onProgress ) onProgress( { phase: 'calc', done: calcIdx, total: filtered.length, rows: rows } );
+                        if ( onChunk ) onChunk( rows.slice(), calcIdx, filtered.length );
                         return new Promise( function ( r ) { setTimeout( r, 0 ); } ).then( doCalcBatch );
                     };
                     return doCalcBatch();
@@ -847,7 +860,7 @@ function runAll() {
         } );
     }
 
-    function computeMonthlyRankingRows( month, onProgress ) {
+    function computeMonthlyRankingRows( month, onProgress, onChunk ) {
         return getMonthlyNewPageIds( month, onProgress ).then( function ( candidateIds ) {
             if ( !candidateIds.length ) return [];
             var infoMap = {};
@@ -904,7 +917,7 @@ function runAll() {
                     var calcIdx = 0;
                     var doCalcBatch = function () {
                         if ( calcIdx >= filtered.length ) return Promise.resolve( rows );
-                        var end = Math.min( calcIdx + 100, filtered.length );
+                        var end = Math.min( calcIdx + 50, filtered.length );
                         for ( var i = calcIdx; i < end; i++ ) {
                             var pid = filtered[ i ];
                             var recs = [];
@@ -921,6 +934,7 @@ function runAll() {
                         }
                         calcIdx = end;
                         if ( onProgress ) onProgress( { phase: 'calc', done: calcIdx, total: filtered.length, rows: rows } );
+                        if ( onChunk ) onChunk( rows.slice(), calcIdx, filtered.length );
                         return new Promise( function ( r ) { setTimeout( r, 0 ); } ).then( doCalcBatch );
                     };
                     return doCalcBatch();
@@ -998,8 +1012,8 @@ function runAll() {
                         refreshLink.textContent = msg( 'ranking-refreshing' );
                         refreshLink.style.pointerEvents = 'none';
                         var compute = ( mode === 'monthly' )
-                            ? computeMonthlyRankingRows( month ).then( function ( rows ) { return writeMonthlySnapshot( month, rows ); } )
-                            : computeGlobalRankingRows().then( function ( rows ) { return writeGlobalSnapshot( rows ); } );
+                            ? computeMonthlyRankingRows( month ).then( function ( rows ) { return writeMonthlySnapshot( month, rows, { done: rows.length, total: rows.length, complete: 1 } ); } )
+                            : computeGlobalRankingRows().then( function ( rows ) { return writeGlobalSnapshot( rows, { done: rows.length, total: rows.length, complete: 1 } ); } );
                         compute.then( function () {
                             vsNotify( '快照已刷新', { type: 'success' } );
                             location.reload();
@@ -1086,11 +1100,11 @@ function runAll() {
             var compute;
             if ( mode === 'monthly' ) {
                 compute = computeMonthlyRankingRows( month ).then( function ( rows ) {
-                    return writeMonthlySnapshot( month, rows );
+                    return writeMonthlySnapshot( month, rows, { done: rows.length, total: rows.length, complete: 1 } );
                 } );
             } else {
                 compute = computeGlobalRankingRows().then( function ( rows ) {
-                    return writeGlobalSnapshot( rows );
+                    return writeGlobalSnapshot( rows, { done: rows.length, total: rows.length, complete: 1 } );
                 } );
             }
             compute.catch( function () {} );
@@ -1107,7 +1121,7 @@ function runAll() {
             var snapshot = result.snapshot;
             var invalid = result.invalid;
 
-            if ( snapshot && !invalid ) {
+            if ( snapshot && !invalid && snapshot.complete ) {
                 renderRankingRows( wrap, snapshot.rows, {
                     order: order, limit: limit, ts: snapshot.ts, mode: 'global',
                     embedMode: opts.embedMode
@@ -1118,10 +1132,20 @@ function runAll() {
                 return;
             }
 
-            wrap.innerHTML = '';
-            wrap.appendChild( el( 'div', 'voting-ranking-loading', msg( 'ranking-first-calc' ) ) );
+            var hasPartial = snapshot && !invalid && snapshot.rows && snapshot.rows.length > 0;
+
+            if ( hasPartial ) {
+                renderRankingRows( wrap, snapshot.rows, {
+                    order: order, limit: limit, ts: snapshot.ts, mode: 'global',
+                    embedMode: opts.embedMode
+                } );
+            } else {
+                wrap.innerHTML = '';
+                wrap.appendChild( el( 'div', 'voting-ranking-loading', msg( 'ranking-first-calc' ) ) );
+            }
 
             return computeGlobalRankingRows( function ( progress ) {
+                if ( hasPartial ) return;
                 if ( progress.phase === 'info' ) {
                     var l = wrap.querySelector( '.voting-ranking-loading' );
                     if ( l ) l.textContent = '正在获取页面标题…… ' + progress.done + '/' + progress.total;
@@ -1137,16 +1161,19 @@ function runAll() {
                         appendOnly: true, progressText: txt, embedMode: opts.embedMode
                     } );
                 }
+            }, function ( rows, done, total ) {
+                writeGlobalSnapshot( rows, { done: done, total: total, complete: 0 } ).catch( function () {} );
             } ).then( function ( rows ) {
+                writeGlobalSnapshot( rows, { done: rows.length, total: rows.length, complete: 1 } ).catch( function () {} );
                 renderRankingRows( wrap, rows, {
                     order: order, limit: limit, ts: now, mode: 'global',
-                    progressText: '计算完成，共 ' + rows.length + ' 行',
                     embedMode: opts.embedMode
                 } );
-                writeGlobalSnapshot( rows );
             } ).catch( function ( e ) {
-                wrap.innerHTML = '';
-                wrap.appendChild( el( 'div', 'voting-ranking-loading', msg( 'ranking-error' ) + String( e ) ) );
+                if ( !hasPartial ) {
+                    wrap.innerHTML = '';
+                    wrap.appendChild( el( 'div', 'voting-ranking-loading', msg( 'ranking-error' ) + String( e ) ) );
+                }
             } );
         } );
     }
@@ -1161,7 +1188,7 @@ function runAll() {
             var snapshot = result.snapshot;
             var invalid = result.invalid;
 
-            if ( snapshot && !invalid ) {
+            if ( snapshot && !invalid && snapshot.complete ) {
                 renderRankingRows( wrap, snapshot.rows, {
                     order: order, limit: limit, ts: snapshot.ts, mode: 'monthly', month: month,
                     embedMode: opts.embedMode
@@ -1172,10 +1199,20 @@ function runAll() {
                 return;
             }
 
-            wrap.innerHTML = '';
-            wrap.appendChild( el( 'div', 'voting-ranking-loading', msg( 'ranking-first-calc' ) ) );
+            var hasPartial = snapshot && !invalid && snapshot.rows && snapshot.rows.length > 0;
+
+            if ( hasPartial ) {
+                renderRankingRows( wrap, snapshot.rows, {
+                    order: order, limit: limit, ts: snapshot.ts, mode: 'monthly', month: month,
+                    embedMode: opts.embedMode
+                } );
+            } else {
+                wrap.innerHTML = '';
+                wrap.appendChild( el( 'div', 'voting-ranking-loading', msg( 'ranking-first-calc' ) ) );
+            }
 
             return computeMonthlyRankingRows( month, function ( progress ) {
+                if ( hasPartial ) return;
                 if ( progress.phase === 'fallback' ) {
                     if ( progress.done === progress.total || progress.done % 100 === 0 ) {
                         var l = wrap.querySelector( '.voting-ranking-loading' );
@@ -1192,16 +1229,19 @@ function runAll() {
                         appendOnly: true, progressText: txt, embedMode: opts.embedMode
                     } );
                 }
+            }, function ( rows, done, total ) {
+                writeMonthlySnapshot( month, rows, { done: done, total: total, complete: 0 } ).catch( function () {} );
             } ).then( function ( rows ) {
+                writeMonthlySnapshot( month, rows, { done: rows.length, total: rows.length, complete: 1 } ).catch( function () {} );
                 renderRankingRows( wrap, rows, {
                     order: order, limit: limit, ts: now, mode: 'monthly', month: month,
-                    progressText: '计算完成，共 ' + rows.length + ' 行',
                     embedMode: opts.embedMode
                 } );
-                writeMonthlySnapshot( month, rows );
             } ).catch( function ( e ) {
-                wrap.innerHTML = '';
-                wrap.appendChild( el( 'div', 'voting-ranking-loading', msg( 'ranking-error' ) + String( e ) ) );
+                if ( !hasPartial ) {
+                    wrap.innerHTML = '';
+                    wrap.appendChild( el( 'div', 'voting-ranking-loading', msg( 'ranking-error' ) + String( e ) ) );
+                }
             } );
         } );
     }
@@ -1262,19 +1302,19 @@ function runAll() {
     function doVote( panel, value, commentText, hideScore, messageEl ) {
         if ( !isLoggedIn() ) { vsNotify( msg( 'vote-login-required' ), { type: 'error' } ); return Promise.resolve(); }
         if ( !hasRight( 'voting' ) ) { vsNotify( msg( 'vote-autoconfirmed-required' ), { type: 'error' } ); return Promise.resolve(); }
-        
+
         var pageId = parseInt( panel.dataset.pageId, 10 );
         var rootId = panel.dataset.scoringRootId ? parseInt( panel.dataset.scoringRootId, 10 ) : pageId;
         var hasComment = commentText.trim().length > 0;
-        
+
         return getRecordForUserPage( mw.config.get( 'wgUserName' ), rootId ).then( function ( existingVote ) {
             var isFirstVote = !existingVote;
-        
+
             if ( isFirstVote && isRateLimited() ) {
                 vsNotify( msg( 'vote-rate-limited' ), { type: 'error' } );
                 return;
             }
-        
+
             return loadConfig().then( function ( cfg ) {
                 if ( cfg.requireComment && !hasComment ) {
                     vsNotify( msg( 'vote-comment-required' ), { type: 'error' } );
@@ -1283,50 +1323,51 @@ function runAll() {
                 return computeWeight( hasComment ).then( function ( weight ) {
                     var commentPromise = hasComment ? tryPostComment( pageId, commentText, value, hideScore ) : Promise.resolve( 0 );
                     return commentPromise.then( function ( commentId ) {
-                    var line = '<!-- V v1 u=' + mw.config.get( 'wgUserName' )
-                        + ' p=' + rootId + ' v=' + value + ' w=' + weight + ' t=' + nowSec()
-                        + ' h=' + ( hideScore ? 1 : 0 ) + ' c=' + commentId + ' id=' + uuid() + ' -->';
-                    var summaryPrefix = isFirstVote ? 'votemark:vote|' : 'votemark:update|';
-                    var summary = summaryPrefix + value + '|' + weight + '|' + ( hideScore ? 1 : 0 );
-                    return appendVote( line, summary ).then( function () {
-                        invalidateAllRecords();
-                        return purgePages( [ getDataPageTitle( 'Votes/' + isoMonth() ), mw.config.get( 'wgPageName' ) ] );
-                    } ).then( function () {
-                        var curMonth = isoMonth();
-                        return Promise.all( [
-                            markSnapshotStale( getGlobalSnapshotTitle(), 'votemark:snapshot|invalidate|global' ),
-                            markSnapshotStale( getMonthlySnapshotTitle( curMonth ), 'votemark:snapshot|invalidate|monthly-' + curMonth )
-                        ] );
-                    } ).then( function () {
-                        if ( messageEl ) {
-                            messageEl.textContent = msg( 'vote-success' ) + ' ' + msg( 'vote-weight-info', weight );
-                            messageEl.className = 'voting-panel-message voting-success';
-                        }
+                        var line = '<!-- V v1 u=' + mw.config.get( 'wgUserName' )
+                            + ' p=' + rootId + ' v=' + value + ' w=' + weight + ' t=' + nowSec()
+                            + ' h=' + ( hideScore ? 1 : 0 ) + ' c=' + commentId + ' id=' + uuid() + ' -->';
+                        var summaryPrefix = isFirstVote ? 'votemark:vote|' : 'votemark:update|';
+                        var summary = summaryPrefix + value + '|' + weight + '|' + ( hideScore ? 1 : 0 );
+                        return appendVote( line, summary ).then( function () {
+                            invalidateAllRecords();
+                            return purgePages( [ getDataPageTitle( 'Votes/' + isoMonth() ), mw.config.get( 'wgPageName' ) ] );
+                        } ).then( function () {
+                            var curMonth = isoMonth();
+                            return Promise.all( [
+                                markSnapshotStale( getGlobalSnapshotTitle(), 'votemark:snapshot|invalidate|global' ),
+                                markSnapshotStale( getMonthlySnapshotTitle( curMonth ), 'votemark:snapshot|invalidate|monthly-' + curMonth )
+                            ] );
+                        } ).then( function () {
+                            if ( messageEl ) {
+                                messageEl.textContent = msg( 'vote-success' ) + ' ' + msg( 'vote-weight-info', weight );
+                                messageEl.className = 'voting-panel-message voting-success';
+                            }
 
-                        if ( isFirstVote ) recordVoteTimestamp();
-                        
-                        vsNotify( msg( 'vote-success' ), { type: 'success' } );
+                            if ( isFirstVote ) recordVoteTimestamp();
 
-                        refreshPanelScore( panel, pageId ).catch( function () {} );
+                            vsNotify( msg( 'vote-success' ), { type: 'success' } );
 
-                        var detailsBox = panel.querySelector( '.voting-panel-details' );
-                        if ( detailsBox && detailsBox.style.display === 'block' ) {
-                            var refreshRootId = panel.dataset.scoringRootId
-                                ? parseInt( panel.dataset.scoringRootId, 10 )
-                                : pageId;
-                            getRecordsForPage( refreshRootId ).then( function ( records ) {
-                                renderDetailsTable( detailsBox, records );
-                                detailsBox.dataset.loaded = '1';
-                                if ( hasRight( 'voting-delete' ) ) bindDeleteButtons( detailsBox );
-                            } ).catch( function () {} );
-                        }
-                    } ).catch( function ( e ) {
-                        var err = ( e && e.error && e.error.info ) || String( e );
-                        if ( messageEl ) {
-                            messageEl.textContent = err;
-                            messageEl.className = 'voting-panel-message voting-error';
-                        }
-                        vsNotify( msg( 'vote-error' ) + ': ' + err, { type: 'error' } );
+                            refreshPanelScore( panel, pageId ).catch( function () {} );
+
+                            var detailsBox = panel.querySelector( '.voting-panel-details' );
+                            if ( detailsBox && detailsBox.style.display === 'block' ) {
+                                var refreshRootId = panel.dataset.scoringRootId
+                                    ? parseInt( panel.dataset.scoringRootId, 10 )
+                                    : pageId;
+                                getRecordsForPage( refreshRootId ).then( function ( records ) {
+                                    renderDetailsTable( detailsBox, records );
+                                    detailsBox.dataset.loaded = '1';
+                                    if ( hasRight( 'voting-delete' ) ) bindDeleteButtons( detailsBox );
+                                } ).catch( function () {} );
+                            }
+                        } ).catch( function ( e ) {
+                            var err = ( e && e.error && e.error.info ) || String( e );
+                            if ( messageEl ) {
+                                messageEl.textContent = err;
+                                messageEl.className = 'voting-panel-message voting-error';
+                            }
+                            vsNotify( msg( 'vote-error' ) + ': ' + err, { type: 'error' } );
+                        } );
                     } );
                 } );
             } );
@@ -2174,7 +2215,7 @@ function runAll() {
     function hideRCVotes() {
         var page = mw.config.get( 'wgCanonicalSpecialPageName' );
         if ( page !== 'Recentchanges' && page !== 'Watchlist' ) return;
-    
+
         function isVotingDataLine( line ) {
             var links = line.querySelectorAll( 'a[href]' );
             for ( var i = 0; i < links.length; i++ ) {
@@ -2185,7 +2226,7 @@ function runAll() {
             }
             return false;
         }
-    
+
         function clean() {
             var lines = document.querySelectorAll( '.mw-changeslist-line' );
             for ( var i = lines.length - 1; i >= 0; i-- ) {
@@ -2194,7 +2235,7 @@ function runAll() {
                 }
             }
         }
-    
+
         clean();
         new MutationObserver( clean ).observe( document.body, { childList: true, subtree: true } );
     }
