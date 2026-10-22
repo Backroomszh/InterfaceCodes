@@ -35,6 +35,7 @@
       - RedlinkDirect
       - StaffComment
       - votingSystem
+      - wikiwalkNav
 
 - section: Interaction
   gadgets:
