@@ -6,7 +6,6 @@ rights: []
 dependencies:
     - mediawiki.api
     - mediawiki.util
-    - mediawiki.notify
 skins: []
 actions: []
 namespaces: []
