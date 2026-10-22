@@ -593,11 +593,50 @@ function runAll() {
         refreshPanelScore( panel, pageId ).catch( function () {} );
     }
 
-    function appendVote( line, summary ) {
-        return new mw.Api().postWithToken( 'csrf', {
-            action: 'edit', title: getDataPageTitle( 'Votes/' + isoMonth() ),
-            appendtext: '\n' + line, summary: summary
+    function appendWithRetry( title, line, summary, retries ) {
+        retries = retries || 0;
+        if ( retries >= 4 ) {
+            return Promise.reject( new Error( 'edit-conflict-retries-exceeded' ) );
+        }
+
+        var api = new mw.Api();
+        return api.get( {
+            action: 'query', prop: 'revisions', rvprop: 'ids',
+            titles: title, formatversion: 2
+        } ).then( function ( res ) {
+            var page = res.query.pages[ 0 ];
+            var isNew = page.missing !== undefined;
+            var revid = isNew ? undefined : page.revisions[ 0 ].revid;
+
+            var params = {
+                action: 'edit',
+                title: title,
+                appendtext: '\n' + line,
+                summary: summary
+            };
+
+            if ( isNew ) {
+                params.createonly = 1;
+            } else {
+                params.baserevid = revid;
+            }
+
+            return api.postWithToken( 'csrf', params );
+        } ).catch( function ( err ) {
+            var code = err && err.error && err.error.code;
+            if ( code === 'editconflict' || code === 'articleexists' ) {
+                var delay = 100 + Math.random() * 300;
+                return new Promise( function ( r ) { setTimeout( r, delay ); } )
+                    .then( function () {
+                        return appendWithRetry( title, line, summary, retries + 1 );
+                    } );
+            }
+            throw err;
         } );
+    }
+
+    function appendVote( line, summary ) {
+        return appendWithRetry( getDataPageTitle( 'Votes/' + isoMonth() ), line, summary );
     }
 
     function purgePages( titles ) {
@@ -669,12 +708,20 @@ function runAll() {
         } ).then( function () { return true; } ).catch( function () { return false; } );
     }
 
+    function writeSnapshotSafe( title, marker, rows, extra ) {
+        if ( !extra || extra.complete === 1 ) {
+            return writeSnapshot( title, marker, rows, extra );
+        }
+        return readSnapshot( title, marker ).then( function ( current ) {
+            if ( current.snapshot && current.snapshot.complete ) {
+                return false;
+            }
+            return writeSnapshot( title, marker, rows, extra );
+        } );
+    }
+
     function markSnapshotStale( title, summary ) {
-        return new mw.Api().postWithToken( 'csrf', {
-            action: 'edit', title: title,
-            appendtext: '\n<!-- INVALIDATE:' + nowSec() + ' -->',
-            summary: summary, minor: true
-        } ).catch( function () {} );
+        return appendWithRetry( title, '<!-- INVALIDATE:' + nowSec() + ' -->', summary ).catch( function () {} );
     }
 
     function readGlobalSnapshot() { return readSnapshot( getGlobalSnapshotTitle(), 'SNAPSHOT' ); }
@@ -1162,7 +1209,7 @@ function runAll() {
                     } );
                 }
             }, function ( rows, done, total ) {
-                writeGlobalSnapshot( rows, { done: done, total: total, complete: 0 } ).catch( function () {} );
+                writeSnapshotSafe( getGlobalSnapshotTitle(), 'SNAPSHOT', rows, { done: done, total: total, complete: 0 } ).catch( function () {} );
             } ).then( function ( rows ) {
                 writeGlobalSnapshot( rows, { done: rows.length, total: rows.length, complete: 1 } ).catch( function () {} );
                 renderRankingRows( wrap, rows, {
@@ -1230,7 +1277,7 @@ function runAll() {
                     } );
                 }
             }, function ( rows, done, total ) {
-                writeMonthlySnapshot( month, rows, { done: done, total: total, complete: 0 } ).catch( function () {} );
+                writeSnapshotSafe( getMonthlySnapshotTitle( month ), 'SNAPSHOT', rows, { done: done, total: total, complete: 0 } ).catch( function () {} );
             } ).then( function ( rows ) {
                 writeMonthlySnapshot( month, rows, { done: rows.length, total: rows.length, complete: 1 } ).catch( function () {} );
                 renderRankingRows( wrap, rows, {
@@ -1953,10 +2000,7 @@ function runAll() {
                     var safeReason = reason.replace( /\|/g, ' ' ).replace( /\n/g, ' ' );
                     var line = '<!-- REWRITE:submit|id=' + newId + '|page=' + p.pageid
                         + '|user=' + user + '|reason=' + safeReason + '|t=' + nowSec() + ' -->';
-                    return new mw.Api().postWithToken( 'csrf', {
-                        action: 'edit', title: getDataPageTitle( 'RewriteRequests' ),
-                        appendtext: '\n' + line, summary: 'votemark:rewrite|submit|' + newId
-                    } ).then( function () {
+                    return appendWithRetry( getDataPageTitle( 'RewriteRequests' ), line, 'votemark:rewrite|submit|' + newId ).then( function () {
                         vsNotify( msg( 'rewrite-submitted' ), { type: 'success' } );
                         form.reset();
                         loadMyRequests( myBox );
@@ -2056,11 +2100,7 @@ function runAll() {
         function submitUpdate( id, status, actionLabel, onSuccess, onError ) {
             var line = '<!-- REWRITE:update|id=' + id + '|status=' + status
                 + '|by=' + mw.config.get( 'wgUserName' ) + '|t=' + nowSec() + ' -->';
-            new mw.Api().postWithToken( 'csrf', {
-                action: 'edit', title: getDataPageTitle( 'RewriteRequests' ),
-                appendtext: '\n' + line,
-                summary: 'votemark:rewrite|' + actionLabel + '|' + id
-            } ).then( function () {
+            appendWithRetry( getDataPageTitle( 'RewriteRequests' ), line, 'votemark:rewrite|' + actionLabel + '|' + id ).then( function () {
                 onSuccess();
             } ).catch( function ( e ) {
                 var info = ( e && e.error && e.error.info ) || String( e );
