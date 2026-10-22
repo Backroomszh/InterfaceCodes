@@ -1,7 +1,21 @@
-//传奇动画库Animate.css，真的很好用
-importStylesheetURI("https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css");
-//代码高亮工具Prism.js
-//由于MediaWiki的<pre>元素会阻止其中内容编辑，我修改了部分内容
-//现在可以通过<div class="language-*">xxx</div>
-importScript('MediaWiki:Prism.js');
-importStylesheet('MediaWiki:Prism.css');
+// 传奇动画库 Animate.css
+mw.loader.load(
+    'https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css',
+    'text/css'
+);
+
+// 代码高亮工具 Prism.js
+// 站内页面需要用 action=raw 的原始内容地址加载
+mw.loader.load(
+    mw.config.get('wgScript') +
+    '?title=' + encodeURIComponent('MediaWiki:Prism.js') +
+    '&action=raw&ctype=text/javascript'
+);
+
+// Prism.css
+mw.loader.load(
+    mw.config.get('wgScript') +
+    '?title=' + encodeURIComponent('MediaWiki:Prism.css') +
+    '&action=raw&ctype=text/css',
+    'text/css'
+);
