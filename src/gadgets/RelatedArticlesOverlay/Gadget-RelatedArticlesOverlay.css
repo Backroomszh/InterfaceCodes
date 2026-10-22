@@ -155,7 +155,11 @@ ul.read-more-container-card-list .cdx-card__text__description {
     border-radius: inherit;
     opacity: 0.25;
     pointer-events: none;
-    transition: opacity 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: opacity 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.read-more-hover-overlay.is-dimmed {
+    opacity: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -164,7 +168,8 @@ ul.read-more-container-card-list .cdx-card__text__description {
     }
 }
 
-.read-more-hover-overlay-hover {
+.read-more-hover-overlay-hover-a,
+.read-more-hover-overlay-hover-b {
     position: absolute;
     inset: 0;
     z-index: -1;
@@ -174,15 +179,17 @@ ul.read-more-container-card-list .cdx-card__text__description {
     border-radius: inherit;
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: opacity 0.7s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.read-more-hover-overlay-hover.is-visible {
+.read-more-hover-overlay-hover-a.is-visible,
+.read-more-hover-overlay-hover-b.is-visible {
     opacity: 0.25;
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .read-more-hover-overlay-hover {
+    .read-more-hover-overlay-hover-a,
+    .read-more-hover-overlay-hover-b {
         transition: none;
     }
 }
