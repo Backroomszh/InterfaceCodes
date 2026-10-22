@@ -34,7 +34,7 @@
       - page-top-banner
       - RedlinkDirect
       - StaffComment
-      - VotingSystem
+      - votingSystem
 
 - section: Interaction
   gadgets:
