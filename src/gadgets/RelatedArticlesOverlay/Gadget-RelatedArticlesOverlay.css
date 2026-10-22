@@ -34,7 +34,7 @@ ul.read-more-container-card-list {
     background: var(--color-surface-0);
     border-radius: var(--border-radius-medium, 8px);
     padding: var(--space-lg, 1.5em) !important;
-    margin: 10px;
+    margin: 10px !important;
     position: relative;
     isolation: isolate;
     overflow: hidden;
