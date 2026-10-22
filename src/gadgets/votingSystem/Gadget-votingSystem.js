@@ -2155,16 +2155,27 @@ function runAll() {
     function hideRCVotes() {
         var page = mw.config.get( 'wgCanonicalSpecialPageName' );
         if ( page !== 'Recentchanges' && page !== 'Watchlist' ) return;
+    
+        function isVotingDataLine( line ) {
+            var links = line.querySelectorAll( 'a[href]' );
+            for ( var i = 0; i < links.length; i++ ) {
+                var href = links[ i ].getAttribute( 'href' ) || '';
+                if ( href.indexOf( 'VotingData:' ) !== -1 || href.indexOf( 'VotingData%3A' ) !== -1 ) {
+                    return true;
+                }
+            }
+            return false;
+        }
+    
         function clean() {
             var lines = document.querySelectorAll( '.mw-changeslist-line' );
             for ( var i = lines.length - 1; i >= 0; i-- ) {
-                var el2 = lines[ i ];
-                if ( el2.querySelector( '.mw-tag-marker-votemark' ) ||
-                     el2.querySelector( 'a[href*="votemark"], a[href*="tag/votemark"]' ) ) {
-                    el2.parentNode.removeChild( el2 );
+                if ( isVotingDataLine( lines[ i ] ) ) {
+                    lines[ i ].parentNode.removeChild( lines[ i ] );
                 }
             }
         }
+    
         clean();
         new MutationObserver( clean ).observe( document.body, { childList: true, subtree: true } );
     }
