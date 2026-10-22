@@ -19,6 +19,10 @@
     box-shadow: 0 0 1.5px 3.5px #00000026;
 }
 
+#mw-data-after-content > .read-more-container > .read-more-container {
+    max-width: 100% !important;
+}
+
 ul.read-more-container-card-list {
     margin: var(--space-md, 1em) !important;
     gap: var(--space-md, 1em);
