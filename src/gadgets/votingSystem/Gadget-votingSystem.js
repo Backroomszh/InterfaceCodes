@@ -366,17 +366,25 @@ function runAll() {
         } );
     }
 
-    function rateLimited() {
+    function isRateLimited() {
         var key = 'voting_rl_' + ( mw.config.get( 'wgUserName' ) || 'anon' );
         var store = JSON.parse( localStorage.getItem( key ) || '{"h":[],"d":[]}' );
         var now = nowSec();
         store.h = store.h.filter( function ( t ) { return now - t < 3600; } );
         store.d = store.d.filter( function ( t ) { return now - t < 86400; } );
-        if ( store.h.length >= 10 || store.d.length >= 50 ) return true;
+        if ( store.h.length >= 20 || store.d.length >= 80 ) return true;
+        return false;
+    }
+    
+    function recordVoteTimestamp() {
+        var key = 'voting_rl_' + ( mw.config.get( 'wgUserName' ) || 'anon' );
+        var store = JSON.parse( localStorage.getItem( key ) || '{"h":[],"d":[]}' );
+        var now = nowSec();
+        store.h = store.h.filter( function ( t ) { return now - t < 3600; } );
+        store.d = store.d.filter( function ( t ) { return now - t < 86400; } );
         store.h.push( now );
         store.d.push( now );
         localStorage.setItem( key, JSON.stringify( store ) );
-        return false;
     }
 
     var cachedAllRecords = null;
@@ -1254,20 +1262,27 @@ function runAll() {
     function doVote( panel, value, commentText, hideScore, messageEl ) {
         if ( !isLoggedIn() ) { vsNotify( msg( 'vote-login-required' ), { type: 'error' } ); return Promise.resolve(); }
         if ( !hasRight( 'voting' ) ) { vsNotify( msg( 'vote-autoconfirmed-required' ), { type: 'error' } ); return Promise.resolve(); }
-        if ( rateLimited() ) { vsNotify( msg( 'vote-rate-limited' ), { type: 'error' } ); return Promise.resolve(); }
-
+        
         var pageId = parseInt( panel.dataset.pageId, 10 );
         var rootId = panel.dataset.scoringRootId ? parseInt( panel.dataset.scoringRootId, 10 ) : pageId;
         var hasComment = commentText.trim().length > 0;
-
-        return loadConfig().then( function ( cfg ) {
-            if ( cfg.requireComment && !hasComment ) {
-                vsNotify( msg( 'vote-comment-required' ), { type: 'error' } );
+        
+        return getRecordForUserPage( mw.config.get( 'wgUserName' ), rootId ).then( function ( existingVote ) {
+            var isFirstVote = !existingVote;
+        
+            if ( isFirstVote && isRateLimited() ) {
+                vsNotify( msg( 'vote-rate-limited' ), { type: 'error' } );
                 return;
             }
-            return computeWeight( hasComment ).then( function ( weight ) {
-                var commentPromise = hasComment ? tryPostComment( pageId, commentText, value, hideScore ) : Promise.resolve( 0 );
-                return commentPromise.then( function ( commentId ) {
+        
+            return loadConfig().then( function ( cfg ) {
+                if ( cfg.requireComment && !hasComment ) {
+                    vsNotify( msg( 'vote-comment-required' ), { type: 'error' } );
+                    return;
+                }
+                return computeWeight( hasComment ).then( function ( weight ) {
+                    var commentPromise = hasComment ? tryPostComment( pageId, commentText, value, hideScore ) : Promise.resolve( 0 );
+                    return commentPromise.then( function ( commentId ) {
                     var line = '<!-- V v1 u=' + mw.config.get( 'wgUserName' )
                         + ' p=' + rootId + ' v=' + value + ' w=' + weight + ' t=' + nowSec()
                         + ' h=' + ( hideScore ? 1 : 0 ) + ' c=' + commentId + ' id=' + uuid() + ' -->';
@@ -1286,6 +1301,9 @@ function runAll() {
                             messageEl.textContent = msg( 'vote-success' ) + ' ' + msg( 'vote-weight-info', weight );
                             messageEl.className = 'voting-panel-message voting-success';
                         }
+
+                        if ( isFirstVote ) recordVoteTimestamp();
+                        
                         vsNotify( msg( 'vote-success' ), { type: 'success' } );
 
                         refreshPanelScore( panel, pageId ).catch( function () {} );
