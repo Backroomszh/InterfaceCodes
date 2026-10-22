@@ -5,7 +5,6 @@ type: general
 rights: []
 dependencies:
     - mediawiki.util
-    - mediawiki.legacy.wikibits
 skins: []
 actions: []
 namespaces: []
