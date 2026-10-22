@@ -44,3 +44,4 @@
   gadgets:
       - userTitles
       - CommentStyles
+      - activeCommenters
