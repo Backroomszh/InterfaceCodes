@@ -1,0 +1,18 @@
+ResourceLoader: true
+hidden: false
+default: false
+type: general
+rights: []
+dependencies:
+    - mediawiki.api
+    - mediawiki.util
+    - mediawiki.notify
+skins: []
+actions: []
+namespaces: []
+peers: []
+package: false
+enable: true
+files:
+    - Gadget-votingSystem.js
+    - Gadget-votingSystem.css

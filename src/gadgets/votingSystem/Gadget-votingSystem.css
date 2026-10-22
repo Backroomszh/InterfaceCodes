@@ -1,0 +1,478 @@
+/* ============================================================
+ * VotingSystem - Frontend Styles (Citizen skin)
+ * ============================================================ */
+
+/* ---------- 面板 ---------- */
+.voting-panel {
+    margin: 14px 0 8px;
+    padding: 10px 14px;
+    background: var(--utgheader);
+    border: var(--border-width-base) solid var(--border-color-base);
+    border-radius: .5rem;
+    font-family: var(--font-family-citizen-base);
+    transition: border-color .25s ease;
+}
+.voting-panel:hover { border-color: var(--utgwindow-border); }
+
+.skin-theme-clientpref-night .voting-panel {
+    background: rgba(var(--utgwindow-rgb), .55);
+}
+
+.voting-panel-header {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; margin-bottom: 8px;
+}
+.voting-panel-title {
+    display: flex; align-items: center; gap: 6px;
+    font-size: .8125em; font-weight: 500;
+    color: var(--color-subtle);
+    letter-spacing: .04em; user-select: none;
+}
+.voting-panel-title::before {
+    content: ""; display: inline-block;
+    width: 2px; height: 11px;
+    background: var(--color-link); border-radius: 1px; opacity: .7;
+}
+
+.voting-panel-toggle {
+    padding: 2px 8px;
+    background: transparent;
+    border: var(--border-width-base) solid transparent;
+    border-radius: .25rem;
+    color: var(--color-subtle);
+    font: inherit; font-size: .75em; font-weight: 500;
+    cursor: pointer; white-space: nowrap;
+    transition: color .15s, border-color .15s, background .15s;
+}
+.voting-panel-toggle:hover {
+    color: var(--color-link);
+    border-color: var(--border-color-base);
+    background: var(--color-surface-0, rgba(255,255,255,.5));
+}
+.voting-panel-toggle.voting-panel-toggle-open { color: var(--color-link); }
+.skin-theme-clientpref-night .voting-panel-toggle:hover {
+    background: rgba(255, 255, 255, .06);
+}
+
+.voting-panel-buttons { display: flex; gap: 5px; flex-wrap: wrap; }
+.voting-btn {
+    flex: 1 1 0; min-width: 50px; padding: 5px 0;
+    background: transparent;
+    border: var(--border-width-base) solid var(--border-color-base);
+    border-radius: .375rem;
+    color: var(--color-base);
+    font: inherit; font-size: .8125em; font-weight: 500;
+    line-height: 1.35; cursor: pointer;
+    transition:
+        color .15s ease,
+        border-color .15s ease,
+        background .15s ease,
+        transform .1s ease;
+}
+.voting-btn:hover {
+    border-color: var(--utgwindow-border);
+    background: var(--color-surface-1);
+    transform: translateY(-1px);
+}
+.voting-btn:active { transform: translateY(0); }
+.voting-btn:focus-visible {
+    outline: 2px solid var(--color-link);
+    outline-offset: 1px;
+}
+.voting-btn[data-value="-1"]:hover,
+.voting-btn[data-value="-0.5"]:hover {
+    color: #c1444b;
+    border-color: rgba(193, 68, 75, .5);
+}
+.voting-btn[data-value="0.5"]:hover,
+.voting-btn[data-value="1"]:hover {
+    color: #2d7d4a;
+    border-color: rgba(45, 125, 74, .5);
+}
+.voting-btn[data-value="0"]:hover {
+    color: var(--color-link);
+    border-color: var(--color-link);
+}
+.skin-theme-clientpref-night .voting-btn[data-value="-1"]:hover,
+.skin-theme-clientpref-night .voting-btn[data-value="-0.5"]:hover {
+    color: #e58388;
+    border-color: rgba(229, 131, 136, .5);
+}
+.skin-theme-clientpref-night .voting-btn[data-value="0.5"]:hover,
+.skin-theme-clientpref-night .voting-btn[data-value="1"]:hover {
+    color: #6cc48d;
+    border-color: rgba(108, 196, 141, .5);
+}
+.voting-btn.voting-active {
+    background: var(--color-link);
+    color: #fff;
+    border-color: var(--color-link);
+}
+.voting-btn.voting-active:hover {
+    background: var(--color-link);
+    color: #fff;
+    transform: none;
+}
+
+.voting-panel-message { margin-top: 6px; min-height: 1em; font-size: .75em; line-height: 1.5; }
+.voting-panel-message.voting-success { color: #2d7d4a; }
+.voting-panel-message.voting-error { color: #c1444b; }
+.skin-theme-clientpref-night .voting-panel-message.voting-success { color: #6cc48d; }
+.skin-theme-clientpref-night .voting-panel-message.voting-error { color: #e58388; }
+
+.voting-panel-details {
+    margin-top: 10px; padding-top: 10px;
+    border-top: var(--border-width-base) dashed var(--border-color-base);
+    overflow-x: auto;
+}
+.voting-panel-details-table {
+    width: 100%; border-collapse: collapse; font-size: .75em;
+}
+.voting-panel-details-table thead th {
+    padding: 4px 8px; text-align: left;
+    color: var(--color-subtle); font-weight: 500;
+    border-bottom: var(--border-width-base) solid var(--border-color-base);
+    white-space: nowrap;
+}
+.voting-panel-details-table tbody td {
+    padding: 4px 8px;
+    border-bottom: var(--border-width-base) solid var(--border-color-base);
+    vertical-align: middle;
+}
+.voting-panel-details-table tbody tr:last-child td { border-bottom: none; }
+.voting-panel-details-table .voting-details-value,
+.voting-panel-details-table .voting-details-weight {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap; width: 60px;
+}
+.voting-panel-details-table .voting-details-time {
+    color: var(--color-subtle); font-size: .95em; white-space: nowrap;
+}
+.voting-panel-details-empty {
+    font-size: .75em; color: var(--color-subtle); padding: 4px 0;
+}
+.voting-panel-login {
+    margin-top: 6px; padding-top: 6px;
+    border-top: var(--border-width-base) dashed var(--border-color-base);
+    font-size: .75em; color: var(--color-subtle);
+}
+.voting-panel-login a { color: var(--color-link); font-weight: 500; }
+.voting-panel-note {
+    margin-top: 6px; padding: 5px 10px;
+    border-left: 2px solid var(--color-link);
+    background: rgba(9, 89, 255, .06);
+    border-radius: 0 .25rem .25rem 0;
+    font-size: .75em; color: var(--color-subtle); line-height: 1.45;
+}
+.voting-panel-note a { color: var(--color-link); font-weight: 500; }
+.voting-panel-error {
+    padding: 8px 12px; margin: 10px 0;
+    border-left: 3px solid #c1444b;
+    background: rgba(193, 68, 75, .08);
+    border-radius: 0 .375rem .375rem 0;
+    color: var(--color-subtle); font-size: .8125em;
+}
+
+/* ---------- 评论对话框 ---------- */
+.voting-comment-overlay {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+    background: rgba(0, 0, 0, .45);
+    -webkit-backdrop-filter: blur(4px) saturate(120%);
+    backdrop-filter: blur(4px) saturate(120%);
+    z-index: 1000;
+    animation: voting-fade-in .2s ease;
+}
+@keyframes voting-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes voting-slide-up {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.voting-comment-dialog {
+    width: 100%; max-width: 480px;
+    padding: 20px 22px;
+    background: var(--utgwindow, #fff);
+    border: var(--border-width-base) solid var(--border-color-base);
+    border-radius: .75rem;
+    box-shadow:
+        0 4px 24px rgba(0, 0, 0, .18),
+        0 1px 2px rgba(0, 0, 0, .08);
+    animation: voting-slide-up .25s ease;
+    font-family: var(--font-family-citizen-base);
+}
+.skin-theme-clientpref-night .voting-comment-dialog {
+    background: var(--color-surface-1);
+    box-shadow:
+        0 4px 24px rgba(0, 0, 0, .5),
+        0 1px 2px rgba(0, 0, 0, .3);
+}
+
+.voting-comment-prompt {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 4px; font-size: .875em; font-weight: 600;
+    color: var(--color-emphasized, #202122);
+}
+.voting-comment-prompt::before {
+    content: ""; width: 3px; height: 14px;
+    background: var(--color-link); border-radius: 2px;
+}
+.voting-comment-no-comment-hint {
+    margin-bottom: 14px; font-size: .8125em;
+    color: var(--color-subtle); line-height: 1.5;
+}
+.voting-comment-textarea {
+    display: block; box-sizing: border-box; width: 100%;
+    min-height: 100px; padding: 10px 12px;
+    background: var(--color-surface-0, #fff);
+    border: var(--border-width-base) solid var(--border-color-base);
+    border-radius: .375rem; color: var(--color-base);
+    font: inherit; font-size: .875em; line-height: 1.5;
+    resize: vertical;
+    transition: border-color .2s ease, box-shadow .2s ease;
+}
+.voting-comment-textarea:focus {
+    outline: none; border-color: var(--color-link);
+    box-shadow: 0 0 0 2px rgba(9, 89, 255, .12);
+}
+.voting-comment-textarea.voting-comment-error { border-color: #c1444b; }
+
+.voting-comment-hide-row {
+    display: flex; align-items: center; gap: 8px;
+    margin-top: 12px; font-size: .8125em;
+    color: var(--color-subtle); cursor: pointer; user-select: none;
+}
+.voting-comment-hide-checkbox {
+    width: 16px; height: 16px; margin: 0; cursor: pointer;
+    accent-color: var(--color-link);
+}
+.voting-comment-hide-label { cursor: pointer; line-height: 1.4; }
+
+.voting-comment-buttons {
+    display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px;
+    margin-top: 16px; padding-top: 14px;
+    border-top: var(--border-width-base) solid var(--border-color-base);
+}
+.voting-comment-submit, .voting-comment-skip, .voting-comment-cancel {
+    padding: 7px 14px; border-radius: .375rem;
+    font: inherit; font-size: .8125em; font-weight: 500;
+    cursor: pointer;
+    transition: background .2s, color .2s, border-color .2s, filter .2s;
+}
+.voting-comment-submit {
+    background: var(--color-link); color: #fff; border: 1px solid var(--color-link);
+}
+.voting-comment-submit:hover { filter: brightness(.92); }
+.voting-comment-skip {
+    background: transparent; color: var(--color-subtle);
+    border: var(--border-width-base) solid var(--border-color-base);
+}
+.voting-comment-skip:hover {
+    color: var(--color-base); border-color: var(--utgwindow-border);
+}
+.voting-comment-cancel {
+    background: transparent; color: var(--color-subtle);
+    border: var(--border-width-base) solid transparent; padding: 7px 10px;
+}
+.voting-comment-cancel:hover { color: #c1444b; }
+
+/* ---------- 排名页 ---------- */
+.voting-scores-wrapper { margin: 16px 0; }
+.voting-scores-table {
+    width: 100%; border-collapse: collapse;
+    font-family: var(--font-family-citizen-base);
+}
+.voting-scores-table thead th {
+    padding: 10px 12px;
+    border-bottom: 2px solid var(--border-color-base);
+    color: var(--color-subtle); font-size: .8125em; font-weight: 600;
+    letter-spacing: .03em; text-align: left;
+}
+.voting-scores-table tbody td {
+    padding: 10px 12px;
+    border-bottom: var(--border-width-base) solid var(--border-color-base);
+    font-size: .875em; vertical-align: middle;
+}
+.voting-scores-table tbody tr { transition: background .2s ease; }
+.voting-scores-table tbody tr:hover { background: var(--color-surface-1); }
+.voting-scores-table tbody tr td:first-child {
+    width: 48px; color: var(--color-subtle);
+    font-size: .8125em; font-variant-numeric: tabular-nums;
+}
+.voting-scores-table tbody tr td:nth-child(3),
+.voting-scores-table tbody tr td:nth-child(4) {
+    width: 100px; font-variant-numeric: tabular-nums;
+}
+.voting-scores-table tbody tr td a { color: var(--color-link); font-weight: 500; }
+
+.voting-ranking-loading, .voting-log-loading {
+    padding: 12px 0; color: var(--color-subtle); font-size: .875em;
+}
+
+.voting-load-more {
+    display: block;
+    margin: 12px auto;
+    padding: 8px 24px;
+    background: var(--color-link);
+    color: #fff;
+    border: none;
+    border-radius: .375rem;
+    font: inherit;
+    font-size: .875em;
+    cursor: pointer;
+    transition: filter .2s;
+}
+.voting-load-more:hover { filter: brightness(.92); }
+
+.voting-last-updated {
+    color: var(--color-subtle);
+    font-size: .8125em;
+    margin-left: 16px;
+}
+
+.voting-refresh-snapshot {
+    color: var(--color-link);
+    font-size: .8125em;
+    font-weight: 500;
+    text-decoration: none;
+    border-bottom: 1px dashed transparent;
+    transition: border-color .2s;
+}
+.voting-refresh-snapshot:hover { border-bottom-color: var(--color-link); }
+.voting-refresh-snapshot:active { opacity: .6; }
+
+.voting-streaming-progress {
+    padding: 6px 0 8px;
+    color: var(--color-subtle);
+    font-size: .8125em;
+    margin-bottom: 8px;
+    font-family: var(--font-family-citizen-base);
+}
+
+/* ---------- 撤销按钮 ---------- */
+.voting-details-delete {
+    padding: 2px 8px; background: transparent;
+    border: var(--border-width-base) solid var(--border-color-base);
+    border-radius: .25rem; color: #c1444b;
+    font: inherit; font-size: .75em; font-weight: 500;
+    cursor: pointer; white-space: nowrap;
+    transition: background .2s, border-color .2s, color .2s;
+}
+.voting-details-delete:hover {
+    background: rgba(193, 68, 75, .1); border-color: #c1444b;
+}
+.voting-details-delete:disabled { opacity: .5; cursor: not-allowed; }
+.skin-theme-clientpref-night .voting-details-delete { color: #e58388; }
+.skin-theme-clientpref-night .voting-details-delete:hover {
+    background: rgba(229, 131, 136, .15);
+    border-color: #e58388;
+}
+
+/* ---------- 重写表单 ---------- */
+.rewrite-form-wrap, .rewrite-review-wrap {
+    margin: 16px 0; font-family: var(--font-family-citizen-base);
+}
+.rewrite-form input[type="text"],
+.rewrite-form textarea {
+    display: block; width: 100%; max-width: 600px;
+    padding: 8px 10px; margin: 4px 0 12px;
+    border: var(--border-width-base) solid var(--border-color-base);
+    border-radius: .375rem;
+    background: var(--color-surface-0, #fff);
+    color: var(--color-base);
+    font: inherit; font-size: .875em;
+}
+.rewrite-form textarea { min-height: 100px; resize: vertical; }
+.rewrite-form button {
+    padding: 8px 18px;
+    background: var(--color-link); color: #fff;
+    border: 1px solid var(--color-link);
+    border-radius: .375rem; font: inherit; font-weight: 500;
+    cursor: pointer; transition: filter .2s;
+}
+.rewrite-form button:hover { filter: brightness(.92); }
+
+.rewrite-review-wrap .wikitable { margin-top: 12px; }
+.rewrite-review-wrap button {
+    padding: 4px 10px; margin-right: 4px;
+    border: var(--border-width-base) solid var(--border-color-base);
+    border-radius: .25rem;
+    background: transparent; cursor: pointer;
+    font: inherit; font-size: .8125em;
+}
+.rewrite-review-wrap button[data-action="approve"] { color: #2d7d4a; }
+.rewrite-review-wrap button[data-action="reject"]  { color: #c1444b; }
+
+/* 审核页：已审核区 */
+.rewrite-reviewed-section {
+    margin-top: 32px;
+    padding-top: 20px;
+    border-top: 2px solid var(--border-color-base);
+}
+.rewrite-reviewed-section h3 {
+    color: var(--color-subtle);
+}
+.rewrite-review-status {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: .25rem;
+    font-size: .8125em;
+    font-weight: 500;
+    margin-right: 4px;
+    background: rgba(45, 125, 74, .1);
+    color: #2d7d4a;
+}
+.rewrite-review-undo {
+    padding: 2px 10px;
+    background: transparent;
+    border: var(--border-width-base) solid #c1444b;
+    border-radius: .25rem;
+    color: #c1444b;
+    font: inherit;
+    font-size: .8125em;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background .15s ease;
+}
+.rewrite-review-undo:hover {
+    background: rgba(193, 68, 75, .1);
+}
+.rewrite-review-undo:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+}
+.skin-theme-clientpref-night .rewrite-review-undo {
+    color: #e58388;
+    border-color: #e58388;
+}
+
+/* ---------- 嵌入紧凑表格 ---------- */
+.voting-ranking--embed .voting-scores-wrapper {
+    margin: 8px 0;
+}
+.voting-ranking--embed .voting-scores-table thead th {
+    padding: 8px 10px;
+    font-size: .8125em;
+}
+.voting-ranking--embed .voting-scores-table tbody td {
+    padding: 8px 10px;
+    font-size: .8125em;
+}
+
+/* ---------- RC 隐藏 ---------- */
+.mw-changeslist-line:has(.mw-tag-marker-votemark),
+.mw-changeslist-line:has(a[href*="tag/votemark"]),
+.mw-changeslist-line:has(a[href*="votemark"]) {
+    display: none !important;
+}
+
+/* ---------- 移动端 ---------- */
+@media screen and (max-width: 480px) {
+    .voting-panel { padding: 9px 12px; }
+    .voting-panel-buttons { gap: 4px; }
+    .voting-btn { min-width: 0; padding: 5px 0; font-size: .75em; }
+    .voting-comment-dialog { padding: 16px 18px; }
+    .voting-scores-table thead th,
+    .voting-scores-table tbody td { padding: 8px 8px; }
+}
