@@ -8,7 +8,9 @@ dependencies:
     - mediawiki.util
 skins: []
 actions: []
-namespaces: []
+namespaces:
+    - 0
+    - -1
 peers: []
 package: false
 enable: true
