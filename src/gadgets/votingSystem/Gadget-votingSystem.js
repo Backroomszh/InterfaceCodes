@@ -2285,13 +2285,31 @@ function runAll() {
         new MutationObserver( clean ).observe( document.body, { childList: true, subtree: true } );
     }
 
+    // 等待 selector 对应的元素出现在 DOM 中，出现后执行 fn 并断开 observer
+    function runWhenReady( selector, fn ) {
+        if ( document.querySelector( selector ) ) {
+            try { fn(); } catch ( e ) {}
+            return;
+        }
+        var obs = new MutationObserver( function () {
+            if ( document.querySelector( selector ) ) {
+                obs.disconnect();
+                try { fn(); } catch ( e ) {}
+            }
+        } );
+        obs.observe( document.body, { childList: true, subtree: true } );
+    }
+
     function init() {
         try { setupPanels(); } catch ( e ) {}
         try { initScoreDisplays(); } catch ( e ) {}
-        try { initRanking(); } catch ( e ) {}
-        try { initRewriteForm(); } catch ( e ) {}
-        try { initReview(); } catch ( e ) {}
         try { hideRCVotes(); } catch ( e ) {}
+
+        // 特殊页面的容器由 SpeciallyCursed 动态输出，
+        // 可能在 DOMContentLoaded 之后才出现，用 observer 等待
+        runWhenReady( '.voting-ranking', function () { initRanking(); } );
+        runWhenReady( '.rewrite-form-wrap', function () { initRewriteForm(); } );
+        runWhenReady( '.rewrite-review-wrap', function () { initReview(); } );
     }
 
     if ( document.readyState === 'loading' ) {
