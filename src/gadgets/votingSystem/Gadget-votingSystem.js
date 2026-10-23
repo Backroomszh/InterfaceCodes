@@ -1225,6 +1225,7 @@ function runAll() {
         } );
     }
 
+
     function initMonthlyRanking( wrap, month, order, limit, opts ) {
         opts = opts || {};
         wrap.innerHTML = '';
@@ -1345,6 +1346,10 @@ function runAll() {
             } )( wraps[ i ] );
         }
     }
+
+    window.initGlobalRanking = initGlobalRanking;
+    window.initMonthlyRanking = initMonthlyRanking;
+    window.initRanking = initRanking;
 
     function doVote( panel, value, commentText, hideScore, messageEl ) {
         if ( !isLoggedIn() ) { vsNotify( msg( 'vote-login-required' ), { type: 'error' } ); return Promise.resolve(); }
@@ -2295,6 +2300,10 @@ function runAll() {
         init();
     }
 }
+
+mw.hook( 'wikipage.content' ).add( function () {
+    initRanking();
+} );
 
 runAll();
 
