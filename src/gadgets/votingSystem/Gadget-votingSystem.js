@@ -17,10 +17,10 @@ function runAll() {
     var RANKING_RENDER_CHUNK = 50;
 
     var ALLOWED_PAGES = {
-        globalRanking:  [ 'Special:全站投票排名' ],
-        monthlyRanking: [ 'Special:月度新页面投票' ],
-        rewriteForm:    [ 'Special:申请重写参与评分' ],
-        rewriteReview:  [ 'Special:审核重写申请' ]
+        globalRanking:  [ 'Special:GlobalRanking' ],
+        monthlyRanking: [ 'Special:MonthlyRanking' ],
+        rewriteForm:    [ 'Special:RewriteForm' ],
+        rewriteReview:  [ 'Special:RewriteReview' ]
     };
 
     function isAllowed( kind ) {
