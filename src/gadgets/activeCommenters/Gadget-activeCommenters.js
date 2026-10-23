@@ -9,8 +9,8 @@ function runAll() {
     var SNAPSHOT_VERSION = 1;
 
     var ALLOWED_PAGES = {
-        global:  [ 'The_Backrooms_Wiki:全站评论最活跃' ],
-        monthly: [ 'The_Backrooms_Wiki:本月评论最活跃' ]
+        global:  [ 'Special:Globalcommenters' ],
+        monthly: [ 'Special:Monthlycommenters' ]
     };
 
     function isAllowedPage( mode ) {
