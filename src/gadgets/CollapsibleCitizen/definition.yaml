@@ -1,6 +1,6 @@
 ResourceLoader: true
 
-hidden: true
+hidden: false
 
 default: false
 
@@ -30,5 +30,5 @@ dependencies: []
 enable: true
 
 files:
-    - Gadget-CollapsibleDrawer.css
-    - Gadget-CollapsibleTOC.css
+    - Gadget-CollapsibleCitizen.css
+    - Gadget-CollapsibleCitizen.js
