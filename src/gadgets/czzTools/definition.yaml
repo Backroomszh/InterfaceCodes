@@ -1,5 +1,5 @@
 ResourceLoader: true
-hidden: false
+hidden: true
 default: true
 type: general
 rights: []
