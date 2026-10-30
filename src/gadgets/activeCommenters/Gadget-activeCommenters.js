@@ -38,8 +38,8 @@ function runAll() {
 
     function getSnapshotPrefix() {
         var ids = mw.config.get( 'wgNamespaceIds' ) || {};
-        if ( typeof ids.votingdata === 'number' && ids.votingdata >= 0 ) {
-            return 'VotingData:ActiveCommenters/';
+        if ( typeof ids.storage === 'number' && ids.storage >= 0 ) {
+            return 'Storage:ActiveCommenters/';
         }
         return 'Project:Votes/ActiveCommenters/';
     }
