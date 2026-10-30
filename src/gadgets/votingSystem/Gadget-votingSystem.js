@@ -41,12 +41,12 @@ function runAll() {
 
     function getVotingDataNS() {
         var ids = mw.config.get( 'wgNamespaceIds' ) || {};
-        if ( typeof ids.votingdata === 'number' && ids.votingdata >= 0 ) return ids.votingdata;
+        if ( typeof ids.storage === 'number' && ids.storage >= 0 ) return ids.storage;
         return 4;
     }
     function getDataPageTitle( subpath ) {
         var ids = mw.config.get( 'wgNamespaceIds' ) || {};
-        if ( typeof ids.votingdata === 'number' && ids.votingdata >= 0 ) return 'VotingData:' + subpath;
+        if ( typeof ids.storage === 'number' && ids.storage >= 0 ) return 'Storage:' + subpath;
         return 'Project:Votes/' + subpath.replace( /^Votes\//, '' );
     }
     function getGlobalSnapshotTitle() { return getDataPageTitle( 'GlobalRanking' ); }
@@ -420,7 +420,7 @@ function runAll() {
             } ).catch( function () {} );
         };
         var ids = mw.config.get( 'wgNamespaceIds' ) || {};
-        var vns = ( typeof ids.votingdata === 'number' ) ? ids.votingdata : 4;
+        var vns = ( typeof ids.storage === 'number' ) ? ids.storage : 4;
         var nsToQuery = [];
         if ( vns !== 4 ) nsToQuery.push( vns );
         nsToQuery.push( 4 );
@@ -2265,7 +2265,7 @@ function runAll() {
             var links = line.querySelectorAll( 'a[href]' );
             for ( var i = 0; i < links.length; i++ ) {
                 var href = links[ i ].getAttribute( 'href' ) || '';
-                if ( href.indexOf( 'VotingData:' ) !== -1 || href.indexOf( 'VotingData%3A' ) !== -1 ) {
+                if ( href.indexOf( 'Storage:' ) !== -1 || href.indexOf( 'Storage%3A' ) !== -1 ) {
                     return true;
                 }
             }
