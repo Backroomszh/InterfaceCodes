@@ -2258,31 +2258,76 @@ function runAll() {
     }
 
     function hideRCVotes() {
-        var page = mw.config.get( 'wgCanonicalSpecialPageName' );
-        if ( page !== 'Recentchanges' && page !== 'Watchlist' ) return;
+        var special = mw.config.get( 'wgCanonicalSpecialPageName' );
+        if ( special !== 'Recentchanges' && special !== 'Watchlist' ) return;
 
-        function isVotingDataLine( line ) {
-            var links = line.querySelectorAll( 'a[href]' );
-            for ( var i = 0; i < links.length; i++ ) {
-                var href = links[ i ].getAttribute( 'href' ) || '';
-                if ( href.indexOf( 'Storage:' ) !== -1 || href.indexOf( 'Storage%3A' ) !== -1 ) {
-                    return true;
-                }
+        var ids = mw.config.get( 'wgNamespaceIds' ) || {};
+        var storageNs = ( typeof ids.storage === 'number' && ids.storage >= 0 ) ? ids.storage : -1;
+        if ( storageNs < 0 ) return;
+
+        var storageName = ( mw.config.get( 'wgFormattedNamespaces' ) || {} )[ storageNs ] || 'Storage';
+
+        // 判断元素 class 是否属于指定命名空间
+        // 增强版最近更改有两种形式：
+        //   1) mw-changeslist-ns-5510             （带连字符，常见于分组头 <tr>）
+        //   2) mw-changeslist-ns5510-xxx-yyy      （无连字符，常见于 <table> 条目）
+        function hasNsClass( el, ns ) {
+            if ( !el || !el.classList ) return false;
+            if ( el.classList.contains( 'mw-changeslist-ns-' + ns ) ) return true;
+            var prefix = 'mw-changeslist-ns' + ns + '-';
+            for ( var i = 0; i < el.classList.length; i++ ) {
+                if ( el.classList[ i ].indexOf( prefix ) === 0 ) return true;
             }
             return false;
         }
 
+        function isStorageEntry( entry ) {
+            // 1) 命名空间 class
+            if ( hasNsClass( entry, storageNs ) ) return true;
+
+            // 2) 标题链接（.mw-changeslist-title 的 title 属性 / 文本）
+            var titleEl = entry.querySelector( '.mw-changeslist-title' );
+            if ( titleEl ) {
+                var t = ( titleEl.getAttribute( 'title' ) || titleEl.textContent || '' )
+                    .replace( /^\s+/, '' );
+                if ( t.indexOf( storageName + ':' ) === 0 || t.indexOf( 'Storage:' ) === 0 ) return true;
+            }
+
+            // 3) data-target-page 兜底
+            var inner = entry.querySelector( '.mw-changeslist-line-inner' );
+            if ( inner ) {
+                var target = inner.getAttribute( 'data-target-page' ) || '';
+                if ( target.indexOf( storageName + ':' ) === 0 || target.indexOf( 'Storage:' ) === 0 ) return true;
+            }
+
+            return false;
+        }
+
         function clean() {
-            var lines = document.querySelectorAll( '.mw-changeslist-line' );
-            for ( var i = lines.length - 1; i >= 0; i-- ) {
-                if ( isVotingDataLine( lines[ i ] ) ) {
-                    lines[ i ].parentNode.removeChild( lines[ i ] );
+            // 只处理顶层 <table class="mw-changeslist-line ...">，
+            // 分组内部的嵌套 <tr class="...mw-changeslist-line..."> 不会被选中，
+            // 随外层 table 一起移除即可。
+            var entries = document.querySelectorAll( 'table.mw-changeslist-line' );
+            for ( var i = entries.length - 1; i >= 0; i-- ) {
+                var entry = entries[ i ];
+                if ( !document.body.contains( entry ) ) continue;
+                if ( !isStorageEntry( entry ) ) continue;
+
+                // 分组条目在 table 前有一个 checkbox，需要一并删掉
+                var prev = entry.previousElementSibling;
+                if ( prev && prev.matches && prev.matches( 'input.mw-enhancedchanges-checkbox' ) ) {
+                    prev.parentNode.removeChild( prev );
                 }
+
+                entry.parentNode.removeChild( entry );
             }
         }
 
         clean();
-        new MutationObserver( clean ).observe( document.body, { childList: true, subtree: true } );
+        new MutationObserver( clean ).observe( document.body, {
+            childList: true,
+            subtree: true
+        } );
     }
 
     function init() {
