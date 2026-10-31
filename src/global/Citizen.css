@@ -1131,20 +1131,6 @@ li#pt-themes-label {
     list-style-type: none;
 }
 
-#citizen-main-menu .citizen-menu__content ul::before {
-    content: '';
-    position: absolute;
-    right: 10px;
-    top: 11px;
-    width: 10px;
-    height: 10px;
-    mask-image: url('https://battlecats.miraheze.org/w/load.php?modules=skins.citizen.icons&image=collapse&format=original&lang=en&skin=citizen&version=1yzgf');
-    mask-size: 100%;
-    background-color: var(--color-emphasized);
-    transform: scaleY(-1);
-    pointer-events: none;
-}
-
 #citizen-main-menu .citizen-menu__content li {
     margin: 0;
     list-style-type: none;
