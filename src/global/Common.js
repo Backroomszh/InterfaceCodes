@@ -315,7 +315,7 @@ $(document).ready(function () {
 
 /**
  * 后室中文数据库自定义脚本添加
- * by Corn Pig、Qiuxi？
+ * by Corn Pig、Qiuxi
 /
 /**
  * 自动加载并执行自定义JS

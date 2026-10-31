@@ -38,10 +38,6 @@
       - wikiwalkNav
       - RelatedArticlesOverlay
 
-- section: Interaction
-  gadgets:
-      - CrackBox
-
 - section: Community
   gadgets:
       - userTitles

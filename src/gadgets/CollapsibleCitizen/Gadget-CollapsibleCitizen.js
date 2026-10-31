@@ -1,91 +1,72 @@
-/* MediaWiki:Gadget-citizenCollapsibleSidebar.js */
+/* MediaWiki:Gadget-CollapsibleCitizen.js */
 ( function () {
     'use strict';
-    var STORAGE_KEY = 'citizenSidebarCollapseState_v3';
-    var DEFAULT_COLLAPSED = false; // 改为 true 可默认折叠所有菜单
 
-    function initIcon() {
-        // 确保图标模块已加载（保证 ResourceLoader 缓存可用）
-        mw.loader.load( 'skins.citizen.icons' );
-        var loadScript = mw.config.get( 'wgLoadScript' );
-        if ( !loadScript ) return;
-        var lang = mw.config.get( 'wgContentLanguage' ) || 'en';
-        var iconUrl = loadScript +
-            '?modules=skins.citizen.icons&image=collapse&format=original' +
-            '&lang=' + encodeURIComponent( lang ) + '&skin=citizen';
-        document.documentElement.style.setProperty(
-            '--citizen-collapse-icon',
-            'url("' + iconUrl + '")'
-        );
-    }
+    // 需要默认展开的菜单索引（从 0 开始）：第 2、3、4 个
+    var DEFAULT_EXPANDED_INDEXES = [ 1, 2, 3 ];
 
     function init() {
-        initIcon();
+        var menus = document.querySelectorAll( '.citizen-menu' );
+        var headings = document.querySelectorAll( '.citizen-menu__heading' );
+        if ( !headings.length ) return;
 
-        var lists = document.querySelectorAll( 'ul.citizen-menu__content-list' );
-        if ( !lists.length ) return;
-
-        var state = loadState();
-
-        lists.forEach( function ( list ) {
-            var trigger = list.closest( '.citizen-menu' ) || list.parentElement;
-            if ( !trigger || trigger.dataset.citizenSidebarBound ) return;
-
-            trigger.dataset.citizenSidebarBound = '1';
-            makeToggle( trigger, list, state );
-        } );
-    }
-
-    function makeToggle( trigger, list, state ) {
-        var firstLink = list.querySelector( 'a' );
-        var key = firstLink ? ( firstLink.id || firstLink.textContent.trim() ) : '';
-        if ( !key ) return;
-
-        var isCollapsed = state.hasOwnProperty( key ) ? state[ key ] : DEFAULT_COLLAPSED;
-        applyState( list, trigger, isCollapsed );
-
-        trigger.setAttribute( 'role', 'button' );
-        trigger.setAttribute( 'tabindex', '0' );
-        trigger.style.cursor = 'pointer';
-
-        function toggle() {
-            var willCollapse = list.style.display !== 'none';
-            applyState( list, trigger, willCollapse );
-            state[ key ] = willCollapse;
-            saveState( state );
-        }
-
-        trigger.addEventListener( 'click', function ( e ) {
-            if ( e.target.closest( 'a' ) ) return; // 点击链接不触发折叠
-            toggle();
-        } );
-
-        trigger.addEventListener( 'keydown', function ( e ) {
-            if ( e.key === 'Enter' || e.key === ' ' ) {
-                e.preventDefault();
-                toggle();
+        // 1. 默认折叠：跳过指定索引
+        menus.forEach( function ( menu, i ) {
+            if ( DEFAULT_EXPANDED_INDEXES.indexOf( i ) === -1 ) {
+                menu.classList.add( 'citizen-collapsed' );
             }
         } );
-    }
 
-    function applyState( list, trigger, collapsed ) {
-        if ( collapsed ) {
-            list.style.display = 'none';
-            trigger.classList.add( 'citizen-sidebar--collapsed' );
-            trigger.setAttribute( 'aria-expanded', 'false' );
-        } else {
-            list.style.display = '';
-            trigger.classList.remove( 'citizen-sidebar--collapsed' );
-            trigger.setAttribute( 'aria-expanded', 'true' );
+        // 2. 父容器改为 flex 列布局，并加底部留白类
+        var firstMenu = menus[0];
+        if ( firstMenu && firstMenu.parentElement ) {
+            var container = firstMenu.parentElement;
+            container.style.display = 'flex';
+            container.style.flexDirection = 'column';
+            container.style.justifyContent = 'flex-start';
+            container.classList.add( 'citizen-collapsible-container' );
         }
-    }
 
-    function loadState() {
-        try { return JSON.parse( localStorage.getItem( STORAGE_KEY ) ) || {}; }
-        catch ( e ) { return {}; }
-    }
-    function saveState( state ) {
-        try { localStorage.setItem( STORAGE_KEY, JSON.stringify( state ) ); } catch ( e ) {}
+        // 3. 绑定点击（克隆替换，清除 Citizen 原有监听器）
+        headings.forEach( function ( heading ) {
+            var menu = heading.closest( '.citizen-menu' );
+            if ( !menu ) return;
+
+            var initiallyCollapsed = menu.classList.contains( 'citizen-collapsed' );
+
+            var clone = heading.cloneNode( true );
+            clone.classList.add( 'citizen-heading-bound' );
+            clone.setAttribute( 'role', 'button' );
+            clone.setAttribute( 'tabindex', '0' );
+            clone.setAttribute( 'aria-expanded', initiallyCollapsed ? 'false' : 'true' );
+            heading.parentNode.replaceChild( clone, heading );
+
+            function toggle( e ) {
+                if ( e ) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+                var collapsed = menu.classList.toggle( 'citizen-collapsed' );
+                clone.setAttribute( 'aria-expanded', collapsed ? 'false' : 'true' );
+            }
+
+            clone.addEventListener( 'click', function ( e ) {
+                if ( e.target.closest( 'a' ) ) return;
+                toggle( e );
+            } );
+            clone.addEventListener( 'keydown', function ( e ) {
+                if ( e.key === 'Enter' || e.key === ' ' ) toggle( e );
+            } );
+        } );
+
+        // 4. 顶部灰色提示
+        if ( firstMenu && firstMenu.parentElement &&
+             !document.getElementById( 'citizen-collapsible-hint' ) ) {
+            var hint = document.createElement( 'div' );
+            hint.id = 'citizen-collapsible-hint';
+            hint.textContent = '点击分类标题可展开或折叠';
+            firstMenu.parentElement.insertBefore( hint, firstMenu.parentElement.firstChild );
+        }
     }
 
     if ( document.readyState === 'loading' ) {

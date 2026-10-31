@@ -1,32 +1,80 @@
-/* MediaWiki:Gadget-citizenCollapsibleSidebar.css */
+/* MediaWiki:Gadget-CollapsibleCitizen.css */
 
-.citizen-menu[data-citizen-sidebar-bound] {
-    position: relative;
+
+/* ===== 折叠控制 ===== */
+.citizen-menu.citizen-collapsed .citizen-menu__content {
+    display: none !important;
 }
 
-/* 使用 Citizen 的 collapse 图标作为指示标志 */
-.citizen-menu[data-citizen-sidebar-bound]::after {
+/* ===== 标题交互与折叠图标 ===== */
+.citizen-menu__heading.citizen-heading-bound {
+    cursor: pointer;
+    position: relative;
+    padding-right: 1.5em;
+    user-select: none;
+}
+
+.citizen-menu__heading.citizen-heading-bound::after {
     content: "";
     position: absolute;
-    right: 0.75em;
-    top: 0.75em;
-    width: 1em;
-    height: 1em;
-    background-image: var( --citizen-collapse-icon );
+    right: 0.5em;
+    top: 50%;
+    width: 0.8em;
+    height: 0.8em;
+    transform: translateY(-50%);
+    background-image: url("https://battlecats.miraheze.org/w/load.php?modules=skins.citizen.icons&image=collapse&format=original&lang=en&skin=citizen");
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;
     opacity: 0.6;
-    transition: transform 0.2s ease, opacity 0.2s ease;
-    pointer-events: none; /* 不阻挡点击 */
+    transition: transform 0.2s ease;
+    pointer-events: none;
 }
 
-/* 折叠时旋转 90 度 */
-.citizen-menu[data-citizen-sidebar-bound].citizen-sidebar--collapsed::after {
-    transform: rotate(-90deg);
+.citizen-menu.citizen-collapsed .citizen-menu__heading.citizen-heading-bound::after {
+    transform: translateY(-50%) rotate(-90deg);
 }
 
-/* 悬停时稍微加深 */
-.citizen-menu[data-citizen-sidebar-bound]:hover::after {
-    opacity: 1;
+/* ===== 顶部灰色提示 ===== */
+#citizen-collapsible-hint {
+    font-size: 0.65em;
+    line-height: 1.3;
+    color: var(--color-base--subtle, #888);
+    padding: 0.2em 0.5em 0.4em;
+    text-align: center;
+    user-select: none;
+    flex: 0 0 auto;
+}
+
+/* ===== 亚克力边框 ===== */
+.citizen-menu {
+    border: 1px solid var(--border-color-base, rgba(255, 255, 255, 0.18));
+    border-radius: 10px;
+    margin-bottom: 0.5em;
+    padding: 0.25em 0.5em;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.08);
+    background: color-mix(in srgb, var(--color-surface-1, #fff) 70%, transparent);
+    backdrop-filter: blur(12px) saturate(160%);
+    -webkit-backdrop-filter: blur(12px) saturate(160%);
+    transition: background 0.2s ease, border-color 0.2s ease;
+    box-sizing: border-box;
+    flex: 0 0 auto;
+}
+
+.citizen-menu:hover {
+    background: rgba(255, 255, 255, 0.14);
+    background: color-mix(in srgb, var(--color-surface-1, #fff) 82%, transparent);
+    border-color: var(--border-color-base, rgba(255, 255, 255, 0.28));
+}
+
+/* ===== 底部留白 ===== */
+.citizen-collapsible-container::after {
+    content: "";
+    display: block;
+    flex: 0 0 1.5em;
+}
+
+.citizen-menu:last-child {
+    margin-bottom: 1.5em;
 }
