@@ -2,6 +2,8 @@
 ( function () {
     'use strict';
 
+    console.log( 'Gadget-CollapsibleCitizen.js loaded' );
+
     // 执行标记：在控制台执行 window.__ccLoaded 可确认本脚本是否被执行
     window.__ccLoaded = true;
 
