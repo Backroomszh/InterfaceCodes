@@ -30,7 +30,7 @@
 - section: Site
   gadgets:
       - site-template
-      - CollapsibleCitizen
+#      - CollapsibleCitizen
       - page-top-banner
       - RedlinkDirect
       - StaffComment
