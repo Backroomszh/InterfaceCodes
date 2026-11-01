@@ -86,7 +86,6 @@ samp,
     --color-surface-2: #d6ddfd;
     --color-surface-3: #c6d0fb;
     --color-surface-4: #b4bdec;
-	--color-neutral:--color-base !important;
 }
 
 :root.portable-infobox {
