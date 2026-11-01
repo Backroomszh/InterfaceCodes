@@ -1850,6 +1850,7 @@ a[title='创建新子页面']::before {
     --utgheader: #F5F5F5;
     --mwheaderbg: linear-gradient(45deg, #F5F5F5, #F0F0F0, #F5F5F5);
     --utgwindow-img: none;
+	--color-neutral:--color-base !important;
 }
 .mw-header {
     background: var(--mwheaderbg);
