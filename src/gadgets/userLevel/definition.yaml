@@ -1,0 +1,12 @@
+ResourceLoader: true
+hidden: false
+default: true
+type: general
+rights: []
+dependencies:
+    - mediawiki.api
+    - mediawiki.util
+    - mediawiki.storage
+enable: true
+files:
+    - Gadget-userLevel.js
