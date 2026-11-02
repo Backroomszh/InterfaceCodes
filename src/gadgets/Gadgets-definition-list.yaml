@@ -38,6 +38,7 @@
       - votingSystem
       - wikiwalkNav
       - RelatedArticlesOverlay
+      - citizenDomFix
 
 - section: Community
   gadgets:
