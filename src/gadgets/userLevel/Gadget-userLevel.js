@@ -2,30 +2,57 @@
     'use strict';
 
     const CONFIG = {
-        LOOKBACK_DAYS: 180,
-        BASE_SCORE: 10,
-        LEVEL_THRESHOLD: 80,
-        LEVEL_EXP: 1.5,
-        STREAK_TIERS: [
-            { min: 60, mult: 2.0 },
-            { min: 30, mult: 1.5 },
-            { min: 7,  mult: 1.0 },
-            { min: 0,  mult: 0.5 }
-        ],
-        COMMENT_NS: 844,
-        COMMENT_WEIGHT: 2,
+        // ================= 积分构成 =================
+        // 四个维度的权重，合计必须为 1
+        WEIGHTS: {
+            comment: 0.15,   // 评论
+            login:   0.10,   // 每天登录（累计活跃天数）
+            create:  0.40,   // 主命名空间创建页面数
+            edit:    0.35    // 非 Storage、非评论命名空间的编辑数
+        },
 
-        CACHE_TTL_MS: 10 * 60 * 1000,
-        EDIT_CACHE_MS: 60 * 60 * 1000,
-        COMMENT_CACHE_MS: 60 * 60 * 1000,
+        // 每个维度的参考值：达成度 = 实际值 / 参考值。
+        // 达到参考值即视为“该维度满分”；超过后仍按同样比例继续计分（不封顶），
+        // 所以零贡献的新用户积分为 0、等级为 Lv0，最高等级也没有上限。
+        REF: {
+            comment: 100,
+            login:   180,
+            create:  30,
+            edit:    1000
+        },
+
+        // 四个维度都刚好达到参考值时的基础积分
+        BASE_SCORE_MAX: 10000,
+
+        // 等级曲线：level = floor((积分 / 15) ^ (1 / 2)) = floor(sqrt(积分 / 15))
+        // 15 分即 Lv1，等级不设上限。
+        LEVEL_THRESHOLD: 15,
+        LEVEL_EXP: 2,
+
+        // ================= 作品评分附加分 =================
+        // 读取投票系统写出的全站排名快照（Storage:GlobalRanking）
+        RANKING_SNAPSHOT_TITLE: 'Storage:GlobalRanking',
+        RANKING_SNAPSHOT_MARKER: 'SNAPSHOT',
+        RANKING_SNAPSHOT_VERSION: 3,
+        VOTE_MAX: 5,          // 投票分值上限（1~5 分制）
+        AVG_MIN_COUNT: 1,     // 计算均分时，只统计至少有 1 票的文章
+        BONUS_PER_PAGE: 1000, // 单篇作品“高于均分且差距拉满”时的加分
+        BONUS_MAX: 5000,      // 作品加分总计上限
+
+        // ================= 活跃记录快照 =================
+        LEVEL_SNAPSHOT_TITLE: 'Storage:Userlevel',
+        SNAPSHOT_BUCKETS: 256,
+        FILTER_PREFIX: 'mwlfg:',
+        COMMENT_NS_FALLBACK: 844,
+
+        // ================= 缓存 =================
+        STATS_TTL_MS: 10 * 60 * 1000,
+        METRICS_TTL_MS: 60 * 60 * 1000,
+        CREATOR_TTL_MS: 24 * 60 * 60 * 1000,
         PAGE_CACHE_MS: 30 * 1000,
 
-        MAX_REQUESTS: 15,
-        WAIT_TIMEOUT: 8000,
-
-        SNAPSHOT_TITLE: 'Storage:Userlevel',
-        SNAPSHOT_BUCKETS: 256,
-        FILTER_PREFIX: 'mwlfg:'
+        MAX_REQUESTS: 30,
+        WAIT_TIMEOUT: 8000
     };
 
     const CSS = `
@@ -72,6 +99,10 @@
 }
 `;
 
+    // ------------------------------------------------------------------
+    // 通用工具
+    // ------------------------------------------------------------------
+
     const pad = n => n < 10 ? '0' + n : '' + n;
     const fmtDate = d => d.getUTCFullYear() + '-' + pad(d.getUTCMonth() + 1) + '-' + pad(d.getUTCDate());
     const todayUTC = () => fmtDate(new Date());
@@ -82,47 +113,20 @@
     }
     const MASK30 = (1 << 30) - 1;
 
-    function readCache(key) {
+    function readCache(key, ttl) {
         try {
-            const raw = mw.storage.get(key); if (!raw) return null;
+            const raw = mw.storage.get(key);
+            if (!raw) return null;
             const o = JSON.parse(raw);
-            if (!o || !o.ts || Date.now() - o.ts > CONFIG.CACHE_TTL_MS) return null;
+            if (!o || !o.ts || Date.now() - o.ts > ttl) return null;
             return o.data;
         } catch (e) { return null; }
     }
     function writeCache(key, data) {
         try { mw.storage.set(key, JSON.stringify({ ts: Date.now(), data })); } catch (e) {}
     }
-    function statsKey(user) { return 'userlevel.lv.v4.' + user; }
-
-    function editCacheKey(user) { return 'userlevel.edits.v4.' + user; }
-    function readEditCache(user) {
-        try {
-            const raw = mw.storage.get(editCacheKey(user)); if (!raw) return null;
-            const o = JSON.parse(raw);
-            if (!o || Date.now() - o.ts > CONFIG.EDIT_CACHE_MS) return null;
-            return new Set(o.days);
-        } catch (e) { return null; }
-    }
-    function writeEditCache(user, set) {
-        try {
-            mw.storage.set(editCacheKey(user), JSON.stringify({ ts: Date.now(), days: Array.from(set) }));
-        } catch (e) {}
-    }
-
-    function commentCacheKey(user) { return 'userlevel.comments.v4.' + user; }
-    function readCommentCache(user) {
-        try {
-            const raw = mw.storage.get(commentCacheKey(user)); if (!raw) return null;
-            const o = JSON.parse(raw);
-            if (!o || Date.now() - o.ts > CONFIG.COMMENT_CACHE_MS) return null;
-            return o.count;
-        } catch (e) { return null; }
-    }
-    function writeCommentCache(user, count) {
-        try {
-            mw.storage.set(commentCacheKey(user), JSON.stringify({ ts: Date.now(), count }));
-        } catch (e) {}
+    function dropCache(key) {
+        try { mw.storage.remove(key); } catch (e) {}
     }
 
     function hashUsername(name) {
@@ -137,17 +141,33 @@
         const b = hashUsername(name) % CONFIG.SNAPSHOT_BUCKETS;
         return b.toString(16).padStart(2, '0');
     }
-    function snapshotTitle(name) {
-        return CONFIG.SNAPSHOT_TITLE + '/' + bucketOf(name);
+    function levelSnapshotTitle(name) {
+        return CONFIG.LEVEL_SNAPSHOT_TITLE + '/' + bucketOf(name);
     }
+
+    // 命名空间 ID
+    function namespaceIds() { return mw.config.get('wgNamespaceIds') || {}; }
+    function storageNamespaceId() {
+        const id = namespaceIds().storage;
+        return (typeof id === 'number' && id >= 0) ? id : -1;
+    }
+    function commentNamespaceId() {
+        const ids = namespaceIds();
+        if (typeof ids.comments === 'number') return ids.comments;
+        if (typeof ids.comment === 'number') return ids.comment;
+        return CONFIG.COMMENT_NS_FALLBACK;
+    }
+
+    // ------------------------------------------------------------------
+    // 页面读取
+    // ------------------------------------------------------------------
 
     const pageCache = new Map();
 
-    async function readSnapshotPage(title, force) {
+    async function readPageText(title, force) {
         const cached = pageCache.get(title);
-        if (!force && cached && Date.now() - cached.ts < CONFIG.PAGE_CACHE_MS) {
-            return cached;
-        }
+        if (!force && cached && Date.now() - cached.ts < CONFIG.PAGE_CACHE_MS) return cached;
+
         const api = new mw.Api();
         let entry;
         try {
@@ -156,7 +176,7 @@
                 titles: title, formatversion: 2
             });
             const page = data.query && data.query.pages && data.query.pages[0];
-            if (!page || page.missing) {
+            if (!page || page.missing !== undefined) {
                 entry = { text: '', revid: null, ts: Date.now() };
             } else {
                 const rev = page.revisions && page.revisions[0];
@@ -173,6 +193,11 @@
         pageCache.set(title, entry);
         return entry;
     }
+
+    // ------------------------------------------------------------------
+    // 活跃记录快照（Storage:Userlevel/xx）
+    // 只用来记录“每天登录”，不参与其它维度
+    // ------------------------------------------------------------------
 
     function parseUserSection(text, username) {
         const lines = text.split('\n');
@@ -218,56 +243,6 @@
         ].join('\t');
     }
 
-    async function fetchActiveDates(user) {
-        const api = new mw.Api();
-        const end = new Date();
-        const start = new Date(end.getTime() - CONFIG.LOOKBACK_DAYS * 86400000);
-        const dates = new Set();
-        let cont = {}, guard = 0;
-        while (guard++ < CONFIG.MAX_REQUESTS) {
-            const params = Object.assign({
-                action: 'query', formatversion: 2, list: 'usercontribs', ucuser: user,
-                ucstart: start.toISOString(), ucend: end.toISOString(),
-                uclimit: 'max', ucprop: 'timestamp'
-            }, cont);
-            const data = await api.get(params);
-            (data.query && data.query.usercontribs || []).forEach(c => {
-                if (c && c.timestamp) dates.add(c.timestamp.slice(0, 10));
-            });
-            if (data.continue) cont = data.continue; else break;
-        }
-        return dates;
-    }
-
-    async function fetchActiveDatesCached(user) {
-        const c = readEditCache(user);
-        if (c) return c;
-        const dates = await fetchActiveDates(user);
-        writeEditCache(user, dates);
-        return dates;
-    }
-
-    async function fetchCommentCount(user) {
-        const cached = readCommentCache(user);
-        if (cached !== null) return cached;
-
-        const api = new mw.Api();
-        let count = 0;
-        let cont = {}, guard = 0;
-        while (guard++ < CONFIG.MAX_REQUESTS) {
-            const params = Object.assign({
-                action: 'query', formatversion: 2, list: 'usercontribs', ucuser: user,
-                uclimit: 'max', ucdir: 'newer',
-                ucnamespace: CONFIG.COMMENT_NS, ucprop: 'timestamp'
-            }, cont);
-            const data = await api.get(params);
-            count += (data.query && data.query.usercontribs || []).length;
-            if (data.continue) cont = data.continue; else break;
-        }
-        writeCommentCache(user, count);
-        return count;
-    }
-
     function computeStreak(dates) {
         const today = todayUTC();
         const yest = fmtDate(new Date(Date.now() - 86400000));
@@ -307,22 +282,13 @@
         };
     }
 
-    function statsFromActiveDates(dates, floorTotalDays, floorStreak, commentCount) {
-        const computedStreak = computeStreak(dates);
-        const streak = Math.max(computedStreak, floorStreak || 0);
-        const totalDays = Math.max(dates.size, floorTotalDays || 0);
-
-        let mult = 0.5;
-        for (const t of CONFIG.STREAK_TIERS) {
-            if (streak >= t.min) { mult = t.mult; break; }
+    function bitmapToDates(bitmap, today) {
+        const out = new Set();
+        const todayTs = Date.parse(today + 'T00:00:00Z');
+        for (let i = 0; i < 30; i++) {
+            if (bitmap & (1 << i)) out.add(fmtDate(new Date(todayTs - i * 86400000)));
         }
-
-        const score = totalDays * CONFIG.BASE_SCORE
-                    + Math.floor(streak * CONFIG.BASE_SCORE * mult)
-                    + (commentCount || 0) * CONFIG.COMMENT_WEIGHT;
-
-        const level = Math.floor(Math.pow(score / CONFIG.LEVEL_THRESHOLD, 1 / CONFIG.LEVEL_EXP));
-        return { level, score, streak, totalDays, commentCount: commentCount || 0 };
+        return out;
     }
 
     const REC_TODAY_KEY = 'userlevel.rec.today';
@@ -338,18 +304,18 @@
         if (hasRecordedToday()) return;
 
         const today = todayUTC();
-        const title = snapshotTitle(username);
+        const title = levelSnapshotTitle(username);
         const api = new mw.Api();
 
         for (let attempt = 0; attempt < 3; attempt++) {
-            const { text } = await readSnapshotPage(title, true);
+            const { text } = await readPageText(title, true);
 
             let rec = parseUserSection(text, username);
             const sectionIdx = findSectionIndex(text, username);
 
             if (!rec) {
                 let editDates;
-                try { editDates = await fetchActiveDatesCached(username); }
+                try { editDates = new Set((await getMetrics(username)).dates); }
                 catch (e) { editDates = new Set(); }
                 rec = initRecord(today, editDates);
             } else {
@@ -380,10 +346,7 @@
                 await api.postWithToken('csrf', params);
                 markRecordedToday();
                 pageCache.delete(title);
-                try {
-                    mw.storage.remove(statsKey(username));
-                    mw.storage.remove(commentCacheKey(username));
-                } catch (e) {}
+                dropCache(statsKey(username));
                 return;
             } catch (e) {
                 if ((e && e.code === 'editconflict') ||
@@ -396,52 +359,348 @@
         }
     }
 
-    const inflight = new Map();
+    // ------------------------------------------------------------------
+    // 四个统计维度
+    // ------------------------------------------------------------------
+
+    /**
+     * 拉取用户贡献：
+     *  - dates：所有有贡献的日期（用于登录天数补算）
+     *  - editCount：排除 Storage 与评论命名空间后的编辑数
+     *  - commentCount：评论命名空间（CommentStreams）里的贡献数
+     */
+    async function fetchContribStats(user) {
+        const api = new mw.Api();
+        const storageNs = storageNamespaceId();
+        const commentNs = commentNamespaceId();
+        const dates = new Set();
+        let editCount = 0;
+        let commentCount = 0;
+        let cont = {};
+
+        for (let guard = 0; guard < CONFIG.MAX_REQUESTS; guard++) {
+            const params = Object.assign({
+                action: 'query', formatversion: 2, list: 'usercontribs',
+                ucuser: user, uclimit: 'max', ucdir: 'newer',
+                ucprop: 'timestamp|title'
+            }, cont);
+
+            const data = await api.get(params);
+            const list = (data.query && data.query.usercontribs) || [];
+
+            for (const c of list) {
+                if (c.timestamp) dates.add(c.timestamp.slice(0, 10));
+                const ns = (typeof c.ns === 'number') ? c.ns : guessNamespace(c.title, commentNs);
+                // 编辑数排除 Storage 和评论命名空间（评论单独计入“评论”维度）
+                if (ns !== storageNs && ns !== commentNs) editCount++;
+                if (ns === commentNs) commentCount++;
+            }
+
+            if (data.continue) cont = data.continue;
+            else return { dates, editCount, commentCount, truncated: false };
+        }
+        return { dates, editCount, commentCount, truncated: true };
+    }
+
+    // c.ns 缺失时的兜底：只区分 Storage / 评论，其余一律视为主空间或其它命名空间
+    function guessNamespace(title, commentNs) {
+        const t = String(title || '').replace(/_/g, ' ');
+        const idx = t.indexOf(':');
+        if (idx === -1) return 0;
+        const prefix = t.slice(0, idx).toLowerCase();
+        if (prefix === 'storage') return storageNamespaceId() >= 0 ? storageNamespaceId() : -1;
+        if (prefix === 'comments' || prefix === 'comment') return commentNs;
+        return -1;
+    }
+
+    /**
+     * 主命名空间创建页面数：读创建日志（页面被删除后日志仍保留）。
+     * 按标题去重，避免“删除后重建”被重复计算。
+     */
+    async function fetchCreatedPages(user) {
+        const api = new mw.Api();
+        const titles = new Set();
+        let cont = {};
+
+        for (let guard = 0; guard < CONFIG.MAX_REQUESTS; guard++) {
+            const params = Object.assign({
+                action: 'query', formatversion: 2, list: 'logevents',
+                letype: 'create', lenamespace: 0, leuser: user,
+                lelimit: 'max', leprop: 'title'
+            }, cont);
+
+            const data = await api.get(params);
+            const list = (data.query && data.query.logevents) || [];
+            list.forEach(le => {
+                if (le && le.title) titles.add(String(le.title).replace(/_/g, ' '));
+            });
+
+            if (data.continue) cont = data.continue;
+            else return { titles, truncated: false };
+        }
+        return { titles, truncated: true };
+    }
+
+    function metricsKey(user) { return 'userlevel.v6.metrics.' + user; }
+    const metricsInflight = new Map();
+
+    function getMetrics(user) {
+        const key = metricsKey(user);
+        const cached = readCache(key, CONFIG.METRICS_TTL_MS);
+        if (cached) return Promise.resolve(cached);
+        if (metricsInflight.has(key)) return metricsInflight.get(key);
+
+        const p = (async () => {
+            const contrib = await fetchContribStats(user);
+            const created = await fetchCreatedPages(user);
+            const data = {
+                editCount: contrib.editCount,
+                commentCount: contrib.commentCount,
+                createCount: created.titles.size,
+                dates: Array.from(contrib.dates).sort(),
+                truncated: !!(contrib.truncated || created.truncated)
+            };
+            writeCache(key, data);
+            return data;
+        })().finally(() => metricsInflight.delete(key));
+
+        metricsInflight.set(key, p);
+        return p;
+    }
+
+    // ------------------------------------------------------------------
+    // 作品评分附加分
+    // ------------------------------------------------------------------
+
+    /** 读取投票系统写出的最新一份全站排名快照 */
+    async function readRankingSnapshot() {
+        const entry = await readPageText(CONFIG.RANKING_SNAPSHOT_TITLE);
+        if (!entry || !entry.text) return null;
+
+        const re = new RegExp(
+            '<!--\\s*' + CONFIG.RANKING_SNAPSHOT_MARKER + '_v' + CONFIG.RANKING_SNAPSHOT_VERSION +
+            ':(\\d{4}-\\d{2}-\\d{2}T[^|]+)\\|([\\s\\S]+?)\\s*-->',
+            'g'
+        );
+        let last = null, m;
+        while ((m = re.exec(entry.text)) !== null) {
+            try {
+                const obj = JSON.parse(m[2]);
+                if (obj && Array.isArray(obj.rows)) {
+                    last = {
+                        ts: Math.floor(new Date(m[1]).getTime() / 1000),
+                        rows: obj.rows
+                    };
+                }
+            } catch (e) {}
+        }
+        return last;
+    }
+
+    const CREATOR_CACHE_KEY = 'userlevel.v5.creators';
+
+    /** 批量取每个页面“最初一版”的编辑者 */
+    async function fetchFirstRevisionUsers(pageIds) {
+        const api = new mw.Api();
+        const out = {};
+
+        for (let i = 0; i < pageIds.length; i += 50) {
+            const batch = pageIds.slice(i, i + 50);
+            try {
+                const data = await api.get({
+                    action: 'query', formatversion: 2,
+                    pageids: batch.join('|'),
+                    prop: 'revisions',
+                    rvprop: 'user|timestamp',
+                    rvslots: 'main',
+                    rvlimit: 1,
+                    rvdir: 'newer'
+                });
+                const pages = (data.query && data.query.pages) || [];
+                pages.forEach(p => {
+                    if (!p || p.missing !== undefined) return;
+                    const rev = p.revisions && p.revisions[0];
+                    if (rev && rev.user) out[p.pageid] = rev.user;
+                });
+            } catch (e) {}
+        }
+        return out;
+    }
+
+    /** 页面 ID → 最初创建者 的映射，按页缓存（创建者不会变化） */
+    async function getCreatorMap(pageIds) {
+        const cached = readCache(CREATOR_CACHE_KEY, CONFIG.CREATOR_TTL_MS) || {};
+        const wanted = new Set(pageIds);
+        const missing = [];
+        wanted.forEach(id => { if (cached[id] === undefined) missing.push(id); });
+
+        if (missing.length) {
+            const fetched = await fetchFirstRevisionUsers(missing);
+            // 查不到的页面记为 ''，避免每次计算都重复请求（24 小时后重试）
+            missing.forEach(id => {
+                if (fetched[id] === undefined) fetched[id] = '';
+            });
+            Object.assign(cached, fetched);
+            writeCache(CREATOR_CACHE_KEY, cached);
+        }
+
+        const out = {};
+        wanted.forEach(id => {
+            if (cached[id] !== undefined) out[id] = cached[id];
+        });
+        return out;
+    }
+
+    /**
+     * 作品加分规则：
+     *  1. 取全场快照中“至少有 AVG_MIN_COUNT 票”的文章，算平均分；
+     *  2. 用页面最初一版编辑者对应文章的作者；
+     *  3. 作者是当前用户、且文章得分 > 平均分 → 加分；
+     *     低于或等于平均分 → 不加不减。
+     *  加分幅度按“高出均分的程度”折算，单篇上限 BONUS_PER_PAGE，总分上限 BONUS_MAX。
+     */
+    async function getWorkBonus(user) {
+        const snapshot = await readRankingSnapshot();
+        if (!snapshot || !snapshot.rows.length) return { bonus: 0, pages: 0, avg: null };
+
+        const voted = snapshot.rows.filter(r =>
+            r && typeof r.pageId === 'number' && typeof r.score === 'number' &&
+            isFinite(r.score) && (r.count || 0) >= CONFIG.AVG_MIN_COUNT
+        );
+        if (!voted.length) return { bonus: 0, pages: 0, avg: null };
+
+        let sum = 0;
+        for (const r of voted) sum += r.score;
+        const avg = sum / voted.length;
+
+        const creators = await getCreatorMap(voted.map(r => r.pageId));
+
+        let bonus = 0, pages = 0;
+        for (const r of voted) {
+            if (creators[r.pageId] !== user) continue;
+            if (!(r.score > avg + 1e-9)) continue;
+            const room = Math.max(0.5, CONFIG.VOTE_MAX - avg);
+            const ratio = Math.min(1, (r.score - avg) / room);
+            bonus += CONFIG.BONUS_PER_PAGE * ratio;
+            pages++;
+        }
+
+        bonus = Math.min(CONFIG.BONUS_MAX, Math.round(bonus));
+        return { bonus, pages, avg: Math.round(avg * 100) / 100 };
+    }
+
+    // ------------------------------------------------------------------
+    // 积分与等级
+    // ------------------------------------------------------------------
+
+    /** 单维度达成度：实际值 / 参考值。达到参考值为 1，超过后继续按比例增长，无上限 */
+    function dimensionRatio(value, ref) {
+        if (!(value > 0) || !(ref > 0)) return 0;
+        return value / ref;
+    }
+
+    function computeScoreBreakdown(counts) {
+        const ratios = {
+            comment: dimensionRatio(counts.commentCount, CONFIG.REF.comment),
+            login:   dimensionRatio(counts.totalDays,   CONFIG.REF.login),
+            create:  dimensionRatio(counts.createCount, CONFIG.REF.create),
+            edit:    dimensionRatio(counts.editCount,   CONFIG.REF.edit)
+        };
+
+        let weighted = 0;
+        for (const k in CONFIG.WEIGHTS) {
+            weighted += CONFIG.WEIGHTS[k] * (ratios[k] || 0);
+        }
+
+        // 每个维度的实际得分，便于在提示里展示构成
+        const detail = {};
+        for (const k in CONFIG.WEIGHTS) {
+            detail[k] = Math.round(CONFIG.BASE_SCORE_MAX * CONFIG.WEIGHTS[k] * (ratios[k] || 0));
+        }
+
+        return { base: Math.round(weighted * CONFIG.BASE_SCORE_MAX), ratios, detail };
+    }
+
+    function levelFromScore(score) {
+        if (!(score > 0)) return 0;
+        return Math.floor(Math.pow(score / CONFIG.LEVEL_THRESHOLD, 1 / CONFIG.LEVEL_EXP));
+    }
+
+    function statsKey(user) { return 'userlevel.v6.stats.' + user; }
+    const statsInflight = new Map();
+
+    async function buildStats(user) {
+        const today = todayUTC();
+
+        const snapshot = await readPageText(levelSnapshotTitle(user))
+            .catch(() => ({ text: '', revid: null, ts: Date.now() }));
+        const rec = parseUserSection(snapshot.text, user);
+
+        let metrics;
+        try { metrics = await getMetrics(user); }
+        catch (e) {
+            metrics = { editCount: 0, commentCount: 0, createCount: 0, dates: [], truncated: true };
+        }
+
+        const dates = new Set(metrics.dates);
+        if (rec) {
+            bitmapToDates(rec.bitmap, today).forEach(d => dates.add(d));
+        }
+        dates.add(today);
+
+        const totalDays = Math.max(dates.size, rec ? rec.totalDays : 0);
+        const streak = Math.max(computeStreak(dates), rec ? rec.streak : 0);
+
+        let bonusInfo;
+        try { bonusInfo = await getWorkBonus(user); }
+        catch (e) { bonusInfo = { bonus: 0, pages: 0, avg: null }; }
+
+        const counts = {
+            commentCount: metrics.commentCount || 0,
+            totalDays,
+            createCount: metrics.createCount || 0,
+            editCount: metrics.editCount || 0
+        };
+
+        const breakdown = computeScoreBreakdown(counts);
+        const score = breakdown.base + (bonusInfo.bonus || 0);
+        const level = levelFromScore(score);
+
+        return {
+            level,
+            score,
+            baseScore: breakdown.base,
+            bonus: bonusInfo.bonus || 0,
+            workPages: bonusInfo.pages || 0,
+            workAvg: bonusInfo.avg,
+            streak,
+            totalDays,
+            commentCount: counts.commentCount,
+            createCount: counts.createCount,
+            editCount: counts.editCount,
+            partial: !!metrics.truncated
+        };
+    }
 
     function getStatsFor(user) {
         if (!user || mw.util.isIPAddress(user)) return Promise.resolve(null);
+
         const key = statsKey(user);
-        const c = readCache(key);
-        if (c) return Promise.resolve(c);
-        if (inflight.has(key)) return inflight.get(key);
+        const cached = readCache(key, CONFIG.STATS_TTL_MS);
+        if (cached) return Promise.resolve(cached);
+        if (statsInflight.has(key)) return statsInflight.get(key);
 
-        const p = (async () => {
-            const title = snapshotTitle(user);
+        const p = buildStats(user)
+            .then(stats => { writeCache(key, stats); return stats; })
+            .finally(() => statsInflight.delete(key));
 
-            const snapshot = await readSnapshotPage(title).catch(() => ({
-                text: '', revid: null, ts: Date.now()
-            }));
-            const commentCount = await fetchCommentCount(user).catch(() => 0);
-
-            const rec = parseUserSection(snapshot.text, user);
-
-            if (!rec) {
-                let editDates;
-                try { editDates = await fetchActiveDatesCached(user); }
-                catch (e) { editDates = new Set(); }
-                editDates.add(todayUTC());
-                const stats = statsFromActiveDates(editDates, 0, 0, commentCount);
-                writeCache(key, stats);
-                return stats;
-            }
-
-            const merged = new Set();
-            const todayTs = Date.parse(todayUTC() + 'T00:00:00Z');
-            for (let i = 0; i < 30; i++) {
-                if (rec.bitmap & (1 << i)) {
-                    merged.add(fmtDate(new Date(todayTs - i * 86400000)));
-                }
-            }
-            merged.add(todayUTC());
-
-            const stats = statsFromActiveDates(merged, rec.totalDays, rec.streak, commentCount);
-            writeCache(key, stats);
-            return stats;
-        })().finally(() => inflight.delete(key));
-
-        inflight.set(key, p);
+        statsInflight.set(key, p);
         return p;
     }
+
+    // ------------------------------------------------------------------
+    // UI
+    // ------------------------------------------------------------------
 
     function levelToTier(level) {
         if (level >= 30) return 5;
@@ -450,6 +709,21 @@
         if (level >= 5)  return 2;
         if (level >= 2)  return 1;
         return 0;
+    }
+
+    function statsTitle(stats, withStreak) {
+        const bits = [
+            '积分 ' + stats.score + '（基础 ' + stats.baseScore + ' + 作品 ' + stats.bonus + '）',
+            '评论 ' + stats.commentCount,
+            '登录 ' + stats.totalDays + ' 天',
+            '创建 ' + stats.createCount + ' 页',
+            '编辑 ' + stats.editCount + (stats.partial ? '+' : '')
+        ];
+        if (stats.workPages > 0) {
+            bits.push('高于均分作品 ' + stats.workPages + ' 篇（均分 ' + stats.workAvg + '）');
+        }
+        if (withStreak) bits.push('连续 ' + stats.streak + ' 天');
+        return '活跃等级 Lv' + stats.level + '｜' + bits.join('｜');
     }
 
     function buildMastheadLi(stats) {
@@ -473,11 +747,7 @@
             li.appendChild(s);
         }
 
-        li.title = '活跃等级 Lv' + stats.level +
-            '｜积分 ' + stats.score +
-            '｜累计活跃 ' + stats.totalDays + ' 天' +
-            '｜连续 ' + stats.streak + ' 天' +
-            '｜评论 ' + (stats.commentCount || 0) + ' 条';
+        li.title = statsTitle(stats, true);
         return li;
     }
 
@@ -495,10 +765,7 @@
         badge.textContent = String(stats.level);
         li.appendChild(badge);
 
-        li.title = '活跃等级 Lv' + stats.level +
-            '｜积分 ' + stats.score +
-            '｜连续 ' + stats.streak + ' 天' +
-            '｜评论 ' + (stats.commentCount || 0) + ' 条';
+        li.title = statsTitle(stats, false);
         return li;
     }
 
