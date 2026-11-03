@@ -1839,7 +1839,6 @@ a[title='创建新子页面']::before {
     --utgheader: #fffce9;
     --mwheaderbg: linear-gradient(45deg, #faffe3, #fffce8, #faffe3);
     --utgwindow-img: url(https://static.wikitide.net/backroomszhwiki/8/85/StackdSandboxBGfixed.png);
-    --width-page-aside: minmax(240px,280px);
 }
 :root.skin-theme-clientpref-night {
     --utgheader: #000e33;
@@ -1851,6 +1850,7 @@ a[title='创建新子页面']::before {
     --mwheaderbg: linear-gradient(45deg, #F5F5F5, #F0F0F0, #F5F5F5);
     --utgwindow-img: none;
 	--color-neutral:--color-base !important;
+	--width-page-aside: minmax(240px,280px);
 }
 .mw-header {
     background: var(--mwheaderbg);
