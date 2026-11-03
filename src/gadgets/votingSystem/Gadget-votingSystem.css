@@ -126,27 +126,20 @@
     outline: 2px solid var(--color-link);
     outline-offset: 1px;
 }
-.voting-btn[data-value="-1"]:hover,
-.voting-btn[data-value="-0.5"]:hover {
-    color: #c1444b;
-    border-color: rgba(193, 68, 75, .5);
-}
-.voting-btn[data-value="0.5"]:hover,
-.voting-btn[data-value="1"]:hover {
+/* 1~5 分制：五档全部为正向分，悬停统一使用绿色。 */
+.voting-btn[data-value="1"]:hover,
+.voting-btn[data-value="2"]:hover,
+.voting-btn[data-value="3"]:hover,
+.voting-btn[data-value="4"]:hover,
+.voting-btn[data-value="5"]:hover {
     color: #2d7d4a;
     border-color: rgba(45, 125, 74, .5);
 }
-.voting-btn[data-value="0"]:hover {
-    color: var(--color-link);
-    border-color: var(--color-link);
-}
-.skin-theme-clientpref-night .voting-btn[data-value="-1"]:hover,
-.skin-theme-clientpref-night .voting-btn[data-value="-0.5"]:hover {
-    color: #e58388;
-    border-color: rgba(229, 131, 136, .5);
-}
-.skin-theme-clientpref-night .voting-btn[data-value="0.5"]:hover,
-.skin-theme-clientpref-night .voting-btn[data-value="1"]:hover {
+.skin-theme-clientpref-night .voting-btn[data-value="1"]:hover,
+.skin-theme-clientpref-night .voting-btn[data-value="2"]:hover,
+.skin-theme-clientpref-night .voting-btn[data-value="3"]:hover,
+.skin-theme-clientpref-night .voting-btn[data-value="4"]:hover,
+.skin-theme-clientpref-night .voting-btn[data-value="5"]:hover {
     color: #6cc48d;
     border-color: rgba(108, 196, 141, .5);
 }
