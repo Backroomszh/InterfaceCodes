@@ -771,9 +771,24 @@
 
     function injectUserMenu(stats) {
         if (!stats) return;
-        document.querySelectorAll('.citizen-userInfo-usergroups').forEach(ul => {
+
+        const groups = document.querySelectorAll('.citizen-userInfo-usergroups');
+        if (groups.length) {
+            // 原有路径：注入到用户组列表
+            groups.forEach(ul => {
+                if (ul.querySelector('.userlevel-usergroup')) return;
+                ul.prepend(buildUserMenuLi(stats));
+            });
+            return;
+        }
+
+        // 降级路径：没有用户组容器时，注入到用户信息标题里的菜单列表
+        // 也就是 .citizen-userInfo-title > nav > .citizen-menu__content-list
+        document.querySelectorAll('.citizen-userInfo-title .citizen-menu__content-list').forEach(ul => {
             if (ul.querySelector('.userlevel-usergroup')) return;
-            ul.prepend(buildUserMenuLi(stats));
+            const li = buildUserMenuLi(stats);
+            li.classList.add('userlevel-fallback');
+            ul.prepend(li);
         });
     }
 
@@ -796,6 +811,21 @@
         });
     }
 
+    function waitForAny(selectors, timeout) {
+        return new Promise((resolve, reject) => {
+            const t0 = Date.now();
+            (function tick() {
+                for (const sel of selectors) {
+                    if (document.querySelector(sel)) return resolve(sel);
+                }
+                if (Date.now() - t0 > timeout) {
+                    return reject(new Error('timeout ' + selectors.join(' | ')));
+                }
+                setTimeout(tick, 200);
+            })();
+        });
+    }
+
     function getPageOwner() {
         if (mw.config.get('wgNamespaceNumber') !== 2) return null;
         const title = mw.config.get('wgTitle') || '';
@@ -812,7 +842,10 @@
             const me = mw.user.getName();
             recordVisit(me).catch(() => {});
             tasks.push(
-                waitFor('.citizen-userInfo-usergroups', CONFIG.WAIT_TIMEOUT)
+                waitForAny([
+                    '.citizen-userInfo-usergroups',
+                    '.citizen-userInfo-title .citizen-menu__content-list'
+                ], CONFIG.WAIT_TIMEOUT)
                     .then(() => getStatsFor(me))
                     .then(injectUserMenu)
                     .catch(() => {})
