@@ -11,7 +11,17 @@ function runAll() {
     var ANCHOR_ID = 'voting-panel-anchor';
     var ALL_RECORDS_CACHE_TTL = 30 * 60 * 1000;
 
-    var SNAPSHOT_VERSION = 2;
+    // 投票量纲：+1 ~ +5 的五个正整数。
+    // VOTE_RECORD_VERSION = 2 起记录中 v= 使用新量纲；
+    // v1 记录（-1 / -0.5 / 0 / +0.5 / +1）在读取时按线性映射换算，
+    // 保证迁移过程中的新旧记录可以共存。
+    var VOTE_MIN = 1;
+    var VOTE_MAX = 5;
+    var VOTE_NEUTRAL = 3;
+    var VOTE_RECORD_VERSION = 2;
+
+    // v2 的评分与 v1 不同量纲，旧快照必须作废重算。
+    var SNAPSHOT_VERSION = 3;
     var RANKING_SNAPSHOT_MAX_AGE = 120;
     var RANKING_SNAPSHOT_DEBOUNCE = 60;
     var RANKING_RENDER_CHUNK = 50;
@@ -173,11 +183,25 @@ function runAll() {
     function nowSec() { return Math.floor( Date.now() / 1000 ); }
     function isoMonth() { return new Date().toISOString().slice( 0, 7 ); }
 
+    function clampVoteValue( n ) {
+        n = Math.round( Number( n ) );
+        if ( !isFinite( n ) ) return VOTE_NEUTRAL;
+        if ( n < VOTE_MIN ) return VOTE_MIN;
+        if ( n > VOTE_MAX ) return VOTE_MAX;
+        return n;
+    }
+
+    // 旧量纲 -1 / -0.5 / 0 / +0.5 / +1 线性映射到 1 / 2 / 3 / 4 / 5。
+    // 该映射是仿射变换（新 = 2 × 旧 + 3），保持投票之间的相对差距与排序。
+    function legacyValueToScale( v ) {
+        var n = parseFloat( v );
+        if ( !isFinite( n ) ) return VOTE_NEUTRAL;
+        return clampVoteValue( 2 * n + 3 );
+    }
+
     function formatScore( v ) {
         var n = Number( v );
-        if ( n > 0 ) return '+' + n.toFixed( 1 ).replace( /\.0$/, '' );
-        if ( n < 0 ) return n.toFixed( 1 ).replace( /\.0$/, '' );
-        return '0';
+        return ( n > 0 ? '+' : '' ) + n.toFixed( 1 ).replace( /\.0$/, '' );
     }
 
     function formatAvgScore( v ) {
@@ -442,15 +466,19 @@ function runAll() {
                     for ( var i = 0; i < res.query.pages.length; i++ ) {
                         var p = res.query.pages[ i ];
                         var content = safeGet( p, 'revisions.0.slots.main.content' ) || '';
-                        var voteRe = /<!--\s*V\s+v1\s+u=([^\s|]+)\s+p=(\d+)\s+v=([\-\d.]+)\s+w=([\d.]+)\s+t=(\d+)\s+h=([01])\s+c=(\d+)\s+id=([\w-]+)\s*-->/g;
-                        var delRe = /<!--\s*V\s+v1\s+del\s+id=([\w-]+)\s+by=[^\s]+\s+t=\d+\s*-->/g;
+                        var voteRe = /<!--\s*V\s+v([12])\s+u=([^\s|]+)\s+p=(\d+)\s+v=([\-\d.]+)\s+w=([\d.]+)\s+t=(\d+)\s+h=([01])\s+c=(\d+)\s+id=([\w-]+)\s*-->/g;
+                        var delRe = /<!--\s*V\s+v[12]\s+del\s+id=([\w-]+)\s+by=[^\s]+\s+t=\d+\s*-->/g;
                         var m;
                         while ( ( m = voteRe.exec( content ) ) ) {
-                            allVotes[ m[ 8 ] ] = {
-                                id: m[ 8 ], user: m[ 1 ], page: parseInt( m[ 2 ], 10 ),
-                                value: parseFloat( m[ 3 ] ), weight: parseFloat( m[ 4 ] ),
-                                timestamp: parseInt( m[ 5 ], 10 ), hide: m[ 6 ] === '1',
-                                cid: parseInt( m[ 7 ], 10 )
+                            var recordVersion = parseInt( m[ 1 ], 10 );
+                            allVotes[ m[ 9 ] ] = {
+                                id: m[ 9 ], user: m[ 2 ], page: parseInt( m[ 3 ], 10 ),
+                                value: recordVersion >= 2
+                                    ? clampVoteValue( m[ 4 ] )
+                                    : legacyValueToScale( m[ 4 ] ),
+                                weight: parseFloat( m[ 5 ] ),
+                                timestamp: parseInt( m[ 6 ], 10 ), hide: m[ 7 ] === '1',
+                                cid: parseInt( m[ 8 ], 10 )
                             };
                         }
                         while ( ( m = delRe.exec( content ) ) ) allDeletes[ m[ 1 ] ] = true;
@@ -534,7 +562,9 @@ function runAll() {
             for ( var j = 0; j < cs.length; j++ ) sum += cs[ j ];
             return { score: sum / ( W - 2 ), count: n };
         }
-        var C = 3, m = 0;
+        // 票数不足 3 时用 3 票中位票做先验。先验均值取量纲中点 3，
+        // 保证 1~5 分制下单票不会被拉向 0。
+        var C = 3, m = VOTE_NEUTRAL;
         return { score: ( C * m + S ) / ( C + W ), count: n };
     }
 
@@ -569,8 +599,9 @@ function runAll() {
         valEl.textContent = formatAvgScore( scoreData.score );
         cntEl.textContent = scoreData.count + ' 人';
 
-        if ( scoreData.score > 0.005 ) valEl.setAttribute( 'data-sign', 'positive' );
-        else if ( scoreData.score < -0.005 ) valEl.setAttribute( 'data-sign', 'negative' );
+        // 1~5 分制以 3 分为中性线：高于 3 绿色，低于 3 红色。
+        if ( scoreData.score > VOTE_NEUTRAL + 0.005 ) valEl.setAttribute( 'data-sign', 'positive' );
+        else if ( scoreData.score < VOTE_NEUTRAL - 0.005 ) valEl.setAttribute( 'data-sign', 'negative' );
         else valEl.setAttribute( 'data-sign', 'zero' );
     }
 
@@ -1358,6 +1389,7 @@ function runAll() {
         var pageId = parseInt( panel.dataset.pageId, 10 );
         var rootId = panel.dataset.scoringRootId ? parseInt( panel.dataset.scoringRootId, 10 ) : pageId;
         var hasComment = commentText.trim().length > 0;
+        value = clampVoteValue( value );
 
         return getRecordForUserPage( mw.config.get( 'wgUserName' ), rootId ).then( function ( existingVote ) {
             var isFirstVote = !existingVote;
@@ -1375,7 +1407,7 @@ function runAll() {
                 return computeWeight( hasComment ).then( function ( weight ) {
                     var commentPromise = hasComment ? tryPostComment( pageId, commentText, value, hideScore ) : Promise.resolve( 0 );
                     return commentPromise.then( function ( commentId ) {
-                        var line = '<!-- V v1 u=' + mw.config.get( 'wgUserName' )
+                        var line = '<!-- V v' + VOTE_RECORD_VERSION + ' u=' + mw.config.get( 'wgUserName' )
                             + ' p=' + rootId + ' v=' + value + ' w=' + weight + ' t=' + nowSec()
                             + ' h=' + ( hideScore ? 1 : 0 ) + ' c=' + commentId + ' id=' + uuid() + ' -->';
                         var summaryPrefix = isFirstVote ? 'votemark:vote|' : 'votemark:update|';
@@ -1429,7 +1461,7 @@ function runAll() {
     function revokeVote( voteId, btn, panel ) {
         if ( !confirm( msg( 'panel-details-delete-confirm' ) ) ) return;
         btn.disabled = true;
-        var line = '<!-- V v1 del id=' + voteId + ' by=' + mw.config.get( 'wgUserName' ) + ' t=' + nowSec() + ' -->';
+        var line = '<!-- V v' + VOTE_RECORD_VERSION + ' del id=' + voteId + ' by=' + mw.config.get( 'wgUserName' ) + ' t=' + nowSec() + ' -->';
         appendVote( line, 'votemark:delete|' + voteId ).then( function () {
             invalidateAllRecords();
             return purgePages( [ getDataPageTitle( 'Votes/' + isoMonth() ) ] );
@@ -1584,8 +1616,9 @@ function runAll() {
 
         var btns = el( 'div', 'voting-panel-buttons' );
         var values = [
-            { label: '-1', value: '-1' }, { label: '-0.5', value: '-0.5' },
-            { label: '0', value: '0' }, { label: '+0.5', value: '0.5' }, { label: '+1', value: '1' }
+            { label: '+1', value: '1' }, { label: '+2', value: '2' },
+            { label: '+3', value: '3' }, { label: '+4', value: '4' },
+            { label: '+5', value: '5' }
         ];
         for ( var i = 0; i < values.length; i++ ) {
             var b = el( 'button', 'voting-btn', values[ i ].label );
