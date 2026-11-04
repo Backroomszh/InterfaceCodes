@@ -1,0 +1,17 @@
+ResourceLoader: true
+hidden: true
+default: true
+type: general
+rights: []
+dependencies:
+    - mediawiki.util
+skins:
+    - citizen
+actions:
+    - view
+namespaces: []
+peers: []
+package: false
+enable: true
+files:
+    - Gadget-editButtonSupplement.js
