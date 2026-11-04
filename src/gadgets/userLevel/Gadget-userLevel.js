@@ -30,7 +30,7 @@
         LEVEL_EXP: 2,
 
         // ================= 作品评分附加分 =================
-        // 读取投票系统写出的全站排名快照（Storage:GlobalRanking）
+        // 读取d投票系统写出的全站排名快照（Storage:GlobalRanking）
         RANKING_SNAPSHOT_TITLE: 'Storage:GlobalRanking',
         RANKING_SNAPSHOT_MARKER: 'SNAPSHOT',
         RANKING_SNAPSHOT_VERSION: 3,
@@ -50,8 +50,12 @@
         METRICS_TTL_MS: 60 * 60 * 1000,
         CREATOR_TTL_MS: 24 * 60 * 60 * 1000,
         PAGE_CACHE_MS: 30 * 1000,
+        // 已发布统计的刷新间隔：用户每天首次访问会写一次；
+        // 等级变化较快时最多每 6 小时补写一次。
+        STATS_PUBLISH_TTL_MS: 6 * 60 * 60 * 1000,
+        STATS_PUBLISH_TS_KEY: 'userlevel.publish.ts',
 
-        MAX_REQUESTS: 30,
+        MAX_REQUESTS: 60,
         WAIT_TIMEOUT: 8000
     };
 
@@ -210,12 +214,42 @@
             if (!t) continue;
             const p = t.split('\t');
             if (p.length >= 4) {
-                return {
+                const rec = {
                     lastActive: p[0],
                     streak: parseInt(p[1], 10) || 0,
                     totalDays: parseInt(p[2], 10) || 0,
                     bitmap: parseInt(p[3], 16) || 0
                 };
+                // 第 5 列起是发布出去的完整 v6 统计（旧记录只有 4 列）。
+                if (p.length >= 12) {
+                    const level = parseInt(p[9], 10);
+                    const version = parseInt(p[11], 10) || 0;
+                    let ts = String(p[10] || '');
+                    if (/^\d+$/.test(ts)) ts = Number(ts);
+                    else ts = Date.parse(ts);
+                    if (ts && ts < 1e12) ts *= 1000;
+                    if (version >= 6 && isFinite(level) && ts) {
+                        rec.hasStats = true;
+                        rec.statsVersion = version;
+                        rec.commentCount = parseInt(p[4], 10) || 0;
+                        rec.editCount = parseInt(p[5], 10) || 0;
+                        rec.createCount = parseInt(p[6], 10) || 0;
+                        rec.bonus = parseInt(p[7], 10) || 0;
+                        rec.score = parseInt(p[8], 10) || 0;
+                        rec.level = Math.max(0, Math.floor(level));
+                        rec.statsTs = ts;
+                        rec.stats = {
+                            commentCount: rec.commentCount,
+                            editCount: rec.editCount,
+                            createCount: rec.createCount,
+                            bonus: rec.bonus,
+                            score: rec.score,
+                            level: rec.level,
+                            ts: ts
+                        };
+                    }
+                }
+                return rec;
             }
         }
         return null;
@@ -235,12 +269,26 @@
     }
 
     function serializeRecord(rec) {
-        return [
+        const fields = [
             rec.lastActive,
             rec.streak,
             rec.totalDays,
             (rec.bitmap >>> 0).toString(16).padStart(8, '0')
-        ].join('\t');
+        ];
+        if (rec.stats && typeof rec.stats.level === 'number') {
+            const s = rec.stats;
+            fields.push(
+                s.commentCount || 0,
+                s.editCount || 0,
+                s.createCount || 0,
+                s.bonus || 0,
+                s.score || 0,
+                s.level || 0,
+                s.ts || Date.now(),
+                6
+            );
+        }
+        return fields.join('\t');
     }
 
     function computeStreak(dates) {
@@ -262,7 +310,14 @@
         const gap = rec.lastActive ? daysBetween(rec.lastActive, today) : 9999;
         const streak = gap === 1 ? rec.streak + 1 : 1;
         const bitmap = gap >= 30 ? 1 : (((rec.bitmap << gap) | 1) & MASK30);
-        return { lastActive: today, streak, totalDays: rec.totalDays + 1, bitmap };
+        return {
+            lastActive: today,
+            streak: streak,
+            totalDays: rec.totalDays + 1,
+            bitmap: bitmap,
+            // 贡献统计拉取失败时，保留上一次发布的统计，别把记录退回旧格式
+            stats: rec.stats
+        };
     }
 
     function initRecord(today, editDates) {
@@ -299,13 +354,43 @@
         try { mw.storage.set(REC_TODAY_KEY, todayUTC()); } catch (e) {}
     }
 
+    function readPublishTs() {
+        try {
+            return Number(mw.storage.get(CONFIG.STATS_PUBLISH_TS_KEY) || 0);
+        } catch (e) { return 0; }
+    }
+    function markPublished() {
+        try {
+            mw.storage.set(CONFIG.STATS_PUBLISH_TS_KEY, String(Date.now()));
+        } catch (e) {}
+    }
+
     async function recordVisit(username) {
         if (mw.user.isAnon() || mw.util.isIPAddress(username)) return;
-        if (hasRecordedToday()) return;
+
+        // 今天已经写过、且发布统计还新鲜：不必再读快照页
+        if (hasRecordedToday() &&
+            Date.now() - readPublishTs() < CONFIG.STATS_PUBLISH_TTL_MS) return;
 
         const today = todayUTC();
         const title = levelSnapshotTitle(username);
         const api = new mw.Api();
+
+        // 贡献统计只拉一次；拿不到就只写活跃记录，不发布一份错误的低等级。
+        // 最多等 12 秒，避免接口卡住导致当天的活跃记录也写不进去。
+        let metrics = null;
+        try {
+            metrics = await Promise.race([
+                getMetrics(username),
+                new Promise(function (_, reject) {
+                    setTimeout(function () {
+                        reject(new Error('metrics-timeout'));
+                    }, 12000);
+                })
+            ]);
+        } catch (e) {
+            metrics = null;
+        }
 
         for (let attempt = 0; attempt < 3; attempt++) {
             const { text } = await readPageText(title, true);
@@ -313,14 +398,41 @@
             let rec = parseUserSection(text, username);
             const sectionIdx = findSectionIndex(text, username);
 
+            const statsStale = !rec || !rec.hasStats || !rec.statsTs ||
+                Date.now() - rec.statsTs > CONFIG.STATS_PUBLISH_TTL_MS;
+
+            if (rec && rec.lastActive === today && !statsStale) {
+                markRecordedToday();
+                markPublished();
+                return;
+            }
+
             if (!rec) {
-                let editDates;
-                try { editDates = new Set((await getMetrics(username)).dates); }
-                catch (e) { editDates = new Set(); }
-                rec = initRecord(today, editDates);
-            } else {
-                if (rec.lastActive === today) { markRecordedToday(); return; }
+                const dates = metrics && metrics.dates ? new Set(metrics.dates) : new Set();
+                rec = initRecord(today, dates);
+            } else if (rec.lastActive !== today) {
                 rec = settleRecord(rec, today);
+            }
+
+            // 把完整 v6 统计写进同一条记录，其他浏览器直接读取，
+            // 不再需要各自重新拉 usercontribs 猜等级。
+            let wroteFreshStats = false;
+            if (metrics) {
+                try {
+                    // 统计最多等 12 秒；超时就先写活跃记录，下次访问再补发布
+                    const stats = await Promise.race([
+                        buildStats(username, rec, metrics),
+                        new Promise(function (_, reject) {
+                            setTimeout(function () {
+                                reject(new Error('stats-timeout'));
+                            }, 12000);
+                        })
+                    ]);
+                    if (stats && typeof stats.level === 'number') {
+                        rec.stats = stats;
+                        wroteFreshStats = true;
+                    }
+                } catch (e) { /* 统计失败时仍保留活跃记录 */ }
             }
 
             const params = {
@@ -345,8 +457,10 @@
             try {
                 await api.postWithToken('csrf', params);
                 markRecordedToday();
+                if (wroteFreshStats) markPublished();
                 pageCache.delete(title);
                 dropCache(statsKey(username));
+                if (rec.stats) writeCache(statsKey(username), rec.stats);
                 return;
             } catch (e) {
                 if ((e && e.code === 'editconflict') ||
@@ -363,54 +477,109 @@
     // 四个统计维度
     // ------------------------------------------------------------------
 
-    /**
-     * 拉取用户贡献：
-     *  - dates：所有有贡献的日期（用于登录天数补算）
-     *  - editCount：排除 Storage 与评论命名空间后的编辑数
-     *  - commentCount：评论命名空间（CommentStreams）里的贡献数
-     */
-    async function fetchContribStats(user) {
-        const api = new mw.Api();
-        const storageNs = storageNamespaceId();
-        const commentNs = commentNamespaceId();
+    // 单个命名空间的贡献数 + 日期集合。
+    // 关键：评论、Storage 分开查，避免 Storage:Chat 的聊天记录把窗口挤满，
+    // 导致评论数/编辑数根本读不到（这正是高等级用户被算成 Lv4 的主因）。
+    async function fetchNamespaceContribs(user, ns) {
         const dates = new Set();
-        let editCount = 0;
-        let commentCount = 0;
+        if (typeof ns !== 'number' || ns < 0) {
+            return { count: 0, dates, truncated: false };
+        }
+
+        const api = new mw.Api();
+        let count = 0;
         let cont = {};
 
         for (let guard = 0; guard < CONFIG.MAX_REQUESTS; guard++) {
-            const params = Object.assign({
+            const data = await api.get(Object.assign({
                 action: 'query', formatversion: 2, list: 'usercontribs',
                 ucuser: user, uclimit: 'max', ucdir: 'newer',
-                ucprop: 'timestamp|title'
-            }, cont);
+                ucnamespace: ns, ucprop: 'timestamp'
+            }, cont));
 
-            const data = await api.get(params);
             const list = (data.query && data.query.usercontribs) || [];
-
+            count += list.length;
             for (const c of list) {
                 if (c.timestamp) dates.add(c.timestamp.slice(0, 10));
-                const ns = (typeof c.ns === 'number') ? c.ns : guessNamespace(c.title, commentNs);
-                // 编辑数排除 Storage 和评论命名空间（评论单独计入“评论”维度）
-                if (ns !== storageNs && ns !== commentNs) editCount++;
-                if (ns === commentNs) commentCount++;
             }
 
             if (data.continue) cont = data.continue;
-            else return { dates, editCount, commentCount, truncated: false };
+            else return { count, dates, truncated: false };
         }
-        return { dates, editCount, commentCount, truncated: true };
+        return { count, dates, truncated: true };
     }
 
-    // c.ns 缺失时的兜底：只区分 Storage / 评论，其余一律视为主空间或其它命名空间
-    function guessNamespace(title, commentNs) {
-        const t = String(title || '').replace(/_/g, ' ');
-        const idx = t.indexOf(':');
-        if (idx === -1) return 0;
-        const prefix = t.slice(0, idx).toLowerCase();
-        if (prefix === 'storage') return storageNamespaceId() >= 0 ? storageNamespaceId() : -1;
-        if (prefix === 'comments' || prefix === 'comment') return commentNs;
-        return -1;
+    // 最近一年的贡献日期（从新到旧），用于连续天数；不参与计数
+    async function fetchRecentDates(user) {
+        const dates = new Set();
+        const api = new mw.Api();
+        const now = new Date();
+        const start = new Date(now.getTime() - 365 * 86400000);
+        let cont = {};
+
+        for (let guard = 0; guard < CONFIG.MAX_REQUESTS; guard++) {
+            const data = await api.get(Object.assign({
+                action: 'query', formatversion: 2, list: 'usercontribs',
+                ucuser: user, uclimit: 'max', ucdir: 'older',
+                ucstart: now.toISOString(), ucend: start.toISOString(),
+                ucprop: 'timestamp'
+            }, cont));
+
+            const list = (data.query && data.query.usercontribs) || [];
+            for (const c of list) {
+                if (c.timestamp) dates.add(c.timestamp.slice(0, 10));
+            }
+
+            if (data.continue) cont = data.continue;
+            else return { dates, truncated: false };
+        }
+        return { dates, truncated: true };
+    }
+
+    async function fetchTotalEditCount(user) {
+        const api = new mw.Api();
+        const data = await api.get({
+            action: 'query', formatversion: 2, list: 'users',
+            ususers: user, usprop: 'editcount'
+        });
+        const u = data.query && data.query.users && data.query.users[0];
+        if (!u || u.missing !== undefined) return 0;
+        return parseInt(u.editcount, 10) || 0;
+    }
+
+    /**
+     * 拉取用户贡献：
+     *  - commentCount：评论命名空间，单独分页，不受 Storage 记录影响
+     *  - editCount：总编辑数 - 评论数 - Storage 数
+     *  - dates：最近一年的活跃日期（从新到旧）
+     */
+    async function fetchContribStats(user) {
+        const storageNs = storageNamespaceId();
+        const commentNs = commentNamespaceId();
+
+        const results = await Promise.all([
+            fetchNamespaceContribs(user, commentNs),
+            fetchNamespaceContribs(user, storageNs),
+            fetchRecentDates(user),
+            fetchTotalEditCount(user)
+        ]);
+
+        const comments = results[0];
+        const storage = results[1];
+        const recent = results[2];
+        const total = results[3];
+
+        const dates = new Set();
+        comments.dates.forEach(d => dates.add(d));
+        storage.dates.forEach(d => dates.add(d));
+        recent.dates.forEach(d => dates.add(d));
+
+        return {
+            dates: dates,
+            editCount: Math.max(0, total - comments.count - storage.count),
+            commentCount: comments.count,
+            truncated: !!(comments.truncated || storage.truncated || recent.truncated)
+        };
     }
 
     /**
@@ -441,7 +610,9 @@
         return { titles, truncated: true };
     }
 
-    function metricsKey(user) { return 'userlevel.v6.metrics.' + user; }
+    // metrics2：旧版把 Storage 与评论混在同一个 usercontribs 窗口里，
+    // 高活跃用户的计数会严重偏低；换 key 丢弃旧缓存。
+    function metricsKey(user) { return 'userlevel.v6.metrics2.' + user; }
     const metricsInflight = new Map();
 
     function getMetrics(user) {
@@ -626,20 +797,29 @@
         return Math.floor(Math.pow(score / CONFIG.LEVEL_THRESHOLD, 1 / CONFIG.LEVEL_EXP));
     }
 
-    function statsKey(user) { return 'userlevel.v6.stats.' + user; }
+    function statsKey(user) { return 'userlevel.v6.stats2.' + user; }
     const statsInflight = new Map();
 
-    async function buildStats(user) {
+    async function buildStats(user, recOverride, metricsOverride) {
         const today = todayUTC();
 
-        const snapshot = await readPageText(levelSnapshotTitle(user))
-            .catch(() => ({ text: '', revid: null, ts: Date.now() }));
-        const rec = parseUserSection(snapshot.text, user);
+        let rec;
+        if (recOverride !== undefined) {
+            rec = recOverride;
+        } else {
+            const snapshot = await readPageText(levelSnapshotTitle(user))
+                .catch(() => ({ text: '', revid: null, ts: Date.now() }));
+            rec = parseUserSection(snapshot.text, user);
+        }
 
         let metrics;
-        try { metrics = await getMetrics(user); }
-        catch (e) {
-            metrics = { editCount: 0, commentCount: 0, createCount: 0, dates: [], truncated: true };
+        if (metricsOverride) {
+            metrics = metricsOverride;
+        } else {
+            try { metrics = await getMetrics(user); }
+            catch (e) {
+                metrics = { editCount: 0, commentCount: 0, createCount: 0, dates: [], truncated: true };
+            }
         }
 
         const dates = new Set(metrics.dates);
@@ -771,24 +951,9 @@
 
     function injectUserMenu(stats) {
         if (!stats) return;
-
-        const groups = document.querySelectorAll('.citizen-userInfo-usergroups');
-        if (groups.length) {
-            // 原有路径：注入到用户组列表
-            groups.forEach(ul => {
-                if (ul.querySelector('.userlevel-usergroup')) return;
-                ul.prepend(buildUserMenuLi(stats));
-            });
-            return;
-        }
-
-        // 降级路径：没有用户组容器时，注入到用户信息标题里的菜单列表
-        // 也就是 .citizen-userInfo-title > nav > .citizen-menu__content-list
-        document.querySelectorAll('.citizen-userInfo-title .citizen-menu__content-list').forEach(ul => {
+        document.querySelectorAll('.citizen-userInfo-usergroups').forEach(ul => {
             if (ul.querySelector('.userlevel-usergroup')) return;
-            const li = buildUserMenuLi(stats);
-            li.classList.add('userlevel-fallback');
-            ul.prepend(li);
+            ul.prepend(buildUserMenuLi(stats));
         });
     }
 
@@ -811,21 +976,6 @@
         });
     }
 
-    function waitForAny(selectors, timeout) {
-        return new Promise((resolve, reject) => {
-            const t0 = Date.now();
-            (function tick() {
-                for (const sel of selectors) {
-                    if (document.querySelector(sel)) return resolve(sel);
-                }
-                if (Date.now() - t0 > timeout) {
-                    return reject(new Error('timeout ' + selectors.join(' | ')));
-                }
-                setTimeout(tick, 200);
-            })();
-        });
-    }
-
     function getPageOwner() {
         if (mw.config.get('wgNamespaceNumber') !== 2) return null;
         const title = mw.config.get('wgTitle') || '';
@@ -842,10 +992,7 @@
             const me = mw.user.getName();
             recordVisit(me).catch(() => {});
             tasks.push(
-                waitForAny([
-                    '.citizen-userInfo-usergroups',
-                    '.citizen-userInfo-title .citizen-menu__content-list'
-                ], CONFIG.WAIT_TIMEOUT)
+                waitFor('.citizen-userInfo-usergroups', CONFIG.WAIT_TIMEOUT)
                     .then(() => getStatsFor(me))
                     .then(injectUserMenu)
                     .catch(() => {})
