@@ -21,9 +21,12 @@
         SUMMARY_PREFIX: 'mwlfg: ',
 
         // 头像
-        AVATAR_URL_TPL: 'https://static.wikitide.net/backroomszhwiki/upv2avatars/avatar_{ID}.jpg',
+        AVATAR_URL_TPL: 'https://static.wikitide.net/backroomszhwiki/upv2avatars/avatar_{ID}.{EXT}',
+        AVATAR_EXTS: ['jpg', 'png', 'webp'],
         AVATAR_BATCH: 50,
-        AVATAR_TTL_MS: 24 * 60 * 60 * 1000,
+        AVATAR_RETRY_MS: 60 * 1000,          // 用户 ID 查询失败后的重试间隔
+        AVATAR_IMG_RETRY_MS: 30 * 1000,      // 图片加载失败后的基础退避
+        AVATAR_POOL_MAX: 20,                 // 每个用户名最多复用多少个头像节点
 
         // 本地存储前缀（mw.storage）
         STORAGE_ROOT: 'mwchat.',
@@ -54,16 +57,29 @@
         BLACKLIST_RECHECK_OPEN_MS: 10000,
         BLACKLIST_RECHECK_CLOSED_MS: 30000,
 
-        // 等级
-        LEVEL_TTL_MS: 10 * 60 * 1000,
-        LEVEL_AUTHORITATIVE_TTL_MS: 24 * 60 * 60 * 1000, // userlevel 自己算好的等级，宁可稍旧也不要算错
+        // 等级（与站内 userlevel v6 完全一致）
         LEVEL_RETRY_MS: 5 * 60 * 1000,
-        COMMENT_NS: 844,                       // 与 userlevel 脚本一致的评论命名空间
-        COMMENT_CACHE_MS: 60 * 60 * 1000,
-        COMMENT_MAX_REQUESTS: 30,              // 评论数分页上限（首次会缓存，后续不再请求）
-        COMMENT_MAX_USERS_PER_ROUND: 10,       // 每轮最多为多少名“他人”补评论数
-        USERLEVEL_SNAPSHOT: 'Storage:Userlevel',
-        USERLEVEL_BUCKETS: 256,
+        LEVEL_MAX_USERS_PER_ROUND: 8,           // 每轮最多精算多少名“他人”
+        LEVEL_STATS_TTL_MS: 10 * 60 * 1000,     // 本地等级结果缓存（与 Gadget 一致）
+        LEVEL_METRICS_TTL_MS: 60 * 60 * 1000,   // 贡献统计缓存
+        LEVEL_CREATOR_TTL_MS: 24 * 60 * 60 * 1000,
+        LEVEL_PUBLISHED_TTL_MS: 7 * 24 * 60 * 60 * 1000,
+        LEVEL_MAX_REQUESTS: 60,                 // usercontribs / logevents 分页上限
+        LEVEL_SNAPSHOT_TITLE: 'Storage:Userlevel',
+        LEVEL_SNAPSHOT_BUCKETS: 256,
+        LEVEL_COMMENT_NS_FALLBACK: 844,
+        LEVEL_RANKING_TITLE: 'Storage:GlobalRanking',
+        LEVEL_RANKING_MARKER: 'SNAPSHOT',
+        LEVEL_RANKING_VERSION: 3,
+        LEVEL_WEIGHTS: { comment: 0.15, login: 0.10, create: 0.40, edit: 0.35 },
+        LEVEL_REF: { comment: 100, login: 180, create: 30, edit: 1000 },
+        LEVEL_BASE_SCORE_MAX: 10000,
+        LEVEL_THRESHOLD: 15,
+        LEVEL_EXP: 2,
+        LEVEL_VOTE_MAX: 5,
+        LEVEL_AVG_MIN_COUNT: 1,
+        LEVEL_BONUS_PER_PAGE: 1000,
+        LEVEL_BONUS_MAX: 5000,
 
         // 交互
         MENTION_MAX: 8,
@@ -79,14 +95,15 @@
         PANEL_MAX_H: 800
     };
 
-    const KEY_AVATARS = CONFIG.STORAGE_ROOT + 'avatars.v1';
+    const KEY_AVATARS = CONFIG.STORAGE_ROOT + 'avatars.v2';
     const KEY_PANEL = CONFIG.STORAGE_ROOT + 'panel.rect.v3'; // 位置 + 尺寸
     const KEY_ARCHIVE = CONFIG.STORAGE_ROOT + 'lastArchive.v1';
-    // v3：缓存“快照 + 实时评论数”算出的等级。
-    // v2 曾被旧算法写入过“只按快照、把评论数当 0”的低值（例如 Lv4），
-    // 换 key 直接丢弃，避免升级后仍被旧缓存拖住。
-    const KEY_LEVEL = function (name) { return CONFIG.STORAGE_ROOT + 'level.v3.' + name; };
-    const KEY_FRESH_COMMENTS = function (name) { return CONFIG.STORAGE_ROOT + 'freshcomments.v1.' + name; };
+    // v6：与站内 userlevel v6 对齐的完整统计结果。
+    // 旧版按“快照 + 评论数×2”算出的 v3 值会把高等级算成 Lv4，直接丢弃。
+    const KEY_LEVEL = function (name) { return CONFIG.STORAGE_ROOT + 'level.v7.' + name; };
+    const KEY_LEVEL_METRICS = function (name) { return CONFIG.STORAGE_ROOT + 'level.v7.metrics.' + name; };
+    const KEY_LEVEL_CREATORS = CONFIG.STORAGE_ROOT + 'level.v7.creators';
+    const KEY_LEVEL_RANKING = CONFIG.STORAGE_ROOT + 'level.v7.ranking';
 
     /* ============================ 状态 ============================ */
     let API = null;
@@ -126,12 +143,18 @@
         pending: new Map(),
         userSet: new Set(),
         levels: Object.create(null),       // 用户名 -> 数字等级（仅成功值）
+        levelStats: Object.create(null),   // 用户名 -> 完整 v6 统计
+        levelMetrics: new Map(),           // 用户名 -> { ts, data } 贡献统计
         levelFailedAt: Object.create(null),// 用户名 -> 失败时间戳
         levelPending: new Set(),
-        levelFresh: new Set(),             // 本次会话已用“实时评论数 + 快照”算过的用户
-        commentFresh: new Map(),           // 用户名 -> { ts, count } 实时评论数
+        levelFresh: new Set(),             // 本次会话已得到可用等级的用户
         avatarIds: Object.create(null),    // 用户名 -> ID | null
         avatarPending: new Set(),
+        avatarFailedAt: Object.create(null),   // 用户 ID 查询失败时间
+        avatarImgFailedAt: Object.create(null), // 图片加载失败时间
+        avatarImgFailCount: Object.create(null),
+        avatarOkUrl: Object.create(null),      // 用户名 -> 实际加载成功的 URL
+        avatarPool: new Map(),                 // 用户名 -> 可复用的头像节点
         notified: new Set(),
         writeTimes: [],
         polling: false,
@@ -262,6 +285,57 @@
             const wait = CONFIG.WRITE_WINDOW_MS - (now - state.writeTimes[0]) + 25;
             await sleep(Math.max(50, Math.min(wait, 5000)));
         }
+    }
+
+    /* ============================ 写入队列 ============================ */
+    // 所有对 Storage:Chat 的写操作都按顺序排队：
+    //   - 前一笔没完成，后一笔不会开始；
+    //   - 遇到 editconflict 时重新读取最新版本再试，而不是直接放弃；
+    //   - 最多重试若干次，仍失败才放行下一笔。
+    const chatWriteQueue = [];
+    let chatWriteRunning = false;
+
+    function enqueueChatWrite(task) {
+        return new Promise(function (resolve, reject) {
+            chatWriteQueue.push({ task: task, resolve: resolve, reject: reject });
+            drainChatWriteQueue();
+        });
+    }
+
+    async function drainChatWriteQueue() {
+        if (chatWriteRunning) return;
+        chatWriteRunning = true;
+        try {
+            while (chatWriteQueue.length) {
+                const item = chatWriteQueue.shift();
+                try {
+                    item.resolve(await item.task());
+                } catch (e) {
+                    item.reject(e);
+                }
+                if (chatWriteQueue.length) await sleep(120);
+            }
+        } finally {
+            chatWriteRunning = false;
+            if (chatWriteQueue.length) drainChatWriteQueue();
+        }
+    }
+
+    // task 内部必须自己重新读取页面并带 baserevid；冲突时整个 task 重跑
+    async function withEditConflictRetry(task, attempts, label) {
+        let lastError = null;
+        const max = attempts || 6;
+        for (let i = 0; i < max; i++) {
+            try {
+                return await task();
+            } catch (e) {
+                lastError = e;
+                if (!isEditConflict(e) || i === max - 1) throw e;
+                setStatus((label || '编辑冲突') + '，正在自动重试…', false);
+                await sleep(220 + Math.random() * 180 + i * 320);
+            }
+        }
+        throw lastError;
     }
 
     /* ============================ 黑名单（严格模式） ============================ */
@@ -423,11 +497,19 @@
             const raw = mw.storage.get(KEY_AVATARS);
             if (!raw) return;
             const o = JSON.parse(raw);
-            if (!o || !o.ids || !o.ts) return;
-            if (Date.now() - o.ts > CONFIG.AVATAR_TTL_MS) return; // 过期则重新获取
+            if (!o || !o.ids) return;
             Object.keys(o.ids).forEach(function (name) {
-                state.avatarIds[name] = o.ids[name];
+                const id = o.ids[name];
+                // 只持久化真实 ID；null 是“查不到”的临时状态，不跨页面沿用
+                if (typeof id === 'number' && id > 0) state.avatarIds[name] = id;
             });
+            if (o.urls) {
+                Object.keys(o.urls).forEach(function (name) {
+                    if (typeof o.urls[name] === 'string') {
+                        state.avatarOkUrl[name] = o.urls[name];
+                    }
+                });
+            }
         } catch (e) { /* 头像缓存失败不影响聊天 */ }
     }
 
@@ -435,16 +517,52 @@
         try {
             const ids = Object.create(null);
             Object.keys(state.avatarIds).forEach(function (name) {
-                ids[name] = state.avatarIds[name];
+                const id = state.avatarIds[name];
+                if (typeof id === 'number' && id > 0) ids[name] = id;
             });
-            mw.storage.set(KEY_AVATARS, JSON.stringify({ ts: Date.now(), ids: ids }));
+            const urls = Object.create(null);
+            Object.keys(state.avatarOkUrl).forEach(function (name) {
+                if (state.avatarOkUrl[name]) urls[name] = state.avatarOkUrl[name];
+            });
+            mw.storage.set(KEY_AVATARS,
+                JSON.stringify({ v: 2, ts: Date.now(), ids: ids, urls: urls }));
         } catch (e) { /* 忽略配额/隐私模式错误 */ }
     }
 
-    function avatarUrlFor(name) {
+    let avatarSaveTimer = null;
+    function scheduleSaveAvatarCache() {
+        if (avatarSaveTimer) return;
+        avatarSaveTimer = setTimeout(function () {
+            avatarSaveTimer = null;
+            saveAvatarCache();
+        }, 1500);
+    }
+
+    function avatarCandidates(name) {
         const id = state.avatarIds[name];
-        if (!id) return '';
-        return CONFIG.AVATAR_URL_TPL.replace('{ID}', String(id));
+        if (!id) return [];
+        const urls = CONFIG.AVATAR_EXTS.map(function (ext) {
+            return CONFIG.AVATAR_URL_TPL
+                .replace('{ID}', String(id))
+                .replace('{EXT}', ext);
+        });
+        const ok = state.avatarOkUrl[name];
+        if (ok) {
+            return [ok].concat(urls.filter(function (u) { return u !== ok; }));
+        }
+        return urls;
+    }
+
+    function avatarImgRetryDelay(name) {
+        const n = state.avatarImgFailCount[name] || 0;
+        return Math.min(10 * 60 * 1000,
+            CONFIG.AVATAR_IMG_RETRY_MS * Math.pow(2, Math.min(n, 4)));
+    }
+
+    function bindAvatarClick(el, name) {
+        el.onclick = function () {
+            location.href = mw.util.getUrl('User:' + name);
+        };
     }
 
     async function fetchAvatarIds(usernames) {
@@ -463,8 +581,7 @@
                     usprop: 'userid|centralids'
                 });
             } catch (e) {
-                // 单批失败只影响这一批，降级为首字母头像
-                batch.forEach(function (req) { out[req] = null; });
+                // 网络失败：不写 null，交给 ensureAvatars 稍后重试
                 continue;
             }
             const users = (data.query && data.query.users) || [];
@@ -475,13 +592,15 @@
             batch.forEach(function (req) {
                 const u = returned[norm(req)];
                 if (!u || u.missing !== undefined) {
-                    out[req] = null;
+                    out[req] = null; // 确认查无此人，本次会话不重试
                     return;
                 }
                 const central = u.centralids && (u.centralids.central || u.centralids.local);
                 const id = Number(central) || Number(u.userid) || null;
-                out[req] = id;
-                out[u.name] = id;
+                if (id) {
+                    out[req] = id;
+                    out[u.name] = id;
+                }
             });
         }
         return out;
@@ -495,25 +614,30 @@
             seen.add(name);
             if (Object.prototype.hasOwnProperty.call(state.avatarIds, name)) return;
             if (state.avatarPending.has(name)) return;
+            if (state.avatarFailedAt[name] &&
+                Date.now() - state.avatarFailedAt[name] < CONFIG.AVATAR_RETRY_MS) return;
             todo.push(name);
         });
         if (!todo.length) return;
 
         todo.forEach(function (n) { state.avatarPending.add(n); });
         fetchAvatarIds(todo).then(function (map) {
-            Object.keys(map).forEach(function (n) {
-                state.avatarIds[n] = map[n];
-            });
             todo.forEach(function (n) {
-                if (!Object.prototype.hasOwnProperty.call(state.avatarIds, n)) {
+                if (typeof map[n] === 'number') {
+                    state.avatarIds[n] = map[n];
+                    delete state.avatarFailedAt[n];
+                } else if (map[n] === null) {
                     state.avatarIds[n] = null;
+                    delete state.avatarFailedAt[n];
+                } else {
+                    // 请求失败/未返回：不缓存 null，60 秒后再试
+                    state.avatarFailedAt[n] = Date.now();
                 }
             });
             saveAvatarCache();
             scheduleRender();
         }).catch(function () {
-            // 失败：本次会话内用首字母占位，不重试、不阻断
-            todo.forEach(function (n) { state.avatarIds[n] = null; });
+            todo.forEach(function (n) { state.avatarFailedAt[n] = Date.now(); });
             scheduleRender();
         }).finally(function () {
             todo.forEach(function (n) { state.avatarPending.delete(n); });
@@ -523,6 +647,7 @@
     function buildInitialAvatar(name) {
         const span = document.createElement('span');
         span.className = 'mwchat-avatar mwchat-avatar-initial';
+        span.dataset.user = name;
         const h = hash32(name) % 360;
         span.style.background = 'hsl(' + h + ',60%,45%)';
         const chars = Array.from(String(name || '?'));
@@ -531,29 +656,110 @@
         return span;
     }
 
+    function createAvatarElement(name) {
+        const urls = avatarCandidates(name);
+        if (!urls.length) return buildInitialAvatar(name);
+
+        // 刚失败过就先显示首字母，避免每条消息都重新撞一次网络
+        const failedAt = state.avatarImgFailedAt[name];
+        if (failedAt && Date.now() - failedAt < avatarImgRetryDelay(name)) {
+            return buildInitialAvatar(name);
+        }
+
+        const img = document.createElement('img');
+        img.className = 'mwchat-avatar';
+        img.dataset.user = name;
+        img.alt = name;
+        img.decoding = 'async';
+        img.loading = 'eager'; // 自定义滚动容器里 lazy 容易一直不触发
+        img.width = 24;
+        img.height = 24;
+
+        let idx = 0;
+        const fail = function () {
+            if (idx < urls.length) {
+                img.src = urls[idx];
+                return;
+            }
+            state.avatarImgFailedAt[name] = Date.now();
+            state.avatarImgFailCount[name] = (state.avatarImgFailCount[name] || 0) + 1;
+            img.dataset.failed = '1';
+            const span = buildInitialAvatar(name);
+            bindAvatarClick(span, name);
+            if (img.parentNode) img.parentNode.replaceChild(span, img);
+        };
+
+        img.onload = function () {
+            state.avatarOkUrl[name] = urls[idx] || img.currentSrc;
+            delete state.avatarImgFailedAt[name];
+            delete state.avatarImgFailCount[name];
+            delete img.dataset.failed;
+            scheduleSaveAvatarCache();
+        };
+        img.onerror = function () {
+            idx++;
+            fail();
+        };
+
+        // 先挂好事件再设 src，避免缓存命中时错过 onload/onerror
+        if (urls.length) img.src = urls[idx];
+        return img;
+    }
+
     function replaceWithInitial(el, name) {
         if (!el || !el.parentNode) return;
         const span = buildInitialAvatar(name);
-        span.addEventListener('click', function () {
-            location.href = mw.util.getUrl('User:' + name);
-        });
+        bindAvatarClick(span, name);
         el.parentNode.replaceChild(span, el);
     }
 
+    // 把上一轮渲染出来的头像节点收回来，下一轮直接复用，
+    // 这样发消息触发重绘时不会把已经加载好的图片重新请求一遍。
+    function collectAvatarPool() {
+        if (!els.list) return;
+        const nodes = els.list.querySelectorAll('.mwchat-avatar[data-user]');
+        for (let i = 0; i < nodes.length; i++) {
+            const el = nodes[i];
+            const name = el.dataset.user;
+            if (!name) continue;
+            let pool = state.avatarPool.get(name);
+            if (!pool) {
+                pool = [];
+                state.avatarPool.set(name, pool);
+            }
+            if (pool.length < CONFIG.AVATAR_POOL_MAX) pool.push(el);
+        }
+    }
+
+    function takeAvatar(name) {
+        const pool = state.avatarPool.get(name);
+        if (pool && pool.length) {
+            const el = pool.shift();
+            if (el.classList.contains('mwchat-avatar-initial')) {
+                const failedAt = state.avatarImgFailedAt[name];
+                if (!failedAt || Date.now() - failedAt >= avatarImgRetryDelay(name)) {
+                    return createAvatarElement(name);
+                }
+            }
+            return el;
+        }
+        return createAvatarElement(name);
+    }
+
     /* ============================ 等级 ============================ */
-    // 说明：这里不调用站内 userlevel 脚本的任何函数，只读：
-    //   1) mw.storage 中它写入的缓存 userlevel.lv.v4.<user>（10 分钟 TTL）
-    //   2) Storage:Userlevel/<bucket> 快照页
-    // 快照页格式：== 用户名 == 换行  lastActive \t streak \t totalDays \t bitmap(8位十六进制)
-    const LEVEL_BASE_SCORE = 10;
-    const LEVEL_THRESHOLD = 80;
-    const LEVEL_EXP = 1.5;
-    const STREAK_TIERS = [
-        { min: 60, mult: 2.0 },
-        { min: 30, mult: 1.5 },
-        { min: 7, mult: 1.0 },
-        { min: 0, mult: 0.5 }
-    ];
+    // 与站内 Gadget-userLevel v6 完全一致：
+    //   积分 = Σ 权重 × (实际值 / 参考值) × 10000 + 作品评分附加分
+    //   等级 = floor(sqrt(积分 / 15))
+    //
+    // 数据来源优先级：
+    //   1) 页面自己渲染的 .ul-badge（自己 / 当前用户页主人）
+    //   2) Storage:Userlevel 里 Gadget 发布的 v6 统计字段
+    //   3) 本机 userlevel.v6.stats 缓存
+    //   4) 本组件现场拉取 usercontribs / logevents / GlobalRanking 计算
+    // 不调用 Gadget-userLevel 的任何函数。
+
+    const LEVEL_PAGE_CACHE_MS = 30 * 1000;
+    const levelPageCache = new Map();
 
     function fmtDay(d) {
         return d.getUTCFullYear() + '-' + pad2(d.getUTCMonth() + 1) + '-' + pad2(d.getUTCDate());
@@ -578,6 +784,17 @@
         return n;
     }
 
+    function bitmapToDates(bitmap, today) {
+        const out = new Set();
+        const todayTs = Date.parse(today + 'T00:00:00Z');
+        for (let i = 0; i < 30; i++) {
+            if (bitmap & (1 << i)) {
+                out.add(fmtDay(new Date(todayTs - i * 86400000)));
+            }
+        }
+        return out;
+    }
+
     function levelToTier(level) {
         if (level >= 30) return 5;
         if (level >= 20) return 4;
@@ -591,31 +808,82 @@
         return String(s || '').replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
     }
 
+    function usernameVariants(name) {
+        const s = String(name || '');
+        return [s, s.replace(/_/g, ' '), s.replace(/ /g, '_')];
+    }
+
+    function storageNamespaceId() {
+        try {
+            const id = (mw.config.get('wgNamespaceIds') || {}).storage;
+            return (typeof id === 'number' && id >= 0) ? id : -1;
+        } catch (e) { return -1; }
+    }
+
+    function commentNamespaceId() {
+        try {
+            const ids = mw.config.get('wgNamespaceIds') || {};
+            if (typeof ids.comments === 'number') return ids.comments;
+            if (typeof ids.comment === 'number') return ids.comment;
+        } catch (e) { /* ignore */ }
+        return CONFIG.LEVEL_COMMENT_NS_FALLBACK;
+    }
+
+    function levelSnapshotTitle(name) {
+        const bucket = (hash32(name) % CONFIG.LEVEL_SNAPSHOT_BUCKETS)
+            .toString(16).padStart(2, '0');
+        return CONFIG.LEVEL_SNAPSHOT_TITLE + '/' + bucket;
+    }
+
+    // 页面快照：前 4 列是旧格式；第 5 列起是本组件/Gadget 发布的 v6 统计。
+    // 第 12 列是格式版本，只有 >= 6 才视为可信，避免旧版写入的低等级继续生效。
     function findUserRecord(text, username) {
         const lines = String(text || '').split('\n');
         const target = normUserName(username);
         let current = null;
+
         for (let i = 0; i < lines.length; i++) {
             const m = lines[i].match(/^==\s*(.+?)\s*==\s*$/);
             if (m) { current = normUserName(m[1]); continue; }
             if (current !== target) continue;
+
             const t = lines[i].trim();
             if (!t) continue;
             const p = t.split('\t');
-            if (p.length >= 4) {
-                return {
-                    lastActive: p[0],
-                    streak: parseInt(p[1], 10) || 0,
-                    totalDays: parseInt(p[2], 10) || 0,
-                    bitmap: parseInt(p[3], 16) || 0
-                };
+            if (p.length < 4) continue;
+
+            const rec = {
+                lastActive: p[0],
+                streak: parseInt(p[1], 10) || 0,
+                totalDays: parseInt(p[2], 10) || 0,
+                bitmap: parseInt(p[3], 16) || 0
+            };
+
+            if (p.length >= 12) {
+                const level = parseInt(p[9], 10);
+                const version = parseInt(p[11], 10) || 0;
+                let ts = String(p[10] || '');
+                if (/^\d+$/.test(ts)) ts = Number(ts);
+                else ts = Date.parse(ts);
+                if (ts && ts < 1e12) ts *= 1000;
+
+                if (version >= 6 && isFinite(level) && ts) {
+                    rec.hasStats = true;
+                    rec.statsVersion = version;
+                    rec.commentCount = parseInt(p[4], 10) || 0;
+                    rec.editCount = parseInt(p[5], 10) || 0;
+                    rec.createCount = parseInt(p[6], 10) || 0;
+                    rec.bonus = parseInt(p[7], 10) || 0;
+                    rec.score = parseInt(p[8], 10) || 0;
+                    rec.level = Math.max(0, Math.floor(level));
+                    rec.statsTs = ts;
+                }
             }
+            return rec;
         }
         return null;
     }
 
-    // 站内 userlevel 脚本自己渲染的徽章：自己看顶栏，用户页看资料页。
-    // 这是当前页面里唯一“已经算对”的现成等级，优先级最高。
     function readLevelFromSiteUi(name) {
         if (!name) return null;
         try {
@@ -641,230 +909,94 @@
         }
     }
 
-    function readSavedLevel(name) {
+    function readJsonStorage(key, ttl) {
         try {
-            const raw = mw.storage.get(KEY_LEVEL(name));
+            const raw = mw.storage.get(key);
             if (!raw) return null;
             const o = JSON.parse(raw);
-            if (typeof o === 'number') return Math.max(0, Math.floor(o));
-            if (!o || typeof o.level !== 'number') return null;
-            if (o.ts && Date.now() - o.ts > CONFIG.LEVEL_TTL_MS) return null;
-            return Math.max(0, Math.floor(o.level));
+            if (!o || !o.ts || Date.now() - o.ts > ttl) return null;
+            return o.data;
         } catch (e) {
             return null;
         }
     }
 
+    function writeJsonStorage(key, data) {
+        try {
+            mw.storage.set(key, JSON.stringify({ ts: Date.now(), data: data }));
+        } catch (e) { /* ignore */ }
+    }
+
+    function readSavedStats(name) {
+        return readJsonStorage(KEY_LEVEL(name), CONFIG.LEVEL_STATS_TTL_MS);
+    }
+
+    function saveStats(name, stats) {
+        if (!stats || typeof stats.level !== 'number') return;
+        writeJsonStorage(KEY_LEVEL(name), stats);
+    }
+
     function saveLevel(name, level) {
         if (typeof level !== 'number' || !isFinite(level)) return;
-        try {
-            mw.storage.set(KEY_LEVEL(name),
-                JSON.stringify({ ts: Date.now(), level: Math.max(0, Math.floor(level)) }));
-        } catch (e) { /* ignore */ }
+        const old = readSavedStats(name);
+        saveStats(name, Object.assign({}, old || {}, {
+            level: Math.max(0, Math.floor(level)),
+            partial: false,
+            ts: Date.now()
+        }));
     }
 
-    // 读取站内脚本写入的等级缓存（v4 以及未来版本都兼容）。
-    // 注意：这里的值可能是该脚本用半截评论缓存算出的旧值，只能作为候选，
-    // 不能单独盖过“快照 + 实时评论数”的结果。
-    function readUserlevelCache(name) {
+    // 站内 Gadget-userLevel 自己写的 v6 统计缓存（若当前浏览器里有）
+    function readUserlevelStats(name) {
         const variants = usernameVariants(name);
         let best = null;
-
         variants.forEach(function (v) {
-            try {
-                const raw = mw.storage.get('userlevel.lv.v4.' + v);
-                if (!raw) return;
-                const o = JSON.parse(raw);
-                if (!o || !o.ts ||
-                    Date.now() - o.ts > CONFIG.LEVEL_AUTHORITATIVE_TTL_MS) return;
-                const lv = (o.data && typeof o.data.level === 'number')
-                    ? o.data.level
-                    : (typeof o.level === 'number' ? o.level : null);
-                if (typeof lv === 'number' && (best === null || lv > best)) {
-                    best = lv;
-                }
-            } catch (e) { /* ignore */ }
-        });
-
-        const scanned = scanUserlevelLevel(name);
-        if (typeof scanned === 'number' && (best === null || scanned > best)) {
-            best = scanned;
-        }
-
-        return typeof best === 'number' ? Math.max(0, Math.floor(best)) : null;
-    }
-
-    // 精确复刻 userlevel 脚本的等级公式：快照记录 + 评论数（评论权重 2）。
-    // 之前只按快照算、把评论数当 0，会把高等级严重低估（甚至算成 Lv0）。
-    function levelFromRecordWithComments(rec, commentCount) {
-        const today = todayUTC();
-        const todayTs = Date.parse(today + 'T00:00:00Z');
-        const dates = new Set();
-        for (let i = 0; i < 30; i++) {
-            if (rec.bitmap & (1 << i)) {
-                dates.add(fmtDay(new Date(todayTs - i * 86400000)));
-            }
-        }
-        dates.add(today);
-
-        const computedStreak = computeStreak(dates);
-        const streak = Math.max(computedStreak, rec.streak || 0);
-        const totalDays = Math.max(dates.size, rec.totalDays || 0);
-
-        let mult = 0.5;
-        for (let i = 0; i < STREAK_TIERS.length; i++) {
-            if (streak >= STREAK_TIERS[i].min) { mult = STREAK_TIERS[i].mult; break; }
-        }
-        const score = totalDays * LEVEL_BASE_SCORE +
-            Math.floor(streak * LEVEL_BASE_SCORE * mult) +
-            (commentCount || 0) * 2;
-        return Math.floor(Math.pow(score / LEVEL_THRESHOLD, 1 / LEVEL_EXP));
-    }
-
-    function storageKeyList() {
-        const keys = [];
-        try {
-            const ls = window.localStorage;
-            for (let i = 0; i < ls.length; i++) {
-                const k = ls.key(i);
-                if (k) keys.push(k);
-            }
-        } catch (e) { /* ignore */ }
-        return keys;
-    }
-
-    function usernameVariants(name) {
-        const s = String(name || '');
-        return [s, s.replace(/_/g, ' '), s.replace(/ /g, '_')];
-    }
-
-    // 扫描 localStorage 里所有 userlevel.lv.<版本>.<用户名> 缓存，
-    // 不绑定 v4：站点脚本升级到 v5/v6 也能读到真正的等级。
-    function scanUserlevelLevel(name) {
-        const variants = usernameVariants(name);
-        let best = null;
-
-        storageKeyList().forEach(function (key) {
-            const m = key.match(/userlevel\.lv\.[^.]+\.(.+)$/);
-            if (!m || variants.indexOf(m[1]) === -1) return;
-
-            let raw;
-            try { raw = window.localStorage.getItem(key); } catch (e) { return; }
-            if (!raw) return;
-
-            let o;
-            try { o = JSON.parse(raw); } catch (e) { return; }
-
-            const lv = (o && o.data && typeof o.data.level === 'number')
-                ? o.data.level
-                : (o && typeof o.level === 'number' ? o.level : null);
-            if (lv === null) return;
-
-            const ts = (o && typeof o.ts === 'number') ? o.ts : 0;
-            if (!best || lv > best.level || (lv === best.level && ts > best.ts)) {
-                best = { level: Math.max(0, Math.floor(lv)), ts: ts };
+            const data = readJsonStorage('userlevel.v6.stats2.' + v, CONFIG.LEVEL_STATS_TTL_MS);
+            if (data && typeof data.level === 'number' &&
+                (!best || data.level > best.level)) {
+                best = data;
             }
         });
-
-        return best ? best.level : undefined;
+        return best;
     }
 
-    // 实时评论数：不再信任 userlevel 的评论缓存（它可能是失败/半截的旧值），
-    // 直接查 usercontribs。评论命名空间优先用 844，同时识别站点配置里的 comment 命名空间。
-    function commentNamespaceCandidates() {
-        const set = new Set([CONFIG.COMMENT_NS]);
-        try {
-            const ids = mw.config.get('wgNamespaceIds') || {};
-            ['comment', 'comments'].forEach(function (k) {
-                if (typeof ids[k] === 'number' && ids[k] >= 0) set.add(ids[k]);
-            });
-        } catch (e) { /* ignore */ }
-        return Array.from(set);
+    function readUserlevelCache(name) {
+        const local = readUserlevelStats(name);
+        if (local) return local.level;
+        const saved = readSavedStats(name);
+        if (saved && typeof saved.level === 'number') return saved.level;
+        return null;
     }
 
-    function readFreshCommentCache(name) {
-        const mem = state.commentFresh.get(name);
-        if (mem && Date.now() - mem.ts < CONFIG.COMMENT_CACHE_MS / 2) {
-            return mem.count;
+    function statsFromPublishedRecord(rec) {
+        if (!rec || !rec.hasStats || typeof rec.level !== 'number') return null;
+        if (rec.statsTs && Date.now() - rec.statsTs > CONFIG.LEVEL_PUBLISHED_TTL_MS) {
+            return null;
         }
-        try {
-            const raw = mw.storage.get(KEY_FRESH_COMMENTS(name));
-            if (!raw) return undefined;
-            const o = JSON.parse(raw);
-            if (o && o.ts && Date.now() - o.ts < CONFIG.COMMENT_CACHE_MS / 2 &&
-                typeof o.count === 'number') {
-                state.commentFresh.set(name, { ts: o.ts, count: o.count });
-                return o.count;
-            }
-        } catch (e) { /* ignore */ }
-        return undefined;
-    }
-
-    function saveFreshCommentCount(name, count) {
-        const ts = Date.now();
-        state.commentFresh.set(name, { ts: ts, count: count });
-        try {
-            mw.storage.set(KEY_FRESH_COMMENTS(name),
-                JSON.stringify({ ts: ts, count: count }));
-        } catch (e) { /* ignore */ }
-    }
-
-    async function fetchCountInNamespace(name, ns) {
-        const api = getApi();
-        let count = 0;
-        let cont = {};
-        let guard = 0;
-
-        while (guard++ < CONFIG.COMMENT_MAX_REQUESTS) {
-            const data = await api.get(Object.assign({
-                action: 'query', formatversion: 2,
-                list: 'usercontribs',
-                ucuser: name,
-                uclimit: 'max',
-                ucdir: 'newer',
-                ucnamespace: ns,
-                ucprop: 'timestamp'
-            }, cont));
-            count += (data.query && data.query.usercontribs || []).length;
-            if (data.continue) cont = data.continue;
-            else break;
-        }
-        return count;
-    }
-
-    async function fetchFreshCommentCount(name) {
-        const cached = readFreshCommentCache(name);
-        if (typeof cached === 'number') return cached;
-
-        // 站内脚本只统计 844。优先且只信任 844；只有它请求失败时，
-        // 才退到站点配置里的其它候选命名空间，避免把别的命名空间算进来。
-        const namespaces = commentNamespaceCandidates();
-        let count = null;
-
-        for (let i = 0; i < namespaces.length; i++) {
-            try {
-                count = await fetchCountInNamespace(name, namespaces[i]);
-                break;
-            } catch (e) {
-                // 继续尝试下一个候选
-            }
-        }
-
-        if (count === null) throw new Error('comment-count-failed');
-        saveFreshCommentCount(name, count);
-        return count;
+        return {
+            level: rec.level,
+            score: rec.score,
+            commentCount: rec.commentCount,
+            editCount: rec.editCount,
+            createCount: rec.createCount,
+            bonus: rec.bonus,
+            totalDays: rec.totalDays,
+            streak: rec.streak,
+            partial: false,
+            published: true,
+            ts: rec.statsTs
+        };
     }
 
     // 批量读取 Storage:Userlevel/<bucket>，返回 用户名 -> 记录
     async function fetchUserlevelRecords(names) {
         const byTitle = new Map();
+
         names.forEach(function (name) {
-            // 聊天行里的用户名可能是下划线写法；快照页按站内规范名哈希。
-            // 把常见写法都查一遍，避免因为空格/下划线差异读不到记录。
             usernameVariants(name).forEach(function (v) {
-                const bucket = (hash32(v) % CONFIG.USERLEVEL_BUCKETS)
+                const bucket = (hash32(v) % CONFIG.LEVEL_SNAPSHOT_BUCKETS)
                     .toString(16).padStart(2, '0');
-                const title = CONFIG.USERLEVEL_SNAPSHOT + '/' + bucket;
+                const title = CONFIG.LEVEL_SNAPSHOT_TITLE + '/' + bucket;
                 if (!byTitle.has(title)) byTitle.set(title, []);
                 const list = byTitle.get(title);
                 if (list.indexOf(name) === -1) list.push(name);
@@ -886,7 +1018,9 @@
                 });
             } catch (e) {
                 chunk.forEach(function (t) {
-                    (byTitle.get(t) || []).forEach(function (u) { out[u] = null; });
+                    (byTitle.get(t) || []).forEach(function (u) {
+                        if (out[u] === undefined) out[u] = null;
+                    });
                 });
                 continue;
             }
@@ -904,7 +1038,7 @@
                 const key = title.replace(/_/g, ' ');
                 const page = byPage[key] || byPage[key.toLowerCase()];
                 const users = byTitle.get(title) || [];
-                if (!page || page.missing) {
+                if (!page || page.missing !== undefined) {
                     users.forEach(function (u) {
                         if (out[u] === undefined) out[u] = null;
                     });
@@ -923,43 +1057,414 @@
         return out;
     }
 
-    async function resolveExactLevel(name, rec) {
-        const levels = [];
+    async function readLevelPage(title, ttl) {
+        const cached = levelPageCache.get(title);
+        if (cached && Date.now() - cached.ts < (ttl || LEVEL_PAGE_CACHE_MS)) {
+            return cached.text;
+        }
+        const data = await getApi().get({
+            action: 'query', prop: 'revisions', rvprop: 'content', rvslots: 'main',
+            titles: title, formatversion: 2
+        });
+        const page = data.query && data.query.pages && data.query.pages[0];
+        let text = '';
+        if (page && page.missing === undefined) {
+            const rev = page.revisions && page.revisions[0];
+            text = (rev && rev.slots && rev.slots.main && rev.slots.main.content) || '';
+        }
+        text = text.replace(/<\/?pre>/gi, '');
+        levelPageCache.set(title, { ts: Date.now(), text: text });
+        return text;
+    }
 
-        // 站点自己渲染的徽章是最权威的（自己 / 当前用户页主人）
-        const ui = readLevelFromSiteUi(name);
-        if (typeof ui === 'number') levels.push(ui);
-
-        // 本浏览器里的 userlevel 缓存/扫描值只作为候选，不能单独决定他人等级
-        const cached = readUserlevelCache(name);
-        if (typeof cached === 'number') levels.push(cached);
-
-        const saved = readSavedLevel(name);
-        if (typeof saved === 'number') levels.push(saved);
-
-        const hasUi = typeof ui === 'number';
-
-        if (rec && !hasUi) {
-            // 没有站点 UI 时，实时拉评论数重新计算；不信任旧评论缓存
-            try {
-                const comments = await fetchFreshCommentCount(name);
-                const computed = levelFromRecordWithComments(rec, comments);
-                levels.push(computed);
-                state.levelFresh.add(name);
-            } catch (e) {
-                // 评论数抓取失败：保留缓存候选，等待下一轮重试
-            }
-        } else if (rec && hasUi) {
-            state.levelFresh.add(name);
+    // 评论、Storage 分开查，避免 Storage:Chat 的聊天记录把 usercontribs
+    // 窗口挤满，导致评论数/编辑数读不到（高等级用户被算成 Lv4 的主因）。
+    async function fetchNamespaceContribs(name, ns) {
+        const dates = new Set();
+        if (typeof ns !== 'number' || ns < 0) {
+            return { count: 0, dates: dates, truncated: false };
         }
 
-        if (!levels.length) return null;
+        const api = getApi();
+        let count = 0;
+        let cont = {};
 
-        // 没有快照可算时只能暂时用缓存；不标记 fresh，过几分钟会再试，
-        // 避免一个旧的低等级被永久锁死。
-        const best = Math.max.apply(null, levels);
-        saveLevel(name, best);
-        return best;
+        for (let guard = 0; guard < CONFIG.LEVEL_MAX_REQUESTS; guard++) {
+            const data = await api.get(Object.assign({
+                action: 'query', formatversion: 2, list: 'usercontribs',
+                ucuser: name, uclimit: 'max', ucdir: 'newer',
+                ucnamespace: ns, ucprop: 'timestamp'
+            }, cont));
+
+            const list = (data.query && data.query.usercontribs) || [];
+            count += list.length;
+            for (let i = 0; i < list.length; i++) {
+                if (list[i].timestamp) dates.add(list[i].timestamp.slice(0, 10));
+            }
+
+            if (data.continue) cont = data.continue;
+            else return { count: count, dates: dates, truncated: false };
+        }
+        return { count: count, dates: dates, truncated: true };
+    }
+
+    // 最近一年的贡献日期（从新到旧），用于连续天数；不参与计数
+    async function fetchRecentDates(name) {
+        const dates = new Set();
+        const api = getApi();
+        const now = new Date();
+        const start = new Date(now.getTime() - 365 * 86400000);
+        let cont = {};
+
+        for (let guard = 0; guard < CONFIG.LEVEL_MAX_REQUESTS; guard++) {
+            const data = await api.get(Object.assign({
+                action: 'query', formatversion: 2, list: 'usercontribs',
+                ucuser: name, uclimit: 'max', ucdir: 'older',
+                ucstart: now.toISOString(), ucend: start.toISOString(),
+                ucprop: 'timestamp'
+            }, cont));
+
+            const list = (data.query && data.query.usercontribs) || [];
+            for (let i = 0; i < list.length; i++) {
+                if (list[i].timestamp) dates.add(list[i].timestamp.slice(0, 10));
+            }
+
+            if (data.continue) cont = data.continue;
+            else return { dates: dates, truncated: false };
+        }
+        return { dates: dates, truncated: true };
+    }
+
+    async function fetchTotalEditCount(name) {
+        const data = await getApi().get({
+            action: 'query', formatversion: 2, list: 'users',
+            ususers: name, usprop: 'editcount'
+        });
+        const u = data.query && data.query.users && data.query.users[0];
+        if (!u || u.missing !== undefined) return 0;
+        return parseInt(u.editcount, 10) || 0;
+    }
+
+    async function fetchContribStats(name) {
+        const storageNs = storageNamespaceId();
+        const commentNs = commentNamespaceId();
+
+        const results = await Promise.all([
+            fetchNamespaceContribs(name, commentNs),
+            fetchNamespaceContribs(name, storageNs),
+            fetchRecentDates(name),
+            fetchTotalEditCount(name)
+        ]);
+
+        const comments = results[0];
+        const storage = results[1];
+        const recent = results[2];
+        const total = results[3];
+
+        const dates = new Set();
+        comments.dates.forEach(function (d) { dates.add(d); });
+        storage.dates.forEach(function (d) { dates.add(d); });
+        recent.dates.forEach(function (d) { dates.add(d); });
+
+        return {
+            dates: dates,
+            editCount: Math.max(0, total - comments.count - storage.count),
+            commentCount: comments.count,
+            truncated: !!(comments.truncated || storage.truncated || recent.truncated)
+        };
+    }
+
+    async function fetchCreatedPages(name) {
+        const api = getApi();
+        const titles = new Set();
+        let cont = {};
+
+        for (let guard = 0; guard < CONFIG.LEVEL_MAX_REQUESTS; guard++) {
+            const data = await api.get(Object.assign({
+                action: 'query', formatversion: 2, list: 'logevents',
+                letype: 'create', lenamespace: 0, leuser: name,
+                lelimit: 'max', leprop: 'title'
+            }, cont));
+            const list = (data.query && data.query.logevents) || [];
+            list.forEach(function (le) {
+                if (le && le.title) titles.add(String(le.title).replace(/_/g, ' '));
+            });
+            if (data.continue) cont = data.continue;
+            else return { titles: titles, truncated: false };
+        }
+        return { titles: titles, truncated: true };
+    }
+
+    async function getMetrics(name) {
+        const mem = state.levelMetrics.get(name);
+        if (mem && Date.now() - mem.ts < CONFIG.LEVEL_METRICS_TTL_MS) return mem.data;
+
+        const cached = readJsonStorage(KEY_LEVEL_METRICS(name), CONFIG.LEVEL_METRICS_TTL_MS);
+        if (cached) {
+            state.levelMetrics.set(name, { ts: Date.now(), data: cached });
+            return cached;
+        }
+
+        // Gadget 已经为本机算过同一个用户时，直接复用它的指标，避免重复请求
+        const variants = usernameVariants(name);
+        for (let i = 0; i < variants.length; i++) {
+            const gm = readJsonStorage(
+                'userlevel.v6.metrics2.' + variants[i],
+                CONFIG.LEVEL_METRICS_TTL_MS
+            );
+            if (gm && Array.isArray(gm.dates)) {
+                state.levelMetrics.set(name, { ts: Date.now(), data: gm });
+                writeJsonStorage(KEY_LEVEL_METRICS(name), gm);
+                return gm;
+            }
+        }
+
+        const contrib = await fetchContribStats(name);
+        const created = await fetchCreatedPages(name);
+        const data = {
+            editCount: contrib.editCount,
+            commentCount: contrib.commentCount,
+            createCount: created.titles.size,
+            dates: Array.from(contrib.dates).sort(),
+            truncated: !!(contrib.truncated || created.truncated)
+        };
+        state.levelMetrics.set(name, { ts: Date.now(), data: data });
+        writeJsonStorage(KEY_LEVEL_METRICS(name), data);
+        return data;
+    }
+
+    async function readRankingSnapshot() {
+        const cached = readJsonStorage(KEY_LEVEL_RANKING, 30 * 60 * 1000);
+        if (cached) return cached;
+
+        let text;
+        try {
+            text = await readLevelPage(CONFIG.LEVEL_RANKING_TITLE, 30 * 1000);
+        } catch (e) {
+            return null;
+        }
+        if (!text) return null;
+
+        const re = new RegExp(
+            '<!--\\s*' + CONFIG.LEVEL_RANKING_MARKER + '_v' + CONFIG.LEVEL_RANKING_VERSION +
+            ':(\\d{4}-\\d{2}-\\d{2}T[^|]+)\\|([\\s\\S]+?)\\s*-->',
+            'g'
+        );
+        let last = null;
+        let m;
+        while ((m = re.exec(text)) !== null) {
+            try {
+                const obj = JSON.parse(m[2]);
+                if (obj && Array.isArray(obj.rows)) {
+                    last = {
+                        ts: Math.floor(new Date(m[1]).getTime() / 1000),
+                        rows: obj.rows
+                    };
+                }
+            } catch (e) { /* ignore */ }
+        }
+        writeJsonStorage(KEY_LEVEL_RANKING, last);
+        return last;
+    }
+
+    async function getCreatorMap(pageIds) {
+        const cached = readJsonStorage(KEY_LEVEL_CREATORS, CONFIG.LEVEL_CREATOR_TTL_MS) || {};
+        const wanted = new Set(pageIds);
+        const missing = [];
+        wanted.forEach(function (id) {
+            if (cached[id] === undefined) missing.push(id);
+        });
+
+        if (missing.length) {
+            const fetched = {};
+            for (let i = 0; i < missing.length; i += 50) {
+                const batch = missing.slice(i, i + 50);
+                try {
+                    const data = await getApi().get({
+                        action: 'query', formatversion: 2,
+                        pageids: batch.join('|'),
+                        prop: 'revisions',
+                        rvprop: 'user|timestamp',
+                        rvslots: 'main',
+                        rvlimit: 1,
+                        rvdir: 'newer'
+                    });
+                    const pages = (data.query && data.query.pages) || [];
+                    pages.forEach(function (p) {
+                        if (!p || p.missing !== undefined) return;
+                        const rev = p.revisions && p.revisions[0];
+                        if (rev && rev.user) fetched[p.pageid] = rev.user;
+                    });
+                } catch (e) { /* ignore this batch */ }
+            }
+            missing.forEach(function (id) {
+                if (fetched[id] === undefined) fetched[id] = '';
+            });
+            Object.assign(cached, fetched);
+            writeJsonStorage(KEY_LEVEL_CREATORS, cached);
+        }
+
+        const out = {};
+        wanted.forEach(function (id) {
+            if (cached[id] !== undefined) out[id] = cached[id];
+        });
+        return out;
+    }
+
+    async function getWorkBonus(name) {
+        const snapshot = await readRankingSnapshot();
+        if (!snapshot || !snapshot.rows || !snapshot.rows.length) {
+            return { bonus: 0, pages: 0, avg: null, failed: false };
+        }
+
+        const voted = snapshot.rows.filter(function (r) {
+            return r && typeof r.pageId === 'number' &&
+                typeof r.score === 'number' && isFinite(r.score) &&
+                (r.count || 0) >= CONFIG.LEVEL_AVG_MIN_COUNT;
+        });
+        if (!voted.length) return { bonus: 0, pages: 0, avg: null, failed: false };
+
+        let sum = 0;
+        for (let i = 0; i < voted.length; i++) sum += voted[i].score;
+        const avg = sum / voted.length;
+
+        const creators = await getCreatorMap(voted.map(function (r) { return r.pageId; }));
+        let bonus = 0;
+        let pages = 0;
+
+        const target = normUserName(name);
+        for (let i = 0; i < voted.length; i++) {
+            const r = voted[i];
+            if (normUserName(creators[r.pageId]) !== target) continue;
+            if (!(r.score > avg + 1e-9)) continue;
+            const room = Math.max(0.5, CONFIG.LEVEL_VOTE_MAX - avg);
+            const ratio = Math.min(1, (r.score - avg) / room);
+            bonus += CONFIG.LEVEL_BONUS_PER_PAGE * ratio;
+            pages++;
+        }
+
+        bonus = Math.min(CONFIG.LEVEL_BONUS_MAX, Math.round(bonus));
+        return { bonus: bonus, pages: pages, avg: Math.round(avg * 100) / 100, failed: false };
+    }
+
+    function dimensionRatio(value, ref) {
+        if (!(value > 0) || !(ref > 0)) return 0;
+        return value / ref;
+    }
+
+    function computeScoreBreakdown(counts) {
+        const ratios = {
+            comment: dimensionRatio(counts.commentCount, CONFIG.LEVEL_REF.comment),
+            login: dimensionRatio(counts.totalDays, CONFIG.LEVEL_REF.login),
+            create: dimensionRatio(counts.createCount, CONFIG.LEVEL_REF.create),
+            edit: dimensionRatio(counts.editCount, CONFIG.LEVEL_REF.edit)
+        };
+
+        let weighted = 0;
+        const keys = Object.keys(CONFIG.LEVEL_WEIGHTS);
+        keys.forEach(function (k) {
+            weighted += CONFIG.LEVEL_WEIGHTS[k] * (ratios[k] || 0);
+        });
+
+        const detail = {};
+        keys.forEach(function (k) {
+            detail[k] = Math.round(
+                CONFIG.LEVEL_BASE_SCORE_MAX * CONFIG.LEVEL_WEIGHTS[k] * (ratios[k] || 0)
+            );
+        });
+
+        return {
+            base: Math.round(weighted * CONFIG.LEVEL_BASE_SCORE_MAX),
+            ratios: ratios,
+            detail: detail
+        };
+    }
+
+    function levelFromScore(score) {
+        if (!(score > 0)) return 0;
+        return Math.floor(Math.pow(score / CONFIG.LEVEL_THRESHOLD, 1 / CONFIG.LEVEL_EXP));
+    }
+
+    async function buildStats(name, rec) {
+        const today = todayUTC();
+        const metrics = await getMetrics(name);
+        const dates = new Set(metrics.dates || []);
+
+        if (rec) {
+            bitmapToDates(rec.bitmap, today).forEach(function (d) { dates.add(d); });
+        }
+        dates.add(today);
+
+        const totalDays = Math.max(dates.size, rec ? rec.totalDays : 0);
+        const streak = Math.max(computeStreak(dates), rec ? rec.streak : 0);
+
+        let bonusInfo;
+        try {
+            bonusInfo = await getWorkBonus(name);
+        } catch (e) {
+            bonusInfo = { bonus: 0, pages: 0, avg: null, failed: true };
+        }
+
+        const counts = {
+            commentCount: metrics.commentCount || 0,
+            totalDays: totalDays,
+            createCount: metrics.createCount || 0,
+            editCount: metrics.editCount || 0
+        };
+        const breakdown = computeScoreBreakdown(counts);
+        const score = breakdown.base + (bonusInfo.bonus || 0);
+        const level = levelFromScore(score);
+
+        return {
+            level: level,
+            score: score,
+            baseScore: breakdown.base,
+            bonus: bonusInfo.bonus || 0,
+            workPages: bonusInfo.pages || 0,
+            workAvg: bonusInfo.avg,
+            streak: streak,
+            totalDays: totalDays,
+            commentCount: counts.commentCount,
+            createCount: counts.createCount,
+            editCount: counts.editCount,
+            partial: !!metrics.truncated || !!bonusInfo.failed,
+            ts: Date.now()
+        };
+    }
+
+    async function resolveExactLevel(name, rec) {
+        const ui = readLevelFromSiteUi(name);
+        if (typeof ui === 'number') {
+            state.levelFresh.add(name);
+            return { level: ui, partial: false, source: 'ui' };
+        }
+
+        const published = statsFromPublishedRecord(rec);
+        if (published) {
+            state.levelStats[name] = published;
+            state.levelFresh.add(name);
+            return published;
+        }
+
+        const local = readUserlevelStats(name);
+        if (local) {
+            state.levelStats[name] = local;
+            if (!local.partial) state.levelFresh.add(name);
+            return local;
+        }
+
+        const saved = readSavedStats(name);
+        if (saved && !saved.partial) {
+            state.levelStats[name] = saved;
+            state.levelFresh.add(name);
+            return saved;
+        }
+
+        const stats = await buildStats(name, rec);
+        state.levelStats[name] = stats;
+        saveStats(name, stats);
+        if (!stats.partial) state.levelFresh.add(name);
+        return stats;
     }
 
     function ensureLevels(names) {
@@ -975,32 +1480,12 @@
             if (state.levelFailedAt[name] &&
                 Date.now() - state.levelFailedAt[name] < CONFIG.LEVEL_RETRY_MS) return;
 
-            if (name === state.me) {
-                // 自己：站点 UI 优先；没有 UI 时才用缓存占位，但仍会继续精算
-                const ui = readLevelFromSiteUi(name);
-                if (typeof ui === 'number') {
-                    state.levels[name] = ui;
-                    saveLevel(name, ui);
-                    state.levelFresh.add(name);
-                    delete state.levelFailedAt[name];
-                    return;
-                }
-                const auth = readUserlevelCache(name);
-                if (typeof auth === 'number') {
-                    state.levels[name] = auth;
-                    saveLevel(name, auth);
-                    delete state.levelFailedAt[name];
-                }
-            } else {
-                // 他人：只有站点用户页徽章是现成精确值；缓存不直接用来显示
-                const ui = readLevelFromSiteUi(name);
-                if (typeof ui === 'number') {
-                    state.levels[name] = ui;
-                    saveLevel(name, ui);
-                    state.levelFresh.add(name);
-                    delete state.levelFailedAt[name];
-                    return;
-                }
+            const ui = readLevelFromSiteUi(name);
+            if (typeof ui === 'number') {
+                state.levels[name] = ui;
+                state.levelFresh.add(name);
+                delete state.levelFailedAt[name];
+                return;
             }
 
             todo.push(name);
@@ -1008,8 +1493,7 @@
 
         if (!todo.length) return;
 
-        // 自己永远优先；其他人每轮最多补 COMMENT_MAX_USERS_PER_ROUND 个。
-        // 在发请求前就截断，避免为了 10 个人却读取上百个快照桶。
+        // 自己优先；其他人在发请求前截断，避免为了 8 人读取上百个快照桶
         todo.sort(function (a, b) {
             if (a === state.me) return -1;
             if (b === state.me) return 1;
@@ -1020,7 +1504,7 @@
         for (let i = 0; i < todo.length; i++) {
             const n = todo[i];
             if (n !== state.me) {
-                if (othersKept >= CONFIG.COMMENT_MAX_USERS_PER_ROUND) continue;
+                if (othersKept >= CONFIG.LEVEL_MAX_USERS_PER_ROUND) continue;
                 othersKept++;
             }
             batch.push(n);
@@ -1037,53 +1521,35 @@
                 records = {};
             }
 
-            let processedOthers = 0;
             for (let i = 0; i < todo.length; i++) {
                 const name = todo[i];
-                let level = null;
-
                 try {
                     const rec = Object.prototype.hasOwnProperty.call(records, name)
                         ? records[name]
                         : null;
-                    if (rec || typeof readUserlevelCache(name) === 'number') {
-                        level = await resolveExactLevel(name, rec);
-                    }
-                } catch (e) {
-                    level = null;
-                }
+                    const stats = await resolveExactLevel(name, rec);
 
-                if (typeof level === 'number') {
-                    state.levels[name] = level;
-                    if (state.levelFresh.has(name)) {
-                        delete state.levelFailedAt[name];
+                    if (stats && typeof stats.level === 'number') {
+                        state.levels[name] = stats.level;
+                        if (stats.partial) {
+                            state.levelFailedAt[name] = Date.now();
+                        } else {
+                            delete state.levelFailedAt[name];
+                        }
                     } else {
-                        // 只是缓存兜底：5 分钟后再尝试精确计算
                         state.levelFailedAt[name] = Date.now();
                     }
-                } else {
+                } catch (e) {
                     state.levelFailedAt[name] = Date.now();
                 }
                 scheduleRender();
-
-                if (name !== state.me) {
-                    processedOthers++;
-                    if (processedOthers >= CONFIG.COMMENT_MAX_USERS_PER_ROUND) {
-                        // 未处理的名字不标记失败，下一轮继续
-                        for (let j = i + 1; j < todo.length; j++) {
-                            delete state.levelFailedAt[todo[j]];
-                        }
-                        break;
-                    }
-                }
             }
         })().finally(function () {
             todo.forEach(function (n) { state.levelPending.delete(n); });
         });
     }
 
-    // userlevel 脚本可能在本组件之后才写好缓存；定时把权威等级补回来。
-    // 关键：他人只允许“更高的缓存值”抬高 fresh 结果，绝不用低缓存覆盖。
+    // Gadget 可能在本组件之后才写好缓存；只补高值，不用低缓存覆盖已算对的结果。
     function refreshAuthoritativeLevels() {
         const names = new Set();
         state.messages.forEach(function (m) { names.add(m.user); });
@@ -1096,15 +1562,9 @@
 
             const ui = readLevelFromSiteUi(name);
             if (typeof ui === 'number') {
-                // UI 正常时最权威；但如果本会话已经用快照+实时评论数算出更高值，
-                // 不被一个偏低的旧 UI 拉回去。
                 const current = state.levels[name];
-                const shouldUse = state.levelFresh.has(name)
-                    ? (typeof current !== 'number' || ui > current)
-                    : (current !== ui);
-                if (shouldUse) {
+                if (typeof current !== 'number' || ui > current || !state.levelFresh.has(name)) {
                     state.levels[name] = ui;
-                    saveLevel(name, ui);
                     state.levelFresh.add(name);
                     delete state.levelFailedAt[name];
                     changed = true;
@@ -1112,26 +1572,13 @@
                 return;
             }
 
-            if (name === state.me) {
-                // 自己的缓存只能抬高，不能把已经算对的高等级覆盖成旧的低值
-                const auth = readUserlevelCache(name);
+            const local = readUserlevelStats(name);
+            if (local && typeof local.level === 'number') {
                 const current = state.levels[name];
-                if (typeof auth === 'number' &&
-                    (typeof current !== 'number' || auth > current)) {
-                    state.levels[name] = auth;
-                    saveLevel(name, auth);
-                    delete state.levelFailedAt[name];
-                    changed = true;
-                }
-                return;
-            }
-
-            if (state.levelFresh.has(name)) {
-                const auth = readUserlevelCache(name);
-                if (typeof auth === 'number' &&
-                    (typeof state.levels[name] !== 'number' || auth > state.levels[name])) {
-                    state.levels[name] = auth;
-                    saveLevel(name, auth);
+                if (typeof current !== 'number' || local.level > current) {
+                    state.levels[name] = local.level;
+                    state.levelStats[name] = local;
+                    saveStats(name, local);
                     changed = true;
                 }
             }
@@ -1139,6 +1586,7 @@
 
         if (changed && state.open) scheduleRender();
     }
+
 
     /* ============================ 消息解析 ============================ */
     const LINE_RE = /^\*\s*\[([^\]]+)\]\s*([^：:]+)[：:]\s*([\s\S]*)$/;
@@ -1639,25 +2087,40 @@
                 return;
             }
 
-            // 2) 再从实时页移除（baserevid 冲突就放弃；消息已在归档页，不会丢）
-            const params = {
-                action: 'edit',
-                title: CONFIG.CHAT_PAGE,
-                text: lines.slice(cutIndex).join('\n'),
-                summary: editSummary('归档并移出旧消息'),
-                formatversion: 2,
-                assert: 'user',
-                watchlist: 'nochange'
-            };
-            if (page.revid) params.baserevid = page.revid;
-
-            await waitWriteBudget();
-            if (!(await enforceBlacklist())) return;
-
+            // 2) 再从实时页移除。归档页已经写好，裁剪可以安全重试：
+            //    每次冲突都重新读取实时页，确认这批消息仍是页面前缀后再裁。
             try {
-                await api.postWithToken('csrf', params);
+                await enqueueChatWrite(function () {
+                    return withEditConflictRetry(async function () {
+                        const fresh = await readChatPage(true);
+                        const freshText = String(fresh.text || '');
+                        if (freshText.indexOf(batchText) !== 0) {
+                            throw new Error('archive-prefix-changed');
+                        }
+                        let remaining = freshText.slice(batchText.length);
+                        if (remaining.charAt(0) === '\n') remaining = remaining.slice(1);
+
+                        await waitWriteBudget();
+                        if (!(await enforceBlacklist())) {
+                            throw new Error('blacklist');
+                        }
+                        const params = {
+                            action: 'edit',
+                            title: CONFIG.CHAT_PAGE,
+                            text: remaining,
+                            summary: editSummary('归档并移出旧消息'),
+                            formatversion: 2,
+                            assert: 'user',
+                            watchlist: 'nochange'
+                        };
+                        if (fresh.revid) params.baserevid = fresh.revid;
+                        await getApi().postWithToken('csrf', params);
+                        return true;
+                    }, 8, '归档裁剪排队中');
+                });
             } catch (e) {
-                return; // 冲突/网络失败：实时页保持原样
+                // 前缀已变/持续冲突：实时页保持原样；归档页已保存，不会丢消息
+                return;
             }
 
             state.archiveIndexTs = 0;
@@ -1846,6 +2309,7 @@
         const preserveAnchor = state.preserveScrollAnchor;
         state.preserveScrollAnchor = false;
 
+        collectAvatarPool();
         const frag = document.createDocumentFragment();
         const ctx = { me: state.me, isAdmin: state.isAdmin };
 
@@ -1926,25 +2390,15 @@
         if (m.pending) row.classList.add('is-pending');
         if (m.archived) row.classList.add('is-archived');
 
-        // 头像：有 ID 用图片，无 ID 或加载失败用首字母占位
+        // 头像：有 ID 用图片，无 ID 或加载失败用首字母占位。
+        // takeAvatar 会优先复用上一轮已经加载好的节点，避免重绘时重复请求。
         const userUrl = mw.util.getUrl('User:' + m.user);
-        const avatarUrl = avatarUrlFor(m.user);
-        let avatar;
-        if (avatarUrl) {
-            avatar = document.createElement('img');
-            avatar.className = 'mwchat-avatar';
-            avatar.src = avatarUrl;
-            avatar.alt = m.user;
-            avatar.loading = 'lazy';
-            avatar.referrerPolicy = 'no-referrer';
-            avatar.onerror = function () { replaceWithInitial(avatar, m.user); };
-        } else {
+        let avatar = takeAvatar(m.user);
+        if (avatar.dataset && avatar.dataset.failed === '1') {
             avatar = buildInitialAvatar(m.user);
         }
         avatar.title = m.user;
-        avatar.addEventListener('click', function () {
-            location.href = userUrl;
-        });
+        bindAvatarClick(avatar, m.user);
 
         // 用户名 + 等级徽章
         const name = document.createElement('a');
@@ -2055,6 +2509,14 @@
         const box = document.createElement('div');
         box.className = 'mwchat-reply-quote';
 
+        const icon = document.createElement('span');
+        icon.className = 'mwchat-reply-icon';
+        icon.setAttribute('aria-hidden', 'true');
+        icon.innerHTML =
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+            'stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' +
+            '<path d="M9 7L4 12l5 5"/><path d="M4 12h9a6 6 0 0 1 6 6v1"/></svg>';
+
         const who = document.createElement('span');
         who.className = 'mwchat-reply-user';
         who.textContent = '@' + reply.user;
@@ -2063,7 +2525,7 @@
         text.className = 'mwchat-reply-text';
         text.textContent = reply.excerpt || '原消息';
 
-        box.append(who, text);
+        box.append(icon, who, text);
         return box;
     }
 
@@ -2458,19 +2920,24 @@
         }
 
         try {
-            await waitWriteBudget();
-            // 紧贴写入前再校验一次，避免在等待预算期间被拉黑仍能发出
-            if (!(await enforceBlacklist())) {
-                throw new Error('聊天权限校验失败或你已被拉黑');
-            }
-            await getApi().postWithToken('csrf', {
-                action: 'edit',
-                title: CONFIG.CHAT_PAGE,
-                appendtext: '\n' + line,
-                summary: editSummary('发送聊天消息'),
-                formatversion: 2,
-                assert: 'user',
-                watchlist: 'nochange'
+            await enqueueChatWrite(function () {
+                return withEditConflictRetry(async function () {
+                    await waitWriteBudget();
+                    // 紧贴写入前再校验一次，避免在等待预算期间被拉黑仍能发出
+                    if (!(await enforceBlacklist())) {
+                        throw new Error('聊天权限校验失败或你已被拉黑');
+                    }
+                    await getApi().postWithToken('csrf', {
+                        action: 'edit',
+                        title: CONFIG.CHAT_PAGE,
+                        appendtext: '\n' + line,
+                        summary: editSummary('发送聊天消息'),
+                        formatversion: 2,
+                        assert: 'user',
+                        watchlist: 'nochange'
+                    });
+                    return true;
+                }, 6, '发送排队中');
             });
 
             // 服务端内容到达后由 applyContent 自动清掉 pending；兜底 15 秒
@@ -2540,60 +3007,62 @@
     // 定位消息行并写回标记（撤回/删除共用）
     async function markChatLine(msg, kind, byUser, summary) {
         if (!msg || !byUser) return false;
-        const api = getApi();
 
-        for (let attempt = 0; attempt < 3; attempt++) {
-            const page = await readChatPage(true);
-            const lines = page.text.split('\n');
-            let found = -1;
+        return enqueueChatWrite(function () {
+            return (async function () {
+                const api = getApi();
+                try {
+                    return await withEditConflictRetry(async function () {
+                        const page = await readChatPage(true);
+                        const lines = page.text.split('\n');
+                        let found = -1;
 
-            for (let i = 0; i < lines.length; i++) {
-                const m = lines[i].match(LINE_RE);
-                if (!m) continue;
-                if (m[1].trim() === msg.time &&
-                    m[2].trim() === msg.user &&
-                    m[3].indexOf(msg.text) === 0) {
-                    found = i;
-                    break;
-                }
-            }
+                        for (let i = 0; i < lines.length; i++) {
+                            const m = lines[i].match(LINE_RE);
+                            if (!m) continue;
+                            if (m[1].trim() === msg.time &&
+                                m[2].trim() === msg.user &&
+                                m[3].indexOf(msg.text) === 0) {
+                                found = i;
+                                break;
+                            }
+                        }
 
-            if (found < 0) {
-                setStatus('未找到该消息，可能已被存档或删除', true);
-                return false;
-            }
-            if (/<!--(recalled|deleted):/.test(lines[found])) return false;
+                        if (found < 0) {
+                            setStatus('未找到该消息，可能已被存档或删除', true);
+                            return false;
+                        }
+                        if (/<!--(recalled|deleted):/.test(lines[found])) return false;
 
-            lines[found] += '<!--' + kind + ':by:' + byUser + ':' +
-                new Date().toISOString() + '-->';
+                        lines[found] += '<!--' + kind + ':by:' + byUser + ':' +
+                            new Date().toISOString() + '-->';
 
-            const params = {
-                action: 'edit',
-                title: CONFIG.CHAT_PAGE,
-                text: lines.join('\n'),
-                summary: editSummary(summary),
-                formatversion: 2,
-                assert: 'user',
-                watchlist: 'nochange'
-            };
-            if (page.revid) params.baserevid = page.revid;
+                        const params = {
+                            action: 'edit',
+                            title: CONFIG.CHAT_PAGE,
+                            text: lines.join('\n'),
+                            summary: editSummary(summary),
+                            formatversion: 2,
+                            assert: 'user',
+                            watchlist: 'nochange'
+                        };
+                        if (page.revid) params.baserevid = page.revid;
 
-            try {
-                await waitWriteBudget();
-                if (!(await enforceBlacklist())) {
-                    setStatus('聊天权限校验失败或你已被拉黑，操作已阻止', true);
+                        await waitWriteBudget();
+                        if (!(await enforceBlacklist())) {
+                            setStatus('聊天权限校验失败或你已被拉黑，操作已阻止', true);
+                            return false;
+                        }
+                        await api.postWithToken('csrf', params);
+                        pollNow();
+                        return true;
+                    }, 6, '消息编辑冲突');
+                } catch (e) {
+                    setStatus('操作失败：' + describeError(e), true);
                     return false;
                 }
-                await api.postWithToken('csrf', params);
-                pollNow();
-                return true;
-            } catch (e) {
-                if (isEditConflict(e) && attempt < 2) continue;
-                setStatus('操作失败：' + describeError(e), true);
-                return false;
-            }
-        }
-        return false;
+            })();
+        });
     }
 
     async function recallMessage(msg) {
@@ -3219,11 +3688,17 @@
         setTimeout(refreshAuthoritativeLevels, 20000);
         // 只读 localStorage，很便宜；保证 userlevel 缓存更新后徽章能自动跟上
         setInterval(refreshAuthoritativeLevels, 60000);
-        // 他人等级需要逐页拉评论数，每轮限 COMMENT_MAX_USERS_PER_ROUND 个；
+        // 他人等级需要拉贡献统计，每轮限 LEVEL_MAX_USERS_PER_ROUND 个；
         // 定时处理本轮被推迟的用户，避免他们一直停在旧值。
         setInterval(function () {
             if (state.open) decorateUsers();
         }, 60000);
+        // 每 30 分钟重新读一次已发布的等级快照，拾取用户当天更新后的等级；
+        // 面板关着也清掉 fresh，下次打开时再算。
+        setInterval(function () {
+            state.levelFresh.clear();
+            if (state.open) decorateUsers();
+        }, 30 * 60 * 1000);
     }
 
     function start() {
