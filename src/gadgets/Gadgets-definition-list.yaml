@@ -23,6 +23,7 @@
       - Wikiplus
       - Wikiplus-highlight
       - czzTools
+      - wikidotEditor
 
 - section: Admin
   gadgets:
