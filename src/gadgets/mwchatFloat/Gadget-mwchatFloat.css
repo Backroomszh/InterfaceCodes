@@ -1,4 +1,10 @@
 /* =========================================================
+   Backrooms 中文 Wiki · 站内悬浮聊天组件样式
+   配套脚本：mwchat-float.js
+   用法：整段粘贴到 MediaWiki:Common.css（或由 Common.css @import）
+   ========================================================= */
+
+/* =========================================================
    站内聊天 · 扁平样式
    自动适配 Citizen 的 day / night / os 三种主题
    ========================================================= */
@@ -778,11 +784,6 @@ body.mwchat-dragging { user-select: none !important; }
 }
 
 /* ---------- 移动端 ---------- */
-@media (max-width: 1120px) {
-   .mwchat-trigger-wrap {
-       bottom: 50px;
-   }
-}
 @media (max-width: 720px) {
     .mwchat-panel {
         right: 0; bottom: 0;
