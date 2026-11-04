@@ -1466,7 +1466,64 @@
             }
         } );
 
+        /* ---------- 离开提醒 ---------- */
+        var initialSource = ta.value;
+        var initialSummary = summaryInput.value;
+        var saving = false;
+        var editWarningEnabled = true;
+
+        try {
+            editWarningEnabled =
+                !!mw.user.options.get( 'useeditwarning' );
+        } catch ( e ) {}
+
+        function editorHasChanges() {
+            return ta.value !== initialSource ||
+                summaryInput.value !== initialSummary;
+        }
+
+        window.addEventListener( 'beforeunload', function ( e ) {
+            /*
+             * 自定义文本框的内容不会同步回原生 #wpTextbox1，
+             * 所以单独维护离开提醒；保存时由 saving 临时放行。
+             */
+            if ( !editWarningEnabled || saving || !editorHasChanges() ) return;
+
+            var message = '未保存的更改将会丢失。';
+            e.preventDefault();
+            e.returnValue = message;
+            return message;
+        } );
+
+        /* 从往返缓存恢复时，确保提醒重新生效 */
+        window.addEventListener( 'pageshow', function () {
+            saving = false;
+        } );
+
         /* ---------- 保存 ---------- */
+        function releaseEditWarning() {
+            /*
+             * MediaWiki 的 editWarning 在 #editform 的 submit 事件里调用
+             * allowCloseWindow.release()。form.submit() 不会触发该事件，
+             * 所以保存前先派发一次 submit，解除“未保存”提示；
+             * 用户真正主动离开页面时，这个提示仍然有效。
+             */
+            var ev;
+            try {
+                ev = new Event( 'submit', {
+                    bubbles: true,
+                    cancelable: true
+                } );
+            } catch ( e ) {
+                ev = document.createEvent( 'Event' );
+                ev.initEvent( 'submit', true, true );
+            }
+
+            try {
+                form.dispatchEvent( ev );
+            } catch ( e ) {}
+        }
+
         function save() {
             var src = ta.value;
             var wikitext = buildWikitextDocument( src );
@@ -1480,7 +1537,15 @@
                 summaryField.value = summaryInput.value;
             }
 
+            saving = true;
+            releaseEditWarning();
             HTMLFormElement.prototype.submit.call( form );
+
+            /*
+             * 正常提交会离开页面；若提交被拦截或失败而页面仍在，
+             * 1.5 秒后恢复离开提醒，避免提示被永久关掉。
+             */
+            setTimeout( function () { saving = false; }, 1500 );
         }
 
         saveBtn.addEventListener( 'click', function ( e ) {
