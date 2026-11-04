@@ -784,6 +784,11 @@ body.mwchat-dragging { user-select: none !important; }
 }
 
 /* ---------- 移动端 ---------- */
+@media (max-width: 1120px) {
+   .mwchat-trigger-wrap {
+       bottom: 100px;
+   }
+}
 @media (max-width: 720px) {
     .mwchat-panel {
         right: 0; bottom: 0;
