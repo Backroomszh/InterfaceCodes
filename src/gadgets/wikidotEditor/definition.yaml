@@ -1,0 +1,20 @@
+ResourceLoader: true
+hidden: false
+default: false
+type: general
+rights: []
+dependencies:
+    - mediawiki.api
+    - mediawiki.util
+    - jquery
+skins:
+    - citizen
+actions:
+    - edit
+namespaces: []
+peers: []
+package: false
+enable: true
+files:
+    - Gadget-wikidotEditor.js
+    - Gadget-wikidotEditor.css
