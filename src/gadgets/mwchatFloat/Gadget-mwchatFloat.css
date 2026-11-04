@@ -814,7 +814,6 @@ body.mwchat-dragging { user-select: none !important; }
     }
     .mwchat-header { padding-top: 14px; }
     .mwchat-input { font-size: 16px; }
-    .mwchat-trigger-wrap { bottom: 12px; }
     .mwchat-notice-stack {
         right: 12px; left: 12px; top: 12px;
         align-items: stretch;
