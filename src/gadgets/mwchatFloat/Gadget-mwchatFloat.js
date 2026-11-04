@@ -22,11 +22,14 @@
 
         // 头像
         AVATAR_URL_TPL: 'https://static.wikitide.net/backroomszhwiki/upv2avatars/avatar_{ID}.{EXT}',
-        AVATAR_EXTS: ['jpg', 'png', 'webp'],
+        AVATAR_EXTS: ['png', 'gif', 'jpg', 'jpeg'], // 与 UserProfileV2 的查找顺序一致
+        AVATAR_DEFAULT_URL: 'https://static.wikitide.net/backroomszhwiki/upv2avatars/default.png',
         AVATAR_BATCH: 50,
-        AVATAR_RETRY_MS: 60 * 1000,          // 用户 ID 查询失败后的重试间隔
-        AVATAR_IMG_RETRY_MS: 30 * 1000,      // 图片加载失败后的基础退避
-        AVATAR_POOL_MAX: 20,                 // 每个用户名最多复用多少个头像节点
+        AVATAR_RETRY_MS: 60 * 1000,           // 用户 ID 查询失败后的重试间隔
+        AVATAR_IMG_RETRY_MS: 30 * 1000,       // 图片加载失败后的基础退避
+        AVATAR_URL_LOOKUP_TTL_MS: 6 * 60 * 60 * 1000, // 头像文件名的缓存时间
+        AVATAR_REFRESH_MS: 10 * 60 * 1000,    // 每 10 分钟换一次缓存戳，拾取换头像
+        AVATAR_POOL_MAX: 20,                  // 每个用户名最多复用多少个头像节点
 
         // 本地存储前缀（mw.storage）
         STORAGE_ROOT: 'mwchat.',
@@ -153,7 +156,11 @@
         avatarFailedAt: Object.create(null),   // 用户 ID 查询失败时间
         avatarImgFailedAt: Object.create(null), // 图片加载失败时间
         avatarImgFailCount: Object.create(null),
-        avatarOkUrl: Object.create(null),      // 用户名 -> 实际加载成功的 URL
+        avatarOkUrl: Object.create(null),      // 用户名 -> 头像文件路径（不含缓存戳）
+        avatarUrlTs: Object.create(null),      // 用户名 -> 文件名查询时间
+        avatarUrlPending: new Set(),
+        avatarUrlFailedAt: Object.create(null),
+        avatarBust: String(Date.now()),        // 本页的缓存戳，定期更换以拾取换头像
         avatarPool: new Map(),                 // 用户名 -> 可复用的头像节点
         notified: new Set(),
         writeTimes: [],
@@ -538,19 +545,120 @@
         }, 1500);
     }
 
-    function avatarCandidates(name) {
-        const id = state.avatarIds[name];
-        if (!id) return [];
-        const urls = CONFIG.AVATAR_EXTS.map(function (ext) {
-            return CONFIG.AVATAR_URL_TPL
-                .replace('{ID}', String(id))
-                .replace('{EXT}', ext);
+    function normalizeAvatarUrl(raw) {
+        let url = String(raw || '').split('?')[0].split('#')[0];
+        if (!url) return '';
+        if (url.indexOf('//') === 0) url = 'https:' + url;
+        else if (url.charAt(0) === '/') url = location.protocol + url;
+        return url;
+    }
+
+    // UserProfileV2 的 queryuserprofilev2 直接返回当前头像文件路径
+    // （含正确的扩展名；默认头像是 default.png）。
+    async function fetchProfileAvatarUrl(name) {
+        const data = await getApi().get({
+            action: 'query', formatversion: 2,
+            list: 'queryuserprofilev2',
+            user_name: name,
+            maxage: 0, smaxage: 0
         });
-        const ok = state.avatarOkUrl[name];
-        if (ok) {
-            return [ok].concat(urls.filter(function (u) { return u !== ok; }));
+        const row = data.query && data.query[0];
+        return normalizeAvatarUrl(row && row['profile-avatar']);
+    }
+
+    // 头像文件名查询最多同时跑 3 个，避免一开面板就发几十个请求
+    const avatarUrlQueue = [];
+    let avatarUrlActive = 0;
+
+    function pumpAvatarUrlQueue() {
+        while (avatarUrlActive < 3 && avatarUrlQueue.length) {
+            const name = avatarUrlQueue.shift();
+            avatarUrlActive++;
+            Promise.race([
+                fetchProfileAvatarUrl(name),
+                new Promise(function (_, reject) {
+                    setTimeout(function () {
+                        reject(new Error('avatar-url-timeout'));
+                    }, 10000);
+                })
+            ]).then(function (url) {
+                if (!url) return;
+                const old = state.avatarOkUrl[name];
+                state.avatarOkUrl[name] = url;
+                state.avatarUrlTs[name] = Date.now();
+                delete state.avatarUrlFailedAt[name];
+                if (old !== url) {
+                    state.avatarPool.delete(name);
+                    delete state.avatarImgFailedAt[name];
+                    delete state.avatarImgFailCount[name];
+                    scheduleSaveAvatarCache();
+                    scheduleRender();
+                }
+            }).catch(function () {
+                state.avatarUrlFailedAt[name] = Date.now();
+            }).finally(function () {
+                avatarUrlActive--;
+                state.avatarUrlPending.delete(name);
+                pumpAvatarUrlQueue();
+            });
         }
-        return urls;
+    }
+
+    // 文件名缓存 6 小时；图片本身靠 avatarBust 每 10 分钟强制刷新。
+    function ensureAvatarUrlFresh(name) {
+        if (!name || mw.util.isIPAddress(name)) return;
+        if (state.avatarUrlPending.has(name)) return;
+        const ts = state.avatarUrlTs[name] || 0;
+        if (ts && Date.now() - ts < CONFIG.AVATAR_URL_LOOKUP_TTL_MS) return;
+        if (state.avatarUrlFailedAt[name] &&
+            Date.now() - state.avatarUrlFailedAt[name] < 60 * 1000) return;
+
+        state.avatarUrlPending.add(name);
+        avatarUrlQueue.push(name);
+        pumpAvatarUrlQueue();
+    }
+
+    function avatarPathCandidates(name) {
+        const paths = [];
+        const ok = normalizeAvatarUrl(state.avatarOkUrl[name]);
+
+        if (ok) {
+            paths.push(ok);
+            // 默认头像不用再猜 avatar_<ID>.*
+            if (/\/default\.(png|gif|jpe?g)$/i.test(ok)) return paths;
+
+            const m = ok.match(/^(.*)\.(png|gif|jpe?g)$/i);
+            if (m) {
+                CONFIG.AVATAR_EXTS.forEach(function (ext) {
+                    const p = m[1] + '.' + ext;
+                    if (paths.indexOf(p) === -1) paths.push(p);
+                });
+            }
+        }
+
+        const id = state.avatarIds[name];
+        if (id) {
+            CONFIG.AVATAR_EXTS.forEach(function (ext) {
+                const p = CONFIG.AVATAR_URL_TPL
+                    .replace('{ID}', String(id))
+                    .replace('{EXT}', ext);
+                if (paths.indexOf(p) === -1) paths.push(p);
+            });
+        }
+
+        // 自定义头像文件不存在时退回站内默认头像
+        if ((ok || id) && paths.indexOf(CONFIG.AVATAR_DEFAULT_URL) === -1) {
+            paths.push(CONFIG.AVATAR_DEFAULT_URL);
+        }
+        return paths;
+    }
+
+    function avatarCandidates(name) {
+        const bust = state.avatarBust || String(Date.now());
+        return avatarPathCandidates(name).map(function (p) {
+            return p + (p.indexOf('?') === -1 ? '?' : '&') +
+                'r=' + encodeURIComponent(bust);
+        });
     }
 
     function avatarImgRetryDelay(name) {
@@ -732,6 +840,7 @@
     }
 
     function takeAvatar(name) {
+        ensureAvatarUrlFresh(name);
         const pool = state.avatarPool.get(name);
         if (pool && pool.length) {
             const el = pool.shift();
@@ -3699,6 +3808,19 @@
             state.levelFresh.clear();
             if (state.open) decorateUsers();
         }, 30 * 60 * 1000);
+        // 头像文件名不变，换头像后必须换 URL 才能绕过浏览器缓存。
+        // 每 10 分钟换一次缓存戳；下一轮渲染会用新 URL 重新拉取。
+        setInterval(function () {
+            state.avatarBust = String(Date.now());
+            state.avatarPool.clear();
+            Object.keys(state.avatarImgFailedAt).forEach(function (n) {
+                delete state.avatarImgFailedAt[n];
+            });
+            Object.keys(state.avatarImgFailCount).forEach(function (n) {
+                delete state.avatarImgFailCount[n];
+            });
+            if (state.open) scheduleRender();
+        }, CONFIG.AVATAR_REFRESH_MS);
     }
 
     function start() {
