@@ -1,14 +1,9 @@
 /*!
  * Backrooms 中文 Wiki（Miraheze）—— 右下角悬浮聊天室
- * 小工具：mwchatFloat
- *   - definition.yaml：hidden:false / default:true / type:general
- *   - 样式：Gadget-mwchatFloat.css（由 ResourceLoader 自动加载，本文件不再注入 CSS）
+ * 单文件 Gadget，直接粘贴到 MediaWiki:Common.js
  *
  * 全部读写只经过站内 api.php（mw.Api），不使用 WebSocket / EventSource /
  * 外部 HTTP 服务 / CDN / iframe。所有写操作均带 assert: 'user'。
- *
- * 依赖（已在 definition.yaml 声明）：mediawiki.util、mediawiki.api、
- * mediawiki.user、mediawiki.storage、mediawiki.Title
  */
 (function () {
     'use strict';
@@ -87,9 +82,11 @@
     const KEY_AVATARS = CONFIG.STORAGE_ROOT + 'avatars.v1';
     const KEY_PANEL = CONFIG.STORAGE_ROOT + 'panel.rect.v3'; // 位置 + 尺寸
     const KEY_ARCHIVE = CONFIG.STORAGE_ROOT + 'lastArchive.v1';
-    // v2：只缓存“带评论数的精确等级”；旧 v1 里的近似 Lv0 一律不再读取
-    const KEY_LEVEL = function (name) { return CONFIG.STORAGE_ROOT + 'level.v2.' + name; };
-    const KEY_COMMENTS = function (name) { return CONFIG.STORAGE_ROOT + 'comments.v2.' + name; };
+    // v3：缓存“快照 + 实时评论数”算出的等级。
+    // v2 曾被旧算法写入过“只按快照、把评论数当 0”的低值（例如 Lv4），
+    // 换 key 直接丢弃，避免升级后仍被旧缓存拖住。
+    const KEY_LEVEL = function (name) { return CONFIG.STORAGE_ROOT + 'level.v3.' + name; };
+    const KEY_FRESH_COMMENTS = function (name) { return CONFIG.STORAGE_ROOT + 'freshcomments.v1.' + name; };
 
     /* ============================ 状态 ============================ */
     let API = null;
@@ -131,6 +128,8 @@
         levels: Object.create(null),       // 用户名 -> 数字等级（仅成功值）
         levelFailedAt: Object.create(null),// 用户名 -> 失败时间戳
         levelPending: new Set(),
+        levelFresh: new Set(),             // 本次会话已用“实时评论数 + 快照”算过的用户
+        commentFresh: new Map(),           // 用户名 -> { ts, count } 实时评论数
         avatarIds: Object.create(null),    // 用户名 -> ID | null
         avatarPending: new Set(),
         notified: new Set(),
@@ -588,13 +587,18 @@
         return 0;
     }
 
+    function normUserName(s) {
+        return String(s || '').replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+
     function findUserRecord(text, username) {
         const lines = String(text || '').split('\n');
+        const target = normUserName(username);
         let current = null;
         for (let i = 0; i < lines.length; i++) {
             const m = lines[i].match(/^==\s*(.+?)\s*==\s*$/);
-            if (m) { current = m[1].trim(); continue; }
-            if (current !== username) continue;
+            if (m) { current = normUserName(m[1]); continue; }
+            if (current !== target) continue;
             const t = lines[i].trim();
             if (!t) continue;
             const p = t.split('\t');
@@ -608,6 +612,86 @@
             }
         }
         return null;
+    }
+
+    // 站内 userlevel 脚本自己渲染的徽章：自己看顶栏，用户页看资料页。
+    // 这是当前页面里唯一“已经算对”的现成等级，优先级最高。
+    function readLevelFromSiteUi(name) {
+        if (!name) return null;
+        try {
+            let el = null;
+            if (state.me && normUserName(name) === normUserName(state.me)) {
+                el = document.querySelector(
+                    '.citizen-userInfo-usergroups .userlevel-usergroup .ul-badge'
+                );
+            }
+            if (!el && mw.config.get('wgNamespaceNumber') === 2) {
+                const pageName = String(mw.config.get('wgTitle') || '');
+                if (normUserName(pageName) === normUserName(name)) {
+                    el = document.querySelector(
+                        '.profile-header-statistics .userlevel-stat .ul-badge'
+                    );
+                }
+            }
+            if (!el) return null;
+            const n = parseInt(String(el.textContent || '').trim(), 10);
+            return isNaN(n) ? null : Math.max(0, n);
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function readSavedLevel(name) {
+        try {
+            const raw = mw.storage.get(KEY_LEVEL(name));
+            if (!raw) return null;
+            const o = JSON.parse(raw);
+            if (typeof o === 'number') return Math.max(0, Math.floor(o));
+            if (!o || typeof o.level !== 'number') return null;
+            if (o.ts && Date.now() - o.ts > CONFIG.LEVEL_TTL_MS) return null;
+            return Math.max(0, Math.floor(o.level));
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function saveLevel(name, level) {
+        if (typeof level !== 'number' || !isFinite(level)) return;
+        try {
+            mw.storage.set(KEY_LEVEL(name),
+                JSON.stringify({ ts: Date.now(), level: Math.max(0, Math.floor(level)) }));
+        } catch (e) { /* ignore */ }
+    }
+
+    // 读取站内脚本写入的等级缓存（v4 以及未来版本都兼容）。
+    // 注意：这里的值可能是该脚本用半截评论缓存算出的旧值，只能作为候选，
+    // 不能单独盖过“快照 + 实时评论数”的结果。
+    function readUserlevelCache(name) {
+        const variants = usernameVariants(name);
+        let best = null;
+
+        variants.forEach(function (v) {
+            try {
+                const raw = mw.storage.get('userlevel.lv.v4.' + v);
+                if (!raw) return;
+                const o = JSON.parse(raw);
+                if (!o || !o.ts ||
+                    Date.now() - o.ts > CONFIG.LEVEL_AUTHORITATIVE_TTL_MS) return;
+                const lv = (o.data && typeof o.data.level === 'number')
+                    ? o.data.level
+                    : (typeof o.level === 'number' ? o.level : null);
+                if (typeof lv === 'number' && (best === null || lv > best)) {
+                    best = lv;
+                }
+            } catch (e) { /* ignore */ }
+        });
+
+        const scanned = scanUserlevelLevel(name);
+        if (typeof scanned === 'number' && (best === null || scanned > best)) {
+            best = scanned;
+        }
+
+        return typeof best === 'number' ? Math.max(0, Math.floor(best)) : null;
     }
 
     // 精确复刻 userlevel 脚本的等级公式：快照记录 + 评论数（评论权重 2）。
@@ -685,150 +769,47 @@
         return best ? best.level : undefined;
     }
 
-    function scanCommentCount(name) {
-        const variants = usernameVariants(name);
-        let best = null;
-
-        storageKeyList().forEach(function (key) {
-            const m = key.match(/userlevel\.comments\.[^.]+\.(.+)$/);
-            if (!m || variants.indexOf(m[1]) === -1) return;
-
-            let raw;
-            try { raw = window.localStorage.getItem(key); } catch (e) { return; }
-            if (!raw) return;
-
-            let o;
-            try { o = JSON.parse(raw); } catch (e) { return; }
-            if (o && typeof o.count === 'number' && (best === null || o.count > best)) {
-                best = o.count;
-            }
-        });
-
-        return best === null ? undefined : best;
-    }
-
-    // 直接读取站点 userlevel 脚本已经渲染出来的徽章文字。
-    // 这是“用户看到多少就是多少”的最可靠来源，避免公式/缓存版本差异。
-    function readLevelFromSiteUi(name) {
-        if (!name) return undefined;
-        const found = [];
-
-        if (name === state.me) {
-            const menuBadges = document.querySelectorAll('.userlevel-usergroup .ul-badge');
-            menuBadges.forEach(function (el) {
-                const m = (el.textContent || '').trim().match(/^\d+$/);
-                if (m) found.push(parseInt(m[0], 10));
+    // 实时评论数：不再信任 userlevel 的评论缓存（它可能是失败/半截的旧值），
+    // 直接查 usercontribs。评论命名空间优先用 844，同时识别站点配置里的 comment 命名空间。
+    function commentNamespaceCandidates() {
+        const set = new Set([CONFIG.COMMENT_NS]);
+        try {
+            const ids = mw.config.get('wgNamespaceIds') || {};
+            ['comment', 'comments'].forEach(function (k) {
+                if (typeof ids[k] === 'number' && ids[k] >= 0) set.add(ids[k]);
             });
-        }
-
-        if (mw.config.get('wgNamespaceNumber') === 2) {
-            const owner = (mw.config.get('wgTitle') || '').split('/')[0];
-            const variants = usernameVariants(name);
-            if (variants.indexOf(owner) !== -1 || variants.indexOf(owner.replace(/_/g, ' ')) !== -1) {
-                const profileBadges = document.querySelectorAll(
-                    '.profile-header-statistics .userlevel-stat .ul-badge'
-                );
-                profileBadges.forEach(function (el) {
-                    const m = (el.textContent || '').trim().match(/^\d+$/);
-                    if (m) found.push(parseInt(m[0], 10));
-                });
-            }
-        }
-
-        return found.length ? Math.max.apply(null, found) : undefined;
-    }
-
-    // 只读取 userlevel 脚本写入 mw.storage 的权威等级缓存。
-    // 已知 v4 缓存允许 24h；同时扫描任意版本缓存，取最高等级，
-    // 避免旧版/新版缓存并存时被一个错误的低值覆盖。
-    function readUserlevelCache(name) {
-        const levels = [];
-
-        const uiLevel = readLevelFromSiteUi(name);
-        if (typeof uiLevel === 'number') levels.push(uiLevel);
-
-        try {
-            const raw = mw.storage.get('userlevel.lv.v4.' + name);
-            if (raw) {
-                const o = JSON.parse(raw);
-                if (o && o.ts &&
-                    Date.now() - o.ts < CONFIG.LEVEL_AUTHORITATIVE_TTL_MS &&
-                    o.data && typeof o.data.level === 'number') {
-                    levels.push(Math.max(0, Math.floor(o.data.level)));
-                }
-            }
         } catch (e) { /* ignore */ }
-
-        const scanned = scanUserlevelLevel(name);
-        if (typeof scanned === 'number') levels.push(scanned);
-
-        return levels.length ? Math.max.apply(null, levels) : undefined;
+        return Array.from(set);
     }
 
-    // 本组件自己的精确等级缓存；必须带 exact: true，旧版近似值不会被使用
-    function readSavedLevel(name) {
+    function readFreshCommentCache(name) {
+        const mem = state.commentFresh.get(name);
+        if (mem && Date.now() - mem.ts < CONFIG.COMMENT_CACHE_MS / 2) {
+            return mem.count;
+        }
         try {
-            const raw = mw.storage.get(KEY_LEVEL(name));
+            const raw = mw.storage.get(KEY_FRESH_COMMENTS(name));
             if (!raw) return undefined;
             const o = JSON.parse(raw);
-            if (o && o.ts && Date.now() - o.ts < CONFIG.LEVEL_TTL_MS &&
-                o.exact === true && typeof o.level === 'number') {
-                return o.level;
+            if (o && o.ts && Date.now() - o.ts < CONFIG.COMMENT_CACHE_MS / 2 &&
+                typeof o.count === 'number') {
+                state.commentFresh.set(name, { ts: o.ts, count: o.count });
+                return o.count;
             }
         } catch (e) { /* ignore */ }
         return undefined;
     }
 
-    function saveLevel(name, level) {
+    function saveFreshCommentCount(name, count) {
+        const ts = Date.now();
+        state.commentFresh.set(name, { ts: ts, count: count });
         try {
-            mw.storage.set(KEY_LEVEL(name), JSON.stringify({
-                ts: Date.now(),
-                level: level,
-                exact: true
-            }));
+            mw.storage.set(KEY_FRESH_COMMENTS(name),
+                JSON.stringify({ ts: ts, count: count }));
         } catch (e) { /* ignore */ }
     }
 
-    // 评论数优先读 userlevel 脚本的缓存，其次读本组件缓存，
-    // 同时扫描任意版本缓存，取最大值（评论数只会增长）。
-    function readCommentCount(name) {
-        const counts = [];
-
-        try {
-            const raw = mw.storage.get('userlevel.comments.v4.' + name);
-            if (raw) {
-                const o = JSON.parse(raw);
-                if (o && o.ts && Date.now() - o.ts < CONFIG.COMMENT_CACHE_MS &&
-                    typeof o.count === 'number') counts.push(o.count);
-            }
-        } catch (e) { /* ignore */ }
-
-        try {
-            const raw2 = mw.storage.get(KEY_COMMENTS(name));
-            if (raw2) {
-                const o2 = JSON.parse(raw2);
-                if (o2 && o2.ts && Date.now() - o2.ts < CONFIG.COMMENT_CACHE_MS &&
-                    typeof o2.count === 'number') counts.push(o2.count);
-            }
-        } catch (e) { /* ignore */ }
-
-        const scanned = scanCommentCount(name);
-        if (typeof scanned === 'number') counts.push(scanned);
-
-        return counts.length ? Math.max.apply(null, counts) : undefined;
-    }
-
-    function saveCommentCount(name, count) {
-        try {
-            mw.storage.set(KEY_COMMENTS(name), JSON.stringify({
-                ts: Date.now(),
-                count: count
-            }));
-        } catch (e) { /* ignore */ }
-    }
-
-    // 统计 NS 844 的 usercontribs；最多 COMMENT_MAX_REQUESTS 页，结果缓存 1 小时
-    async function fetchCommentCount(name) {
+    async function fetchCountInNamespace(name, ns) {
         const api = getApi();
         let count = 0;
         let cont = {};
@@ -841,7 +822,7 @@
                 ucuser: name,
                 uclimit: 'max',
                 ucdir: 'newer',
-                ucnamespace: CONFIG.COMMENT_NS,
+                ucnamespace: ns,
                 ucprop: 'timestamp'
             }, cont));
             count += (data.query && data.query.usercontribs || []).length;
@@ -851,15 +832,43 @@
         return count;
     }
 
+    async function fetchFreshCommentCount(name) {
+        const cached = readFreshCommentCache(name);
+        if (typeof cached === 'number') return cached;
+
+        // 站内脚本只统计 844。优先且只信任 844；只有它请求失败时，
+        // 才退到站点配置里的其它候选命名空间，避免把别的命名空间算进来。
+        const namespaces = commentNamespaceCandidates();
+        let count = null;
+
+        for (let i = 0; i < namespaces.length; i++) {
+            try {
+                count = await fetchCountInNamespace(name, namespaces[i]);
+                break;
+            } catch (e) {
+                // 继续尝试下一个候选
+            }
+        }
+
+        if (count === null) throw new Error('comment-count-failed');
+        saveFreshCommentCount(name, count);
+        return count;
+    }
+
     // 批量读取 Storage:Userlevel/<bucket>，返回 用户名 -> 记录
     async function fetchUserlevelRecords(names) {
         const byTitle = new Map();
         names.forEach(function (name) {
-            const bucket = (hash32(name) % CONFIG.USERLEVEL_BUCKETS)
-                .toString(16).padStart(2, '0');
-            const title = CONFIG.USERLEVEL_SNAPSHOT + '/' + bucket;
-            if (!byTitle.has(title)) byTitle.set(title, []);
-            byTitle.get(title).push(name);
+            // 聊天行里的用户名可能是下划线写法；快照页按站内规范名哈希。
+            // 把常见写法都查一遍，避免因为空格/下划线差异读不到记录。
+            usernameVariants(name).forEach(function (v) {
+                const bucket = (hash32(v) % CONFIG.USERLEVEL_BUCKETS)
+                    .toString(16).padStart(2, '0');
+                const title = CONFIG.USERLEVEL_SNAPSHOT + '/' + bucket;
+                if (!byTitle.has(title)) byTitle.set(title, []);
+                const list = byTitle.get(title);
+                if (list.indexOf(name) === -1) list.push(name);
+            });
         });
 
         const titles = Array.from(byTitle.keys());
@@ -896,14 +905,18 @@
                 const page = byPage[key] || byPage[key.toLowerCase()];
                 const users = byTitle.get(title) || [];
                 if (!page || page.missing) {
-                    users.forEach(function (u) { out[u] = null; });
+                    users.forEach(function (u) {
+                        if (out[u] === undefined) out[u] = null;
+                    });
                     return;
                 }
                 const rev = page.revisions && page.revisions[0];
                 let text = (rev && rev.slots && rev.slots.main && rev.slots.main.content) || '';
                 text = text.replace(/<\/?pre>/gi, '');
                 users.forEach(function (u) {
-                    out[u] = findUserRecord(text, u) || null;
+                    const rec = findUserRecord(text, u);
+                    if (rec) out[u] = rec;
+                    else if (out[u] === undefined) out[u] = null;
                 });
             });
         }
@@ -911,29 +924,42 @@
     }
 
     async function resolveExactLevel(name, rec) {
-        // 1) userlevel 脚本自己的缓存最权威
-        const authoritative = readUserlevelCache(name);
-        if (typeof authoritative === 'number') {
-            saveLevel(name, authoritative);
-            return authoritative;
-        }
+        const levels = [];
 
-        // 2) 本组件的精确缓存
+        // 站点自己渲染的徽章是最权威的（自己 / 当前用户页主人）
+        const ui = readLevelFromSiteUi(name);
+        if (typeof ui === 'number') levels.push(ui);
+
+        // 本浏览器里的 userlevel 缓存/扫描值只作为候选，不能单独决定他人等级
+        const cached = readUserlevelCache(name);
+        if (typeof cached === 'number') levels.push(cached);
+
         const saved = readSavedLevel(name);
-        if (typeof saved === 'number') return saved;
+        if (typeof saved === 'number') levels.push(saved);
 
-        // 3) 没有快照记录就无法还原
-        if (!rec) return null;
+        const hasUi = typeof ui === 'number';
 
-        // 4) 快照 + 评论数，得到与站内脚本一致的等级
-        let comments = readCommentCount(name);
-        if (comments === undefined) {
-            comments = await fetchCommentCount(name);
-            saveCommentCount(name, comments);
+        if (rec && !hasUi) {
+            // 没有站点 UI 时，实时拉评论数重新计算；不信任旧评论缓存
+            try {
+                const comments = await fetchFreshCommentCount(name);
+                const computed = levelFromRecordWithComments(rec, comments);
+                levels.push(computed);
+                state.levelFresh.add(name);
+            } catch (e) {
+                // 评论数抓取失败：保留缓存候选，等待下一轮重试
+            }
+        } else if (rec && hasUi) {
+            state.levelFresh.add(name);
         }
-        const level = levelFromRecordWithComments(rec, comments);
-        saveLevel(name, level);
-        return level;
+
+        if (!levels.length) return null;
+
+        // 没有快照可算时只能暂时用缓存；不标记 fresh，过几分钟会再试，
+        // 避免一个旧的低等级被永久锁死。
+        const best = Math.max.apply(null, levels);
+        saveLevel(name, best);
+        return best;
     }
 
     function ensureLevels(names) {
@@ -944,24 +970,37 @@
             if (!name || seen.has(name)) return;
             seen.add(name);
             if (mw.util.isIPAddress(name)) return;
-            if (Object.prototype.hasOwnProperty.call(state.levels, name)) return;
             if (state.levelPending.has(name)) return;
+            if (state.levelFresh.has(name)) return;
             if (state.levelFailedAt[name] &&
                 Date.now() - state.levelFailedAt[name] < CONFIG.LEVEL_RETRY_MS) return;
 
-            const authoritative = readUserlevelCache(name);
-            if (typeof authoritative === 'number') {
-                state.levels[name] = authoritative;
-                saveLevel(name, authoritative);
-                delete state.levelFailedAt[name];
-                return;
-            }
-
-            const saved = readSavedLevel(name);
-            if (typeof saved === 'number') {
-                state.levels[name] = saved;
-                delete state.levelFailedAt[name];
-                return;
+            if (name === state.me) {
+                // 自己：站点 UI 优先；没有 UI 时才用缓存占位，但仍会继续精算
+                const ui = readLevelFromSiteUi(name);
+                if (typeof ui === 'number') {
+                    state.levels[name] = ui;
+                    saveLevel(name, ui);
+                    state.levelFresh.add(name);
+                    delete state.levelFailedAt[name];
+                    return;
+                }
+                const auth = readUserlevelCache(name);
+                if (typeof auth === 'number') {
+                    state.levels[name] = auth;
+                    saveLevel(name, auth);
+                    delete state.levelFailedAt[name];
+                }
+            } else {
+                // 他人：只有站点用户页徽章是现成精确值；缓存不直接用来显示
+                const ui = readLevelFromSiteUi(name);
+                if (typeof ui === 'number') {
+                    state.levels[name] = ui;
+                    saveLevel(name, ui);
+                    state.levelFresh.add(name);
+                    delete state.levelFailedAt[name];
+                    return;
+                }
             }
 
             todo.push(name);
@@ -969,12 +1008,25 @@
 
         if (!todo.length) return;
 
-        // 自己永远优先；其他人每轮最多补 COMMENT_MAX_USERS_PER_ROUND 个评论数
+        // 自己永远优先；其他人每轮最多补 COMMENT_MAX_USERS_PER_ROUND 个。
+        // 在发请求前就截断，避免为了 10 个人却读取上百个快照桶。
         todo.sort(function (a, b) {
             if (a === state.me) return -1;
             if (b === state.me) return 1;
             return 0;
         });
+        let othersKept = 0;
+        const batch = [];
+        for (let i = 0; i < todo.length; i++) {
+            const n = todo[i];
+            if (n !== state.me) {
+                if (othersKept >= CONFIG.COMMENT_MAX_USERS_PER_ROUND) continue;
+                othersKept++;
+            }
+            batch.push(n);
+        }
+        todo.length = 0;
+        batch.forEach(function (n) { todo.push(n); });
         todo.forEach(function (n) { state.levelPending.add(n); });
 
         (async function () {
@@ -1003,7 +1055,12 @@
 
                 if (typeof level === 'number') {
                     state.levels[name] = level;
-                    delete state.levelFailedAt[name];
+                    if (state.levelFresh.has(name)) {
+                        delete state.levelFailedAt[name];
+                    } else {
+                        // 只是缓存兜底：5 分钟后再尝试精确计算
+                        state.levelFailedAt[name] = Date.now();
+                    }
                 } else {
                     state.levelFailedAt[name] = Date.now();
                 }
@@ -1025,7 +1082,8 @@
         });
     }
 
-    // userlevel 脚本可能在本组件之后才写好缓存；定时把权威等级补回来
+    // userlevel 脚本可能在本组件之后才写好缓存；定时把权威等级补回来。
+    // 关键：他人只允许“更高的缓存值”抬高 fresh 结果，绝不用低缓存覆盖。
     function refreshAuthoritativeLevels() {
         const names = new Set();
         state.messages.forEach(function (m) { names.add(m.user); });
@@ -1035,12 +1093,47 @@
         let changed = false;
         names.forEach(function (name) {
             if (!name || mw.util.isIPAddress(name)) return;
-            const lv = readUserlevelCache(name);
-            if (typeof lv === 'number' && state.levels[name] !== lv) {
-                state.levels[name] = lv;
-                saveLevel(name, lv);
-                delete state.levelFailedAt[name];
-                changed = true;
+
+            const ui = readLevelFromSiteUi(name);
+            if (typeof ui === 'number') {
+                // UI 正常时最权威；但如果本会话已经用快照+实时评论数算出更高值，
+                // 不被一个偏低的旧 UI 拉回去。
+                const current = state.levels[name];
+                const shouldUse = state.levelFresh.has(name)
+                    ? (typeof current !== 'number' || ui > current)
+                    : (current !== ui);
+                if (shouldUse) {
+                    state.levels[name] = ui;
+                    saveLevel(name, ui);
+                    state.levelFresh.add(name);
+                    delete state.levelFailedAt[name];
+                    changed = true;
+                }
+                return;
+            }
+
+            if (name === state.me) {
+                // 自己的缓存只能抬高，不能把已经算对的高等级覆盖成旧的低值
+                const auth = readUserlevelCache(name);
+                const current = state.levels[name];
+                if (typeof auth === 'number' &&
+                    (typeof current !== 'number' || auth > current)) {
+                    state.levels[name] = auth;
+                    saveLevel(name, auth);
+                    delete state.levelFailedAt[name];
+                    changed = true;
+                }
+                return;
+            }
+
+            if (state.levelFresh.has(name)) {
+                const auth = readUserlevelCache(name);
+                if (typeof auth === 'number' &&
+                    (typeof state.levels[name] !== 'number' || auth > state.levels[name])) {
+                    state.levels[name] = auth;
+                    saveLevel(name, auth);
+                    changed = true;
+                }
             }
         });
 
@@ -3080,6 +3173,12 @@
         });
     }
 
+    /* ============================ 样式 ============================
+       样式已拆分到独立 CSS 文件：mwchat-float.css
+       请把该文件内容放进 MediaWiki:Common.css（或由 Common.css @import）。
+       本 JS 不再注入任何 CSS。
+       ============================================================ */
+
     /* ============================ 启动 ============================ */
     async function main() {
         state.me = mw.config.get('wgUserName') || null;
@@ -3104,7 +3203,6 @@
         state.isAdmin = groups.indexOf('sysop') !== -1 ||
             groups.indexOf('interface-admin') !== -1;
 
-        // 样式由 Gadget-mwchatFloat.css 提供（ResourceLoader 自动加载），此处不再注入 CSS。
         loadAvatarCache();
         readArchiveStamp();
         buildDom();
@@ -3121,6 +3219,11 @@
         setTimeout(refreshAuthoritativeLevels, 20000);
         // 只读 localStorage，很便宜；保证 userlevel 缓存更新后徽章能自动跟上
         setInterval(refreshAuthoritativeLevels, 60000);
+        // 他人等级需要逐页拉评论数，每轮限 COMMENT_MAX_USERS_PER_ROUND 个；
+        // 定时处理本轮被推迟的用户，避免他们一直停在旧值。
+        setInterval(function () {
+            if (state.open) decorateUsers();
+        }, 60000);
     }
 
     function start() {
