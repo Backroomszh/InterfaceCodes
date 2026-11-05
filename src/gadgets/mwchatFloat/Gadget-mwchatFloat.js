@@ -8,6 +8,9 @@
 (function () {
     'use strict';
 
+    // 未登录用户直接退出，不初始化聊天组件
+    if (!mw.config.get('wgUserName')) return;
+
     if (window.__mwchatFloatLoaded) return;
     window.__mwchatFloatLoaded = true;
 
@@ -3208,6 +3211,7 @@
         guardWrite();
         if (state.open || state.lockedOut || !els.panel) return;
         state.open = true;
+        dismissTriggerPeek();
 
         // 先在隐藏状态下完成排版/渲染，下一帧再启动过渡，打开才会顺
         restorePanelGeometry();
@@ -3611,12 +3615,42 @@
         bindWindowDragAndResize();
     }
 
+    function dismissTriggerPeek() {
+        if (els.wrap) els.wrap.classList.remove('is-peek');
+    }
+
+    // 首次加载：桌面端先让按钮自己滑出来，停在外面；
+    // 用户 hover 过再离开之后，才回到正常的小竖条收起态。
+    function startTriggerPeek() {
+        if (!els.wrap || state.open) return;
+        let fine = false;
+        try {
+            fine = !!(window.matchMedia &&
+                window.matchMedia('(hover: hover) and (pointer: fine)').matches);
+        } catch (e) {
+            fine = false;
+        }
+        if (!fine) return;
+        // 先让浏览器画出收起态，下一帧再加类，滑出才有过渡
+        requestAnimationFrame(function () {
+            requestAnimationFrame(function () {
+                if (!els.wrap || state.open) return;
+                els.wrap.classList.add('is-peek');
+            });
+        });
+    }
+
     function bindPanelEvents() {
         const tryOpen = function () {
             try { open(); } catch (e) { /* locked out */ }
         };
         els.tab.addEventListener('click', tryOpen);
         els.trigger.addEventListener('click', tryOpen);
+
+        // 首次加载的滑出状态：指针从按钮上离开后，才收回小竖条
+        els.trigger.addEventListener('mouseleave', function () {
+            if (els.wrap.classList.contains('is-peek')) dismissTriggerPeek();
+        });
 
         els.closeBtn.addEventListener('click', close);
 
@@ -3786,6 +3820,7 @@
         buildDom();
         restorePanelGeometry();
         bindGlobalEvents();
+        startTriggerPeek();
         schedulePoll(0);
 
         // userlevel 脚本可能比本组件晚几秒才写好等级缓存；多次补读，
