@@ -108,7 +108,7 @@
     color: var(--mwc-subtle);
     pointer-events: auto;
     cursor: pointer;
-    transition: background-color .18s ease, color .18s ease;
+    transition: background-color .18s ease, color .18s ease, opacity .18s ease;
 }
 .mwchat-tab::before {
     content: "";
@@ -175,6 +175,18 @@
     transform: translate(0, -50%) scale(.97);
 }
 .mwchat-trigger-wrap.is-hidden { display: none; }
+
+/* 页面刚加载时，桌面端先让按钮自己滑出来；hover 过再离开才收回小竖条 */
+@media (hover: hover) and (pointer: fine) {
+    .mwchat-trigger-wrap.is-peek .mwchat-trigger {
+        transform: translate(0, -50%);
+        opacity: 1;
+    }
+    .mwchat-trigger-wrap.is-peek .mwchat-tab {
+        opacity: 0;
+        pointer-events: none;
+    }
+}
 
 @media (hover: none), (pointer: coarse) {
     .mwchat-trigger-wrap { width: 150px; }
@@ -837,6 +849,7 @@ body.mwchat-dragging { user-select: none !important; }
     }
     .mwchat-header { padding-top: 14px; }
     .mwchat-input { font-size: 16px; }
+    .mwchat-trigger-wrap { bottom: 12px; }
     .mwchat-notice-stack {
         right: 12px; left: 12px; top: 12px;
         align-items: stretch;
