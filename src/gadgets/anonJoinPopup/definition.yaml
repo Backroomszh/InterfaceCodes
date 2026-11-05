@@ -1,0 +1,16 @@
+ResourceLoader: true
+hidden: true
+default: true
+type: general
+rights: []
+dependencies:
+    - mediawiki.user
+    - mediawiki.util
+skins: []
+actions: []
+namespaces: []
+peers: []
+package: false
+enable: true
+files:
+    - Gadget-anonJoinPopup.js
