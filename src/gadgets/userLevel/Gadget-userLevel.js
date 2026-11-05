@@ -69,6 +69,7 @@
     background: none !important; border: none !important; box-shadow: none !important;
     padding: 0 !important; display: inline-flex !important; align-items: center; gap: 1px;
 }
+.userlevel-fallback { margin: 2px 0 6px; }
 .userlevel-stat.ul-tier-0 .ul-badge, .userlevel-usergroup.ul-tier-0 .ul-badge { color: #9098a1; }
 .userlevel-stat.ul-tier-1 .ul-badge, .userlevel-usergroup.ul-tier-1 .ul-badge { color: #4a90e2; }
 .userlevel-stat.ul-tier-2 .ul-badge, .userlevel-usergroup.ul-tier-2 .ul-badge {
@@ -954,11 +955,48 @@
         return li;
     }
 
+    // 没有用户组的普通用户：用户名下方用的徽章（<div>，不能复用 <li>）
+    function buildFallbackBadge(stats) {
+        const box = document.createElement('div');
+        box.className = 'userlevel-fallback userlevel-usergroup ul-tier-' + levelToTier(stats.level);
+
+        const label = document.createElement('span');
+        label.className = 'ul-label';
+        label.textContent = 'Lv';
+        box.appendChild(label);
+
+        const badge = document.createElement('span');
+        badge.className = 'ul-badge';
+        badge.textContent = String(stats.level);
+        box.appendChild(badge);
+
+        box.title = statsTitle(stats, false);
+        return box;
+    }
+
     function injectUserMenu(stats) {
         if (!stats) return;
+
+        // 优先沿用用户组区域的注入点
+        let injected = false;
         document.querySelectorAll('.citizen-userInfo-usergroups').forEach(ul => {
-            if (ul.querySelector('.userlevel-usergroup')) return;
+            injected = true;
+            if (ul.querySelector('.userlevel-usergroup, .userlevel-fallback')) return;
             ul.prepend(buildUserMenuLi(stats));
+        });
+        if (injected) return;
+
+        // 普通用户没有用户组容器：插到用户名标题下方
+        document.querySelectorAll('.citizen-userInfo').forEach(box => {
+            if (box.querySelector('.userlevel-usergroup, .userlevel-fallback')) return;
+            const title = box.querySelector('.citizen-userInfo-title');
+            const el = buildFallbackBadge(stats);
+            if (title) {
+                if (title.nextSibling) title.parentNode.insertBefore(el, title.nextSibling);
+                else title.parentNode.appendChild(el);
+            } else {
+                box.prepend(el);
+            }
         });
     }
 
@@ -996,8 +1034,9 @@
         if (!mw.user.isAnon()) {
             const me = mw.user.getName();
             recordVisit(me).catch(() => {});
+            // 等用户信息卡出现即可：有用户组的用户和普通用户都有 .citizen-userInfo
             tasks.push(
-                waitFor('.citizen-userInfo-usergroups', CONFIG.WAIT_TIMEOUT)
+                waitFor('.citizen-userInfo', CONFIG.WAIT_TIMEOUT)
                     .then(() => getStatsFor(me))
                     .then(injectUserMenu)
                     .catch(() => {})
