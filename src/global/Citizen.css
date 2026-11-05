@@ -1942,3 +1942,126 @@ a[title='创建新子页面']::before {
     box-shadow: none;
 	border-radius: 10px !important;
 }
+
+/* 这个垃圾皮肤真是什么都敢用
+ * 原则：旧浏览器不支持 light-dark() 时，使用浅色参数作为 fallback。
+ * 现代浏览器不会进入 @supports not 块，继续使用原 light-dark()。
+ */
+@supports not (color: light-dark(black, white)) {
+  :where(:root.citizen-v4) {
+    /* outline */
+    --outline-color-progressive--focus: var(--color-primary-700);
+
+    /* syntax */
+    --color-syntax-red: #a90c2d;
+    --color-syntax-orange: #973906;
+    --color-syntax-yellow: #7e4f0c;
+    --color-syntax-green: #296c1a;
+    --color-syntax-cyan: #0c676d;
+    --color-syntax-blue: #0d4dca;
+    --color-syntax-paleblue: #425f71;
+    --color-syntax-purple: #6d24c6;
+    --color-syntax-brown: #715440;
+    --color-syntax-pink: #8d3077;
+    --color-syntax-violet: #485595;
+    --color-syntax-gray: #585a66;
+
+    /* surface */
+    --color-surface-0: var(--color-white);
+    --color-surface-1: var(--color-neutral-50);
+    --color-surface-1--hover: var(--color-neutral-100);
+    --color-surface-1--active: var(--color-neutral-200);
+    --color-surface-2: var(--color-neutral-100);
+    --color-surface-2--hover: var(--color-neutral-200);
+    --color-surface-2--active: var(--color-neutral-300);
+    --color-surface-3: var(--color-neutral-200);
+    --color-surface-4: var(--color-neutral-300);
+
+    /* box shadow */
+    --box-shadow-color-alpha-base: rgba(0, 0, 0, var(--shadow-opacity));
+
+    /* color base */
+    --color-base: var(--color-neutral-900);
+    --color-base--hover: var(--color-neutral-700);
+    --color-base--subtle: var(--color-neutral-600);
+    --color-emphasized: var(--color-neutral-1000);
+    --color-subtle: var(--color-neutral-600);
+    --color-placeholder: var(--color-neutral-500);
+    --color-disabled: var(--color-neutral-400);
+    --color-disabled-emphasized: var(--color-neutral-400);
+    --color-neutral: var(--color-neutral-700);
+    --color-notice: var(--color-neutral-700);
+    --color-inverted: var(--color-white);
+    --color-progressive: var(--color-primary-700);
+    --color-progressive--hover: var(--color-primary-800);
+    --color-progressive--active: var(--color-primary-900);
+    --color-destructive: var(--color-red-700);
+    --color-destructive--hover: var(--color-red-800);
+    --color-destructive--active: var(--color-red-900);
+    --color-warning: var(--color-yellow-700);
+    --color-success: var(--color-green-700);
+    --color-icon-progressive: var(--color-primary-700);
+
+    /* border */
+    --border-color-base: var(--color-gray-200);
+    --border-color-emphasized: var(--color-gray-900);
+    --border-color-subtle: var(--color-gray-100);
+    --border-color-muted: var(--color-gray-50);
+    --border-color-interactive: var(--color-gray-300);
+    --border-color-interactive--hover: var(--color-gray-400);
+    --border-color-interactive--active: var(--color-gray-500);
+    --border-color-disabled: var(--color-gray-100);
+    --border-color-divider: var(--color-gray-200);
+    --border-color-inverted: var(--color-white);
+    --border-color-progressive: var(--color-primary-700);
+    --border-color-progressive--hover: var(--color-primary-800);
+    --border-color-progressive--active: var(--color-primary-900);
+    --border-color-progressive--focus: var(--color-primary-700);
+    --border-color-error: var(--color-red-100);
+    --border-color-error--hover: var(--color-red-200);
+    --border-color-error--active: var(--color-red-300);
+    --border-color-warning: var(--color-yellow-100);
+    --border-color-warning--hover: var(--color-yellow-200);
+    --border-color-warning--active: var(--color-yellow-300);
+    --border-color-success: var(--color-green-100);
+    --border-color-destructive: var(--color-red-100);
+    --border-color-destructive--hover: var(--color-red-200);
+    --border-color-destructive--active: var(--color-red-300);
+    --border-color-destructive--focus: var(--color-primary-700);
+
+    /* background */
+    --background-color-base: var(--color-white);
+    --background-color-neutral: var(--color-neutral-100);
+    --background-color-neutral-subtle: var(--color-neutral-50);
+    --background-color-interactive: var(--color-neutral-100);
+    --background-color-interactive--hover: var(--color-neutral-200);
+    --background-color-interactive--active: var(--color-neutral-300);
+    --background-color-interactive-subtle: var(--color-neutral-50);
+    --background-color-interactive-subtle--hover: var(--color-neutral-100);
+    --background-color-interactive-subtle--active: var(--color-neutral-200);
+    --background-color-disabled: var(--color-neutral-200);
+    --background-color-disabled-subtle: var(--color-neutral-100);
+    --background-color-notice-subtle: var(--color-neutral-100);
+    --background-color-inverted: var(--color-neutral-1000);
+    --background-color-icon: rgba(0, 0, 0, var(--opacity-icon-base));
+    --background-color-icon--hover: rgba(0, 0, 0, var(--opacity-icon-base--hover));
+    --background-color-icon--active: rgba(0, 0, 0, var(--opacity-icon-base--active));
+    --background-color-progressive--focus: var(--color-primary-700);
+    --background-color-destructive--focus: var(--color-primary-700);
+    --background-color-progressive-subtle: var(--color-primary-50);
+    --background-color-progressive-subtle--hover: var(--color-primary-100);
+    --background-color-progressive-subtle--active: var(--color-primary-200);
+    --background-color-destructive-subtle: var(--color-red-50);
+    --background-color-destructive-subtle--hover: var(--color-red-100);
+    --background-color-destructive-subtle--active: var(--color-red-200);
+    --background-color-error-subtle: var(--color-red-50);
+    --background-color-error-subtle--hover: var(--color-red-100);
+    --background-color-error-subtle--active: var(--color-red-200);
+    --background-color-warning-subtle: var(--color-yellow-50);
+    --background-color-success-subtle: var(--color-green-50);
+    --background-color-target-text: var(--color-orange-50);
+    --background-color-button-quiet--hover: rgba(0, 24, 73, 0.027);
+    --background-color-button-quiet--active: rgba(0, 24, 73, 0.082);
+    --background-color-backdrop-light: rgba(250, 250, 250, var(--backdrop-opacity));
+  }
+}
