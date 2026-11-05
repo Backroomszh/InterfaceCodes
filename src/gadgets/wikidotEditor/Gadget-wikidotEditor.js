@@ -31,6 +31,7 @@
     /* ==========================================================
      * 配置
      * ========================================================== */
+
     var NOSIDEBAR_TEMPLATE = 'NOSIDEBAR';
     var TOC_MAGIC = '__TOC__';
     var WD_CSS_TEMPLATE = '{{CSS|User:QiuxiMeow/代码/wd适配.css}}';
@@ -631,6 +632,7 @@
         var lines = src.split( '\n' );
         var out = [];
         var inCode = false;
+        var inHtml = false;
 
         for ( var i = 0; i < lines.length; i++ ) {
             var line = lines[ i ];
@@ -646,6 +648,20 @@
                 inCode = true;
                 out.push( '<span class="wd-h-codeblock">' +
                     escapeHtml( line ) + '</span>' );
+                continue;
+            }
+
+            if ( inHtml ) {
+                out.push( '<span class="wd-h-codeblock">' +
+                    escapeHtml( line ) + '</span>' );
+                if ( /\[\[\/html\]\]/i.test( line ) ) inHtml = false;
+                continue;
+            }
+
+            if ( /^\s*\[\[html(?:\s[^\]]*)?\]\]/i.test( line ) ) {
+                out.push( '<span class="wd-h-codeblock">' +
+                    escapeHtml( line ) + '</span>' );
+                if ( !/\[\[\/html\]\]/i.test( line ) ) inHtml = true;
                 continue;
             }
 
@@ -2013,6 +2029,19 @@
                 action: function () { insertCodeBlock( ta ); }
             } ),
             tool( {
+                icon: 'codeBlock',
+                label: 'HTML',
+                title: '插入原样 HTML 区块 [[html]]…[[/html]]',
+                action: function () {
+                    insertBlockSnippet(
+                        ta,
+                        '[[html]]\n',
+                        '\n[[/html]]',
+                        '<p>HTML 内容</p>'
+                    );
+                }
+            } ),
+            tool( {
                 icon: 'math',
                 label: '数学',
                 title: '插入数学公式',
@@ -2271,7 +2300,10 @@
             [ '[[footnote]]注释[[/footnote]]', '脚注' ],
             [ '[[footnoteblock]]', '脚注列表' ],
             [ '[[toc]]', '目录' ],
+            [ '__TOC__ / __NOTOC__', '分别对应 [[toc]] / 省略（等同 {{NOSIDEBAR}}）' ],
+            [ '__NOEDITSECTION__ 等', '用 [[html]] 原样保留，保存时仍输出魔术字' ],
             [ '[[code]]…[[/code]]', '代码块' ],
+            [ '[[html]]…[[/html]]', '原样 HTML/扩展标签区块，可用于包裹 <p>、<poll> 等' ],
             [ '[[collapsible show="展开"]]…[[/collapsible]]', '折叠块' ],
             [ '[[div class="类名"]]…[[/div]]', '容器' ],
             [ '[[=]]…[[/=]]', '居中区块' ],
@@ -2409,6 +2441,62 @@
     function normalizeStoredWikidotSource( source ) {
         source = unwrapRawBlocks( source );
 
+        /*
+         * 先保护已有的 [[html]] 块，避免 p 规范化时二次包裹；
+         * p 内部的 Wikidot 源码先转成 Wikitext，再放进 [[html]]。
+         */
+        var htmlBlocks = [];
+
+        function holdHtml( block ) {
+            var id = '\u0000NB' + htmlBlocks.length + '\u0000';
+            htmlBlocks.push( block );
+            return id;
+        }
+
+        source = source.replace(
+            /\[\[html\]\][\s\S]*?\[\[\/html\]\]/gi,
+            function ( m ) { return holdHtml( m ); }
+        );
+
+        source = source.replace(
+            /<poll\b[^>]*>[\s\S]*?<\/poll>/gi,
+            function ( m ) { return holdHtml( '[[html]]' + m + '[[/html]]' ); }
+        );
+
+        source = source.replace(
+            /(<p\b[^>]*>)([\s\S]*?)<\/p>/gi,
+            function ( m, open, inner ) {
+                var ph = [];
+                var converted = convertWikidotToWikitext( inner, ph, false );
+                converted = restorePlaceholders( converted, ph );
+                return holdHtml( '[[html]]' + open + converted + '</p>[[/html]]' );
+            }
+        );
+
+        /* <references /> 与 [[footnoteblock]] 互相对应 */
+        source = source.replace( /<references\s*\/>/gi, '[[footnoteblock]]' );
+        source = source.replace(
+            /<references\s*>[\s\S]*?<\/references>/gi,
+            '[[footnoteblock]]'
+        );
+
+        /*
+         * MediaWiki 魔术字：__NOTOC__ 等价于 NOSIDEBAR，直接省略；
+         * __TOC__ 对应 [[toc]]；其余用 [[html]] 原样保留。
+         */
+        source = source.replace( /^[ \t]*__NOTOC__[ \t]*\n?/gm, '' );
+        source = source.replace( /__NOTOC__/g, '' );
+        source = source.replace( /__TOC__/g, '[[toc]]' );
+        source = source.replace(
+            /__(?:NOEDITSECTION|NOGALLERY|FORCETOC|NEWSECTIONLINK|NOCONTENTCONVERT|NOCC|NOTITLECONVERT|NOTC|INDEX|NOINDEX|STATICREDIRECT|DISAMBIG)__/g,
+            function ( m ) {
+                return '[[html]]' + m + '[[/html]]';
+            }
+        );
+
+        /* 旧源码里剩余的 <span>（包括 include 参数里的）转成 Wikidot */
+        source = convertWikitextSpans( source );
+
         source = source.replace(
             /<center\b[^>]*>([\s\S]*?)<\/center>/gi,
             function ( m, inner ) {
@@ -2418,14 +2506,39 @@
             }
         );
 
+        source = source.replace( /\u0000NB(\d+)\u0000/g, function ( m, i ) {
+            return htmlBlocks[ parseInt( i, 10 ) ];
+        } );
+
         return source;
     }
+
+    var htmlBlockSeq = 0;
 
     function convertWikitextToWikidot( wikitext ) {
         var placeholders = [];
 
+        /*
+         * 每次调用使用独立前缀：center/div/脚注会递归调用本函数，
+         * 嵌套调用的 restore 不能把外层的占位符当成自己的还原成 undefined。
+         */
+        var rwSeq = ++htmlBlockSeq;
+        var rwPrefix = '\u0000RW' + rwSeq + '_';
+        var rwRe = new RegExp( '\\u0000RW' + rwSeq + '_(\\d+)\\u0000', 'g' );
+
+        /* <p> 也用独立占位符，避免被后续规则改写 */
+        var htmlBlocks = [];
+        var hpSeq = ++htmlBlockSeq;
+        var hpPrefix = '\u0000HB' + hpSeq + '_';
+
+        function H( text ) {
+            var id = hpPrefix + htmlBlocks.length + '\u0000';
+            htmlBlocks.push( text );
+            return id;
+        }
+
         function P( text ) {
-            var id = '\u0000RW' + placeholders.length + '\u0000';
+            var id = rwPrefix + placeholders.length + '\u0000';
             placeholders.push( text );
             return id;
         }
@@ -2434,7 +2547,7 @@
             var prev;
             do {
                 prev = text;
-                text = text.replace( /\u0000RW(\d+)\u0000/g, function ( m, i ) {
+                text = text.replace( rwRe, function ( m, i ) {
                     return placeholders[ parseInt( i, 10 ) ];
                 } );
             } while ( text !== prev );
@@ -2496,14 +2609,37 @@
         /* 模板 -> include；复杂/解析函数 -> raw */
         src = convertWikitextTemplates( src, P );
 
-        /* 目录与双下划线魔术字 */
+        /*
+         * <poll> / <p> 整块用 [[html]] 包裹，内部保持 Wikitext，
+         * 不再参与后面的内链/粗体/换行等反向转换；前向转换原样输出。
+         */
+        src = src.replace(
+            /<poll\b[^>]*>[\s\S]*?<\/poll>/gi,
+            function ( m ) {
+                return H( '[[html]]' + m + '[[/html]]' );
+            }
+        );
+        src = src.replace(
+            /(<p\b[^>]*>)([\s\S]*?)<\/p>/gi,
+            function ( m, open, inner ) {
+                return H( '[[html]]' + open + inner + '</p>[[/html]]' );
+            }
+        );
+
+        /*
+         * 目录与双下划线魔术字：
+         * __NOTOC__ 等价于 NOSIDEBAR，直接省略；
+         * __TOC__ 对应 [[toc]]；其余用 [[html]] 原样保留。
+         */
+        src = src.replace( /^[ \t]*__NOTOC__[ \t]*\n?/gm, '' );
+        src = src.replace( /__NOTOC__/g, '' );
         src = src.replace( /__TOC__/g, function () {
             return P( '[[toc]]' );
         } );
         src = src.replace(
-            /__(?:NOTOC|NOEDITSECTION|NOGALLERY|FORCETOC|NEWSECTIONLINK|NOCONTENTCONVERT|NOCC|NOTITLECONVERT|NOTC|INDEX|NOINDEX|STATICREDIRECT|DISAMBIG)__/g,
+            /__(?:NOEDITSECTION|NOGALLERY|FORCETOC|NEWSECTIONLINK|NOCONTENTCONVERT|NOCC|NOTITLECONVERT|NOTC|INDEX|NOINDEX|STATICREDIRECT|DISAMBIG)__/g,
             function ( m ) {
-                return P( m );
+                return P( '[[html]]' + m + '[[/html]]' );
             }
         );
 
@@ -2644,7 +2780,14 @@
         src = src.replace( /'''([\s\S]*?)'''/g, '**$1**' );
         src = src.replace( /''([\s\S]*?)''/g, '//$1//' );
 
-        return restore( src );
+        src = restore( src );
+        src = src.replace(
+            new RegExp( '\\u0000HB' + hpSeq + '_(\\d+)\\u0000', 'g' ),
+            function ( m, i ) {
+                return htmlBlocks[ parseInt( i, 10 ) ];
+            }
+        );
+        return src;
     }
 
     function convertWikitextTemplates( src, P ) {
@@ -2764,6 +2907,24 @@
             }
 
             if ( !key ) return P( templateText );
+
+            /*
+             * 参数值里的 MediaWiki 双链先改成 Wikidot 三括号，
+             * 再把 <span> 改成 ##色## / [[span ...]]。
+             * 前向转换 convertIncludeArgToWikitext 会完整还原成 HTML。
+             */
+            value = value.replace(
+                /(^|[^\[])\[\[([^\[\]\n]+?)\]\](?!\])/g,
+                function ( m, pre, inner ) {
+                    return pre + '[[[' + inner + ']]]';
+                }
+            );
+            value = convertWikitextSpans( value );
+            value = value.replace( /<references\s*\/>/gi, '[[footnoteblock]]' );
+            value = value.replace(
+                /<references\s*>[\s\S]*?<\/references>/gi,
+                '[[footnoteblock]]'
+            );
 
             /*
              * 模板参数的换行无法直接放进 Wikidot include 的单行参数，
@@ -2910,30 +3071,43 @@
     function convertWikitextSpans( src ) {
         return src.replace( /<span([^>]*)>([\s\S]*?)<\/span>/gi, function ( m, attrs, inner ) {
             var id = attrs.match( /\bid\s*=\s*"([^"]*)"/i );
-            if ( id && !inner.trim() &&
-                 !attrs.replace( /\bid\s*=\s*"[^"]*"/i, '' ).trim() ) {
+            var cls = attrs.match( /\bclass\s*=\s*"([^"]*)"/i );
+            var styleMatch = attrs.match( /\bstyle\s*=\s*"([^"]*)"/i );
+
+            /* 纯锚点 */
+            if ( id && !inner.trim() && !cls && !styleMatch ) {
                 return '[[#' + id[ 1 ] + ']]';
             }
 
-            var styleMatch = attrs.match( /\bstyle\s*=\s*"([^"]*)"/i );
-            if ( !styleMatch ) return m;
-
-            var rest = attrs.replace( /\bstyle\s*=\s*"[^"]*"/ig, '' ).trim();
+            var rest = attrs
+                .replace( /\bid\s*=\s*"[^"]*"/ig, '' )
+                .replace( /\bclass\s*=\s*"[^"]*"/ig, '' )
+                .replace( /\bstyle\s*=\s*"[^"]*"/ig, '' )
+                .trim();
             if ( rest ) return m;
 
-            var style = styleMatch[ 1 ].trim();
-            var color = /^color\s*:\s*([^;]+)\s*;?$/i.exec( style );
-            var size = /^font-size\s*:\s*([^;]+)\s*;?$/i.exec( style );
+            if ( styleMatch ) {
+                var style = styleMatch[ 1 ].trim();
+                var color = /^color\s*:\s*([^;]+)\s*;?$/i.exec( style );
+                var size = /^font-size\s*:\s*([^;]+)\s*;?$/i.exec( style );
 
-            if ( color ) {
-                var c = color[ 1 ].trim().replace( /^#/, '' );
-                return '##' + c + '|' + inner + '##';
-            }
-            if ( size ) {
-                return '[[size ' + size[ 1 ].trim() + ']]' + inner + '[[/size]]';
+                if ( color && !cls ) {
+                    var c = color[ 1 ].trim().replace( /^#/, '' );
+                    return '##' + c + '|' + inner + '##';
+                }
+                if ( size && !cls ) {
+                    return '[[size ' + size[ 1 ].trim() + ']]' + inner + '[[/size]]';
+                }
             }
 
-            return '[[span style="' + style + '"]]' + inner + '[[/span]]';
+            if ( !id && !cls && !styleMatch ) return m;
+
+            var out = '';
+            if ( id ) out += ' id="' + id[ 1 ] + '"';
+            if ( cls ) out += ' class="' + cls[ 1 ] + '"';
+            if ( styleMatch ) out += ' style="' + styleMatch[ 1 ] + '"';
+
+            return '[[span' + out + ']]' + inner + '[[/span]]';
         } );
     }
 
@@ -3012,7 +3186,12 @@
 
         function P( html ) { return ph( placeholders, html ); }
 
-        /* 0. 代码块最先保护，内部内容不再参与后续语法转换 */
+        /* 0. [[html]] 原样块：内容直接作为 HTML/Wikitext 输出 */
+        src = convertNestedTag( src, 'html', function ( attrs, content ) {
+            return P( content );
+        }, placeholders );
+
+        /* 0.1 代码块最先保护，内部内容不再参与后续语法转换 */
         src = convertNestedTag( src, 'code', function ( attrs, content ) {
             var lang = '';
             if ( attrs ) {
@@ -3272,10 +3451,12 @@
         /* 22. 表格 */
         src = convertTables( src );
 
-        /* 23. span */
+        /* 23. span（支持 class/style/id，顺序任意） */
         src = src.replace(
-            /\[\[span\s+style\s*=\s*"([^"]*)"\]\]([\s\S]*?)\[\[\/span\]\]/gi,
-            '<span style="$1">$2</span>'
+            /\[\[span\s+((?:(?:class|style|id)\s*=\s*"[^"]*"\s*)+)\]\]([\s\S]*?)\[\[\/span\]\]/gi,
+            function ( m, attrs, inner ) {
+                return '<span ' + attrs.trim() + '>' + inner + '</span>';
+            }
         );
 
         /* 24. size */
@@ -3359,7 +3540,7 @@
 
         var PAIRED = [
             'code', 'collapsible', 'footnote', 'div', 'iftags',
-            'span', 'size', 'tabview', 'tab', 'raw'
+            'span', 'size', 'tabview', 'tab', 'raw', 'html'
         ];
         var pairedRe = new RegExp(
             '\\[\\[\\/?(?:' + PAIRED.join( '|' ) + ')(?:\\s+[^\\]]*)?\\]\\]',
@@ -3377,6 +3558,46 @@
         src = src.replace( /\[\[\/?>\]\]/g, P );
 
         return src;
+    }
+
+    /*
+     * include 参数值允许写 Wikidot 颜色/字号/span/三括号链接；
+     * 前向转换时还原成 MediaWiki 的 HTML 与双括号链接。
+     */
+    function convertIncludeArgToWikitext( value ) {
+        value = value.replace(
+            /##([^|#\n]+)\|([^\n]*?)##/g,
+            function ( m, color, text ) {
+                color = color.trim();
+                if ( /^(?:[0-9A-Fa-f]{3}|[0-9A-Fa-f]{4}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/.test( color ) ) {
+                    color = '#' + color;
+                }
+                return '<span style="color:' + color + '">' + text + '</span>';
+            }
+        );
+        value = value.replace(
+            /\[\[size\s+([^\]]+)\]\]([\s\S]*?)\[\[\/size\]\]/gi,
+            '<span style="font-size:$1">$2</span>'
+        );
+        value = value.replace(
+            /\[\[span\s+((?:(?:class|style|id)\s*=\s*"[^"]*"\s*)+)\]\]([\s\S]*?)\[\[\/span\]\]/gi,
+            function ( m, attrs, inner ) {
+                return '<span ' + attrs.trim() + '>' + inner + '</span>';
+            }
+        );
+        value = value.replace(
+            /\[\[footnoteblock\]\]/gi,
+            '<references />'
+        );
+        value = value.replace(
+            /\[\[\[([^\]|]+)\|([\s\S]*?)\]\]\]/g,
+            '[[$1|$2]]'
+        );
+        value = value.replace(
+            /\[\[\[([^\]|]+)\]\]\]/g,
+            '[[$1]]'
+        );
+        return value;
     }
 
     function convertIncludeBody( body, P ) {
@@ -3407,7 +3628,8 @@
              * 反向转换会把模板参数里的换行写成 @@@@；
              * 这里还原成 <br />，让多行参数能正常显示。
              */
-            var value = cleanArgValue( kv[ 1 ] )
+            var value = convertIncludeArgToWikitext( kv[ 1 ] );
+            value = cleanArgValue( value )
                 .replace( /@@@@/g, '<br />' );
             return kv[ 0 ] + '=' + value;
         } ).join( '|' );
