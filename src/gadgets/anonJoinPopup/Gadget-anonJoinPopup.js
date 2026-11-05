@@ -42,7 +42,7 @@
             '.anon-join-popup__close {',
             '    position: absolute;',
             '    top: .375rem;',
-            '    left: .375rem;',
+            '    right: .375rem;',
             '    width: 1.75rem;',
             '    height: 1.75rem;',
             '    padding: 0;',
