@@ -33,8 +33,9 @@
         // 读取d投票系统写出的全站排名快照（Storage:GlobalRanking）
         RANKING_SNAPSHOT_TITLE: 'Storage:GlobalRanking',
         RANKING_SNAPSHOT_MARKER: 'SNAPSHOT',
-        RANKING_SNAPSHOT_VERSION: 3,
-        VOTE_MAX: 5,          // 投票分值上限（1~5 分制）
+        RANKING_SNAPSHOT_VERSION: 6,
+        // 投票改为累加制后没有理论上限，作品加分改用“最高分 - 均分”作为满分参考，
+        // 不再需要 VOTE_MAX。
         AVG_MIN_COUNT: 1,     // 计算均分时，只统计至少有 1 票的文章
         BONUS_PER_PAGE: 1000, // 单篇作品“高于均分且差距拉满”时的加分
         BONUS_MAX: 5000,      // 作品加分总计上限
@@ -740,8 +741,11 @@
         );
         if (!voted.length) return { bonus: 0, pages: 0, avg: null };
 
-        let sum = 0;
-        for (const r of voted) sum += r.score;
+        let sum = 0, maxScore = -Infinity;
+        for (const r of voted) {
+            sum += r.score;
+            if (r.score > maxScore) maxScore = r.score;
+        }
         const avg = sum / voted.length;
 
         const creators = await getCreatorMap(voted.map(r => r.pageId));
@@ -750,7 +754,8 @@
         for (const r of voted) {
             if (creators[r.pageId] !== user) continue;
             if (!(r.score > avg + 1e-9)) continue;
-            const room = Math.max(0.5, CONFIG.VOTE_MAX - avg);
+            // 累加制评分没有理论上限：把“均分 → 当前最高分”的距离当作满分参考
+            const room = Math.max(0.5, maxScore - avg);
             const ratio = Math.min(1, (r.score - avg) / room);
             bonus += CONFIG.BONUS_PER_PAGE * ratio;
             pages++;
