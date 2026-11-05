@@ -17,7 +17,7 @@
             '.anon-join-popup {',
             '    position: fixed;',
             '    bottom: max(1rem, env(safe-area-inset-bottom));',
-            '    left: max(1rem, env(safe-area-inset-left));',
+            '    right: max(1rem, env(safe-area-inset-left));',
             '    z-index: 400;',
             '    box-sizing: border-box;',
             '    width: min(22rem, calc(100vw - 2rem));',
