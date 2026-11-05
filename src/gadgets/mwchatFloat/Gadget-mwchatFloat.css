@@ -849,7 +849,15 @@ body.mwchat-dragging { user-select: none !important; }
     }
     .mwchat-header { padding-top: 14px; }
     .mwchat-input { font-size: 16px; }
-    .mwchat-trigger-wrap { bottom: 12px; }
+    .mwchat-trigger-wrap {
+        transition: transform .25s cubic-bezier(.22, .8, .24, 1), opacity .18s ease;
+        will-change: transform;
+    }
+    /* 跟 Citizen 移动端底栏一致：向下滚动时整块收起 */
+    .mwchat-trigger-wrap.is-scroll-hidden {
+        transform: translateY(calc(100% + 20px));
+        opacity: 0;
+    }
     .mwchat-notice-stack {
         right: 12px; left: 12px; top: 12px;
         align-items: stretch;
