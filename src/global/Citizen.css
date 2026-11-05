@@ -1943,16 +1943,30 @@ a[title='创建新子页面']::before {
 	border-radius: 10px !important;
 }
 
-/* 这个垃圾皮肤真是什么都敢用
- * 原则：旧浏览器不支持 light-dark() 时，使用浅色参数作为 fallback。
- * 现代浏览器不会进入 @supports not 块，继续使用原 light-dark()。
- */
+/* 这个垃圾皮肤真是什么都敢用 */
+/* ==========================================================
+ * 层级 1：不支持 color-mix / oklch 的旧环境
+ * 用 sRGB rgba 硬编码作为最终兜底
+ * ========================================================== */
+@supports not (color: color-mix(in srgb, black, white)) {
+  :where(:root.citizen-v4) {
+    /* oklch(12% 0.01 H / A) 的 sRGB 近似：极暗近黑，A 保留 */
+    --box-shadow-color-alpha-base: rgba(0, 0, 0, var(--shadow-opacity));
+
+    /* color-mix(in oklch, neutral-50 65%, transparent) 的 sRGB 近似 */
+    --background-color-backdrop-light: rgba(248, 249, 250, var(--backdrop-opacity));
+  }
+}
+
+/* ==========================================================
+ * 层级 2：支持 color-mix 但不支持 light-dark
+ * 用 sRGB color-mix 作为中间精度降级（不含 oklch）
+ * ========================================================== */
 @supports not (color: light-dark(black, white)) {
   :where(:root.citizen-v4) {
-    /* outline */
     --outline-color-progressive--focus: var(--color-primary-700);
 
-    /* syntax */
+    /* ---- syntax ---- */
     --color-syntax-red: #a90c2d;
     --color-syntax-orange: #973906;
     --color-syntax-yellow: #7e4f0c;
@@ -1966,7 +1980,7 @@ a[title='创建新子页面']::before {
     --color-syntax-violet: #485595;
     --color-syntax-gray: #585a66;
 
-    /* surface */
+    /* ---- surface ---- */
     --color-surface-0: var(--color-white);
     --color-surface-1: var(--color-neutral-50);
     --color-surface-1--hover: var(--color-neutral-100);
@@ -1977,10 +1991,12 @@ a[title='创建新子页面']::before {
     --color-surface-3: var(--color-neutral-200);
     --color-surface-4: var(--color-neutral-300);
 
-    /* box shadow */
-    --box-shadow-color-alpha-base: rgba(0, 0, 0, var(--shadow-opacity));
+    /* ---- box shadow：sRGB color-mix 中间降级 ---- */
+    /* 若此浏览器也不支持 color-mix，则本声明被丢弃，层级 1 的 rgba 保留 */
+    --box-shadow-color-alpha-base:
+      color-mix(in srgb, black calc(var(--shadow-opacity) * 100%), transparent);
 
-    /* color base */
+    /* ---- color base ---- */
     --color-base: var(--color-neutral-900);
     --color-base--hover: var(--color-neutral-700);
     --color-base--subtle: var(--color-neutral-600);
@@ -2002,7 +2018,7 @@ a[title='创建新子页面']::before {
     --color-success: var(--color-green-700);
     --color-icon-progressive: var(--color-primary-700);
 
-    /* border */
+    /* ---- border ---- */
     --border-color-base: var(--color-gray-200);
     --border-color-emphasized: var(--color-gray-900);
     --border-color-subtle: var(--color-gray-100);
@@ -2029,7 +2045,7 @@ a[title='创建新子页面']::before {
     --border-color-destructive--active: var(--color-red-300);
     --border-color-destructive--focus: var(--color-primary-700);
 
-    /* background */
+    /* ---- background ---- */
     --background-color-base: var(--color-white);
     --background-color-neutral: var(--color-neutral-100);
     --background-color-neutral-subtle: var(--color-neutral-50);
@@ -2062,6 +2078,10 @@ a[title='创建新子页面']::before {
     --background-color-target-text: var(--color-orange-50);
     --background-color-button-quiet--hover: rgba(0, 24, 73, 0.027);
     --background-color-button-quiet--active: rgba(0, 24, 73, 0.082);
-    --background-color-backdrop-light: rgba(250, 250, 250, var(--backdrop-opacity));
+
+    /* backdrop：sRGB color-mix 中间降级 */
+    /* 若 color-mix 不支持，本声明被丢弃，层级 1 的 rgba 保留 */
+    --background-color-backdrop-light:
+      color-mix(in srgb, var(--color-neutral-50) calc(var(--backdrop-opacity) * 100%), transparent);
   }
 }
