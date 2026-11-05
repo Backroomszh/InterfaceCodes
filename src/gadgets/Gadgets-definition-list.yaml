@@ -12,6 +12,7 @@
       - reservationTable
       - userLevel
       - mwchatFloat
+      - anonJoinPopup
 
 - section: Edit
   gadgets:
