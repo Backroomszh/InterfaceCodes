@@ -562,24 +562,29 @@
      * ========================================================== */
     var INLINE_HIGHLIGHT_RE = new RegExp(
         '(\\[!--[\\s\\S]*?--\\])' +                    // 0 注释
-        '|(\\[\\[\\[[^\\n]*?\\]\\]\\])' +             // 1 三重链接
-        '|(\\[\\[[^\\]\\n]*\\]\\])' +                 // 2 标签
-        '|(\\[https?:\\/\\/[^\\]\\n]*\\])' +          // 3 外部链接
-        '|(https?:\\/\\/[^\\s<>"\')\\]\\u4e00-\\u9fff]+)' + // 4 裸网址
-        '|(\\*\\*[^\\n]+?\\*\\*)' +                   // 5 粗体
-        '|(\\/\\/[^\\n]+?\\/\\/)' +                   // 6 斜体
-        '|(__[^\\n]+?__)' +                           // 7 下划线
-        '|(--[^\\n]+?--)' +                           // 8 删除线
-        '|(\\^\\^[^\\n]+?\\^\\^)' +                   // 9 上标
-        '|(,,(?:[^,\\n]|,(?!,))+,,' + ')' +           // 10 下标
-        '|(\\{\\{[^\\n]+?\\}\\})' +                   // 11 行内代码
-        '|(@@[^\\n]+?@@)' +                           // 12 原文
-        '|(##[^|\\n]+?\\|[^\\n]*?##)',                // 13 颜色
+        '|(\\[\\[\\[\\[[^\\n]*?\\]\\]\\]\\])' +       // 1 四重链接
+        '|(\\[\\[\\[[^\\n]*?\\]\\]\\])' +             // 2 三重链接
+        '|(\\[\\[(?!include\\b|image\\b|file\\b|div\\b|span\\b|size\\b|code\\b|footnote\\b|collapsible\\b|tab\\b|tabview\\b|math\\b|raw\\b|toc\\b|footnoteblock\\b)[A-Za-z][A-Za-z0-9 _-]*:[^\\]\\n]*\\]\\])' + // 3 命名空间链接
+        '|(\\[\\[[^\\]\\n]*\\]\\])' +                 // 4 标签
+        '|(\\[https?:\\/\\/[^\\]\\n]*\\])' +          // 5 外部链接
+        '|(https?:\\/\\/[^\\s<>"\')\\]\\u4e00-\\u9fff]+)' + // 6 裸网址
+        '|(\\*\\*[^\\n]+?\\*\\*)' +                   // 7 粗体
+        '|(\\/\\/[^\\n]+?\\/\\/)' +                   // 8 斜体
+        '|(__[^\\n]+?__)' +                           // 9 下划线
+        '|(--[^\\n]+?--)' +                           // 10 删除线
+        '|(\\^\\^[^\\n]+?\\^\\^)' +                   // 11 上标
+        '|(,,(?:[^,\\n]|,(?!,))+,,' + ')' +           // 12 下标
+        '|(\\{\\{[^\\n]+?\\}\\})' +                   // 13 行内代码
+        '|(@@@@)' +                                   // 14 强制换行
+        '|(@@[^\\n]+?@@)' +                           // 15 原文
+        '|(##[^|\\n]+?\\|[^\\n]*?##)',                // 16 颜色
         'g'
     );
 
     var INLINE_CLASSES = [
         'wd-h-comment',
+        'wd-h-link',
+        'wd-h-link',
         'wd-h-link',
         'wd-h-tag',
         'wd-h-link',
@@ -591,6 +596,7 @@
         'wd-h-sup',
         'wd-h-sub',
         'wd-h-code',
+        'wd-h-break',
         'wd-h-nowiki',
         'wd-h-color'
     ];
@@ -639,6 +645,19 @@
             if ( /^\s*\[\[code(?:\s[^\]]*)?\]\]/i.test( line ) ) {
                 inCode = true;
                 out.push( '<span class="wd-h-codeblock">' +
+                    escapeHtml( line ) + '</span>' );
+                continue;
+            }
+
+            /* 多行 include：开头行和最后的 ]] 单独着色 */
+            if ( /^\s*\[\[include\b/i.test( line ) &&
+                 line.indexOf( ']]' ) === -1 ) {
+                out.push( '<span class="wd-h-tag">' +
+                    escapeHtml( line ) + '</span>' );
+                continue;
+            }
+            if ( /^\s*\]\]\s*$/.test( line ) ) {
+                out.push( '<span class="wd-h-tag">' +
                     escapeHtml( line ) + '</span>' );
                 continue;
             }
@@ -860,6 +879,9 @@
             wikidotSource = convertWikitextToWikidot( cleanWikitext );
             reverseConverted = true;
         }
+
+        /* 旧版留下的 [[raw]] 外壳在编辑时去掉，保存时不再写回 */
+        wikidotSource = unwrapRawBlocks( wikidotSource );
 
         /* 隐藏 MediaWiki 原生编辑界面 */
         Array.prototype.forEach.call( form.children, function ( child ) {
@@ -2250,7 +2272,6 @@
             [ '[[footnoteblock]]', '脚注列表' ],
             [ '[[toc]]', '目录' ],
             [ '[[code]]…[[/code]]', '代码块' ],
-            [ '[[raw]]…[[/raw]]', '原样保留 Wikitext，反向转换会自动使用' ],
             [ '[[collapsible show="展开"]]…[[/collapsible]]', '折叠块' ],
             [ '[[div class="类名"]]…[[/div]]', '容器' ],
             [ '[[=]]…[[/=]]', '居中区块' ],
@@ -2371,6 +2392,16 @@
             .replace( /^\n+|\n+$/g, '' );
     }
 
+    /* 兼容旧页面里已经写入的 [[raw]] 包裹，打开时自动去掉外壳 */
+    function unwrapRawBlocks( source ) {
+        return String( source ).replace(
+            /\[\[raw\]\]([\s\S]*?)\[\[\/raw\]\]/gi,
+            function ( m, content ) {
+                return content.replace( /^\n+|\n+$/g, '' );
+            }
+        );
+    }
+
     function convertWikitextToWikidot( wikitext ) {
         var placeholders = [];
 
@@ -2439,7 +2470,7 @@
         src = src.replace(
             /^(\s*#(?:REDIRECT|重定向)(?=\s|\[|$)[^\n]*)$/gim,
             function ( m ) {
-                return P( '[[raw]]' + m + '[[/raw]]' );
+                return P( m );
             }
         );
 
@@ -2453,7 +2484,7 @@
         src = src.replace(
             /__(?:NOTOC|NOEDITSECTION|NOGALLERY|FORCETOC|NEWSECTIONLINK|NOCONTENTCONVERT|NOCC|NOTITLECONVERT|NOTC|INDEX|NOINDEX|STATICREDIRECT|DISAMBIG)__/g,
             function ( m ) {
-                return P( '[[raw]]' + m + '[[/raw]]' );
+                return P( m );
             }
         );
 
@@ -2499,11 +2530,13 @@
         /* 普通内链 */
         src = src.replace( /\[\[([^\[\]\n]+?)\]\]/g, function ( m, inner ) {
             /*
-             * MediaWiki 的 [[#章节]] 与编辑器内部锚点语法冲突，
-             * 用 raw 原样保留，避免保存时被转成 <span id>。
+             * MediaWiki 的 [[#章节]] 与编辑器锚点语法冲突。
+             * 补上显示文字后用普通内链形式转回，既能保留链接语义，
+             * 又不会在保存时被 [[#...]] 的锚点规则吃掉。
              */
-            if ( inner.charAt( 0 ) === '#' ) {
-                return P( '[[raw]][[' + inner + ']][[/raw]]' );
+            if ( inner.charAt( 0 ) === '#' && inner.indexOf( '|' ) === -1 ) {
+                var fragment = inner.substring( 1 );
+                if ( fragment ) inner += '|' + fragment;
             }
             return '[[[' + inner + ']]]';
         } );
@@ -2605,7 +2638,7 @@
                     out += src.slice( start );
                     break;
                 }
-                out += P( '[[raw]]' + src.slice( start, tripleEnd + 3 ) + '[[/raw]]' );
+                out += P( src.slice( start, tripleEnd + 3 ) );
                 i = tripleEnd + 3;
                 continue;
             }
@@ -2640,34 +2673,78 @@
         return -1;
     }
 
-    function convertOneTemplate( inner, P ) {
-        var raw = '[[raw]]{{' + inner + '}}[[/raw]]';
-        var trimmed = inner.trim();
+    function splitTopLevelPipes( str ) {
+        var parts = [];
+        var buf = '';
+        var square = 0;
+        var curly = 0;
 
-        if ( !trimmed ||
-             /\n/.test( inner ) ||
-             /[{}]/.test( inner ) ||
-             /\[\[|\]\]/.test( inner ) ||
-             /^[#:]/.test( trimmed ) ) {
-            return P( raw );
+        for ( var i = 0; i < str.length; i++ ) {
+            var ch = str.charAt( i );
+            var next = str.charAt( i + 1 );
+
+            if ( ch === '[' && next === '[' ) {
+                square++;
+                buf += '[[';
+                i++;
+            } else if ( ch === ']' && next === ']' && square > 0 ) {
+                square--;
+                buf += ']]';
+                i++;
+            } else if ( ch === '{' && next === '{' ) {
+                curly++;
+                buf += '{{';
+                i++;
+            } else if ( ch === '}' && next === '}' && curly > 0 ) {
+                curly--;
+                buf += '}}';
+                i++;
+            } else if ( ch === '|' && square === 0 && curly === 0 ) {
+                parts.push( buf );
+                buf = '';
+            } else {
+                buf += ch;
+            }
         }
 
-        var parts = inner.split( '|' );
-        var name = parts.shift().trim();
-        if ( !name || /[=\[\]]/.test( name ) ) return P( raw );
+        parts.push( buf );
+        return parts;
+    }
+
+    function buildIncludeFromTemplate( name, rawArgs, P, templateText ) {
+        name = name.trim();
+        if ( !name || /[={}\[\]]/.test( name ) ) return P( templateText );
 
         var args = [];
-        for ( var i = 0; i < parts.length; i++ ) {
-            var part = parts[ i ].trim();
+        var positional = 0;
+
+        for ( var i = 0; i < rawArgs.length; i++ ) {
+            var part = rawArgs[ i ];
+            if ( !part || !part.trim() ) continue;
+
             var eq = part.indexOf( '=' );
+            var key, value;
 
             if ( eq === -1 ) {
-                args.push( ( i + 1 ) + '=' + part );
+                positional++;
+                key = String( positional );
+                value = part.trim();
             } else {
-                var key = part.substring( 0, eq ).trim();
-                if ( !key ) return P( raw );
-                args.push( key + '=' + part.substring( eq + 1 ).trim() );
+                key = part.substring( 0, eq ).trim();
+                value = part.substring( eq + 1 );
             }
+
+            if ( !key ) return P( templateText );
+
+            /*
+             * 模板参数的换行无法直接放进 Wikidot include 的单行参数，
+             * 这里改成 @@@@，前向转换时会还原成 <br />。
+             */
+            value = value
+                .replace( /^\n+|\n+$/g, '' )
+                .replace( /\r?\n/g, '@@@@' );
+
+            args.push( key + '=' + value );
         }
 
         var canonical = REVERSE_INCLUDE_MAP[ name.toLowerCase() ];
@@ -2681,6 +2758,55 @@
         include += ( args.length ? '\n]]' : ']]' );
 
         return P( include );
+    }
+
+    function convertOneTemplate( inner, P ) {
+        var templateText = '{{' + inner + '}}';
+        var trimmed = inner.trim();
+
+        if ( !trimmed ) return P( templateText );
+
+        /* 解析函数、三花括号模板参数等不做 include 化 */
+        if ( /^[#:]/.test( trimmed ) ||
+             trimmed.indexOf( '{{{' ) !== -1 ||
+             trimmed.indexOf( '}}}' ) !== -1 ) {
+            return P( templateText );
+        }
+
+        var name;
+        var rawArgs;
+
+        if ( inner.indexOf( '\n' ) !== -1 ) {
+            var firstPipe = inner.indexOf( '|' );
+            var firstNewline = inner.indexOf( '\n' );
+            var nameEnd = firstPipe === -1
+                ? firstNewline
+                : Math.min( firstPipe, firstNewline );
+
+            name = inner.slice( 0, nameEnd ).trim();
+
+            var rest = inner.slice( nameEnd );
+            var chunks = rest.split( /\n\s*\|/ );
+
+            if ( chunks.length ) {
+                chunks[ 0 ] = chunks[ 0 ].replace( /^\s*\|/, '' );
+            }
+
+            rawArgs = [];
+            for ( var c = 0; c < chunks.length; c++ ) {
+                if ( !chunks[ c ].trim() ) continue;
+                var sub = splitTopLevelPipes( chunks[ c ] );
+                for ( var s = 0; s < sub.length; s++ ) {
+                    rawArgs.push( sub[ s ] );
+                }
+            }
+        } else {
+            var parts = splitTopLevelPipes( inner );
+            name = parts.shift().trim();
+            rawArgs = parts;
+        }
+
+        return buildIncludeFromTemplate( name, rawArgs, P, templateText );
     }
 
     function convertWikitextTabber( src, P ) {
@@ -2782,6 +2908,72 @@
         } );
     }
 
+    function findWikitextTemplateEnd( src, start ) {
+        var depth = 0;
+
+        for ( var i = start; i < src.length - 1; i++ ) {
+            if ( src.charAt( i ) === '{' && src.charAt( i + 1 ) === '{' ) {
+                depth++;
+                i++;
+            } else if ( src.charAt( i ) === '}' && src.charAt( i + 1 ) === '}' ) {
+                depth--;
+                i++;
+                if ( depth === 0 ) return i + 1;
+            }
+        }
+
+        return -1;
+    }
+
+    function isWikitextTemplateInner( inner ) {
+        if ( /\n/.test( inner ) ) return true;
+        if ( inner.indexOf( '|' ) !== -1 ) return true;
+        if ( inner.indexOf( '[[' ) !== -1 || inner.indexOf( ']]' ) !== -1 ) return true;
+        if ( inner.indexOf( '{{' ) !== -1 || inner.indexOf( '}}' ) !== -1 ) return true;
+
+        var name = inner.split( '|' )[ 0 ].trim();
+        if ( name.indexOf( ':' ) !== -1 ) return true;
+        if ( name.charAt( 0 ) === '#' ) return true;
+
+        return false;
+    }
+
+    /*
+     * 把多行/带参数/带命名空间/解析函数等 Wikitext 模板整体保护起来，
+     * 避免它内部的 [[链接]]、{{嵌套模板}}、HTML 被当作 Wikidot 语法改写。
+     * 简单 {{code}} 仍留给行内代码规则。
+     */
+    function protectWikitextTemplates( src, P ) {
+        var out = '';
+        var i = 0;
+
+        while ( i < src.length ) {
+            var start = src.indexOf( '{{', i );
+            if ( start === -1 ) {
+                out += src.slice( i );
+                break;
+            }
+
+            var end = findWikitextTemplateEnd( src, start );
+            if ( end === -1 ) {
+                out += src.slice( i );
+                break;
+            }
+
+            var inner = src.slice( start + 2, end - 2 );
+            if ( isWikitextTemplateInner( inner ) ) {
+                out += src.slice( i, start );
+                out += P( '{{' + inner + '}}' );
+                i = end;
+            } else {
+                out += src.slice( i, start + 2 );
+                i = start + 2;
+            }
+        }
+
+        return out;
+    }
+
     /* ==========================================================
      * Wikidot -> Wikitext 转换器
      * ========================================================== */
@@ -2806,12 +2998,21 @@
             return '<pre>' + content + '</pre>';
         }, placeholders );
 
-        /* 0.1 raw 原样块：反向转换时用来保存无法映射的 Wikitext */
+        /* 0.1 raw 原样块：兼容旧页面里的 [[raw]] 包裹 */
         src = convertNestedTag( src, 'raw', function ( attrs, content ) {
             return P( content );
         }, placeholders );
 
-        /* 0.2 注释 [!-- 注释 --] -> <!-- 注释 --> */
+        /* 0.2 保护复杂 Wikitext 模板，避免内部语法被改写 */
+        src = protectWikitextTemplates( src, P );
+
+        /* 0.3 #REDIRECT / #重定向 整行原样保留 */
+        src = src.replace(
+            /^(\s*#(?:REDIRECT|重定向)(?=\s|\[|$)[^\n]*)$/gim,
+            function ( m ) { return P( m ); }
+        );
+
+        /* 0.4 注释 [!-- 注释 --] -> <!-- 注释 --> */
         src = src.replace( /\[!--([\s\S]*?)--\]/g, function ( m, content ) {
             return P( '<!--' + content + '-->' );
         } );
@@ -3011,17 +3212,17 @@
             return P( '<blockquote>' + inner + '</blockquote>' );
         } );
 
-        /* 20.5 [#anchor text] / [#anchor] */
+        /* 20.5 [#anchor text] / [#anchor]（不要匹配 [[[链接]]] 内部） */
         src = src.replace(
-            /\[#([^\s\]]+)\s+([^\]]+)\]/g,
-            function ( m, anchor, text ) {
+            /(^|[^\[])\[#([^\s\]]+)\s+([^\]]+)\]/g,
+            function ( m, pre, anchor, text ) {
                 var cleanAnchor = anchor.replace( /^u-/, '' );
-                return P( '[[#' + cleanAnchor + '|' + text + ']]' );
+                return pre + P( '[[#' + cleanAnchor + '|' + text + ']]' );
             }
         );
-        src = src.replace( /\[#([^\s\]]+)\]/g, function ( m, anchor ) {
+        src = src.replace( /(^|[^\[])\[#([^\s\]]+)\]/g, function ( m, pre, anchor ) {
             var cleanAnchor = anchor.replace( /^u-/, '' );
-            return P( '[[#' + cleanAnchor + ']]' );
+            return pre + P( '[[#' + cleanAnchor + ']]' );
         } );
 
         /* 20.8 颜色（须早于列表，避免行首 ## 被当作有序列表） */
@@ -3053,6 +3254,10 @@
             /\[\[size\s+([^\]]+)\]\]([\s\S]*?)\[\[\/size\]\]/gi,
             '<span style="font-size:$1">$2</span>'
         );
+
+        /* 24.5 四层及以上方括号链接（常见手误）按普通内链处理 */
+        src = src.replace( /\[{4,}([^\]|]+)\|([^\]]+)\]{4,}/g, '[[$1|$2]]' );
+        src = src.replace( /\[{4,}([^\]|]+)\]{4,}/g, '[[$1]]' );
 
         /* 25. [[[page]]] */
         src = src.replace( /\[\[\[([^\]|]+)\|([^\]]+)\]\]\]/g, '[[$1|$2]]' );
@@ -3100,7 +3305,16 @@
         src = src.replace( /\/\/\*\*([^\n]+?)\*\*\/\//g, "'''''$1'''''" );
         src = src.replace( /\*\*([^\n]+?)\*\*/g, "'''$1'''" );
         src = src.replace( /\/\/([^\n]+?)\/\//g, "''$1''" );
-        src = src.replace( /__([^\n]+?)__/g, '<u>$1</u>' );
+        src = src.replace( /__([^\n]+?)__/g, function ( m, inner ) {
+            /*
+             * MediaWiki 魔术字与 Wikidot 下划线语法冲突，
+             * 这些已知魔术字保持原样，不再转成 <u>。
+             */
+            if ( /^(?:NOTOC|NOEDITSECTION|NOGALLERY|FORCETOC|NEWSECTIONLINK|NOCONTENTCONVERT|NOCC|NOTITLECONVERT|NOTC|INDEX|NOINDEX|STATICREDIRECT|DISAMBIG)$/.test( inner ) ) {
+                return m;
+            }
+            return '<u>' + inner + '</u>';
+        } );
         src = src.replace( /--([^\n]+?)--/g, '<s>$1</s>' );
         src = src.replace( /\^\^([^\n]+?)\^\^/g, '<sup>$1</sup>' );
         src = src.replace( /,,([^\n]+?),,/g, '<sub>$1</sub>' );
@@ -3136,37 +3350,97 @@
         return src;
     }
 
+    function convertIncludeBody( body, P ) {
+        body = body.replace( /^\s+/, '' );
+
+        var lines = body.split( '\n' );
+        var firstLine = lines[ 0 ].trim();
+        var pipeIdx = firstLine.indexOf( '|' );
+        var moduleName, firstRest;
+
+        if ( pipeIdx === -1 ) {
+            moduleName = firstLine;
+            firstRest = '';
+        } else {
+            moduleName = firstLine.substring( 0, pipeIdx ).trim();
+            firstRest = firstLine.substring( pipeIdx );
+        }
+
+        var args = [];
+        if ( firstRest ) parseArgs( firstRest, args );
+        for ( var i = 1; i < lines.length; i++ ) {
+            parseArgs( lines[ i ], args );
+        }
+
+        var tmplName = mapIncludeName( moduleName );
+        var params = args.map( function ( kv ) {
+            /*
+             * 反向转换会把模板参数里的换行写成 @@@@；
+             * 这里还原成 <br />，让多行参数能正常显示。
+             */
+            var value = cleanArgValue( kv[ 1 ] )
+                .replace( /@@@@/g, '<br />' );
+            return kv[ 0 ] + '=' + value;
+        } ).join( '|' );
+
+        return P( '{{' + tmplName +
+                  ( params ? '|' + params : '' ) + '}}' );
+    }
+
     function processIncludes( src, P ) {
-        return src.replace(
-            /\[\[include\s+([^\]]+?)\]\]/gi,
-            function ( m, body ) {
-                var lines = body.split( '\n' );
-                var firstLine = lines[ 0 ].trim();
-                var pipeIdx = firstLine.indexOf( '|' );
-                var moduleName, firstRest;
-                if ( pipeIdx === -1 ) {
-                    moduleName = firstLine;
-                    firstRest = '';
-                } else {
-                    moduleName = firstLine.substring( 0, pipeIdx ).trim();
-                    firstRest = firstLine.substring( pipeIdx );
-                }
+        var out = '';
+        var i = 0;
+        var NEEDLE = '[[include';
 
-                var args = [];
-                if ( firstRest ) parseArgs( firstRest, args );
-                for ( var i = 1; i < lines.length; i++ ) {
-                    parseArgs( lines[ i ], args );
-                }
-
-                var tmplName = mapIncludeName( moduleName );
-                var params = args.map( function ( kv ) {
-                    return kv[ 0 ] + '=' + cleanArgValue( kv[ 1 ] );
-                } ).join( '|' );
-
-                return P( '{{' + tmplName +
-                          ( params ? '|' + params : '' ) + '}}' );
+        while ( i < src.length ) {
+            var start = src.indexOf( NEEDLE, i );
+            if ( start === -1 ) {
+                out += src.slice( i );
+                break;
             }
-        );
+
+            var after = start + NEEDLE.length;
+            if ( after < src.length && !/[\s\]]/.test( src.charAt( after ) ) ) {
+                out += src.slice( i, after );
+                i = after;
+                continue;
+            }
+
+            /*
+             * 按 [[...]] 配平寻找 include 的结束位置，
+             * 这样参数里的 [[User:X|X]] 不会被第一个 ] 截断。
+             */
+            var depth = 1;
+            var j = start + 2;
+            var end = -1;
+
+            while ( j < src.length - 1 ) {
+                if ( src.charAt( j ) === '[' && src.charAt( j + 1 ) === '[' ) {
+                    depth++;
+                    j += 2;
+                } else if ( src.charAt( j ) === ']' && src.charAt( j + 1 ) === ']' ) {
+                    depth--;
+                    j += 2;
+                    if ( depth === 0 ) {
+                        end = j;
+                        break;
+                    }
+                } else {
+                    j++;
+                }
+            }
+
+            if ( end === -1 ) {
+                out += src.slice( i );
+                break;
+            }
+
+            out += src.slice( i, start );
+            out += convertIncludeBody( src.slice( after, end - 2 ), P );
+            i = end;
+        }
+
+        return out;
     }
 
     function parseArgs( line, out ) {
@@ -3189,18 +3463,21 @@
 
     function mapIncludeName( raw ) {
         var n = normalizeModuleName( raw );
-        // 仅查找键转小写，返回名保留原始大小写（XLCS 不应变成 Xlcs）
+        // 仅查找键转小写，返回名保留原始大小写与连字符
+        // （XLCS 不应变成 Xlcs，MEGSKUNR-HIGHLIGHT 也不应变成 MEGSKUNR HIGHLIGHT）
         var key = n.toLowerCase();
         if ( INCLUDE_MAP[ key ] ) return INCLUDE_MAP[ key ];
-        return n.replace( /-/g, ' ' ).replace( /\b\w/g, function ( c ) {
-            return c.toUpperCase();
-        } );
+        return n;
     }
 
     function cleanArgValue( v ) {
-        return v.replace( /\[([^\[\]\n]+?)\]/g, function ( m, inner ) {
+        /*
+         * 只清理单个方括号，保留 [[双链]]（模板参数里的链接）。
+         * 旧正则会从第二个 [ 开始匹配，把 [[User:X|X]] 变成 [User:X|X]。
+         */
+        return v.replace( /(^|[^\[])\[([^\[\]\n]+?)\](?!\])/g, function ( m, pre, inner ) {
             if ( /^https?:\/\//i.test( inner.trim() ) ) return m;
-            return inner;
+            return pre + inner;
         } );
     }
 
