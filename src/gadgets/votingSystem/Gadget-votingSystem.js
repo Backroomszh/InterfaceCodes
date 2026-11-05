@@ -11,17 +11,31 @@ function runAll() {
     var ANCHOR_ID = 'voting-panel-anchor';
     var ALL_RECORDS_CACHE_TTL = 30 * 60 * 1000;
 
-    // 投票量纲：+1 ~ +5 的五个正整数。
-    // VOTE_RECORD_VERSION = 2 起记录中 v= 使用新量纲；
-    // v1 记录（-1 / -0.5 / 0 / +0.5 / +1）在读取时按线性映射换算，
-    // 保证迁移过程中的新旧记录可以共存。
-    var VOTE_MIN = 1;
-    var VOTE_MAX = 5;
-    var VOTE_NEUTRAL = 3;
-    var VOTE_RECORD_VERSION = 2;
+    // 投票量纲：-1 / -0.5 / 0 / +0.5 / +1。
+    // 历史上曾短暂改为 +1 ~ +5（记录版本 v2），读取时换算回旧量纲；
+    // 新投票继续写 v1。
+    var VOTE_MIN = -1;
+    var VOTE_MAX = 1;
+    var VOTE_NEUTRAL = 0;
+    var VOTE_RECORD_VERSION = 1;
 
-    // v2 的评分与 v1 不同量纲，旧快照必须作废重算。
-    var SNAPSHOT_VERSION = 3;
+    // 等级权重曲线的默认参数，可用 MediaWiki:Votingsystem-config.json
+    // 的 levelWeights 覆盖。
+    // 锚点：Lv0 = 0.20，Lv15 = 1.00，之后无限接近但永不超过 1.50。
+    var DEFAULT_LEVEL_WEIGHTS = {
+        base: 0.2,      // Lv0 且有评论的票权重上限
+        span: 0.8,      // Lv0 → Lv15 累计增加的权重
+        watershed: 15,  // 分水岭等级
+        tail: 0.5,      // Lv15 之后还能增加的上限（1.0 → 1.5）
+        tailScale: 16,  // Lv15 之后的收敛速度（越大越慢）
+        curve: 0.75     // 0~15 级曲线指数（<1 时低等级提升更快）
+    };
+
+    // 任何投票的权重都不得高于这个值，作为旧数据未重算时的兜底。
+    var MAX_VOTE_WEIGHT = 1.5;
+
+    // 权重曲线调整后旧快照必须作废重算。
+    var SNAPSHOT_VERSION = 6;
     var RANKING_SNAPSHOT_MAX_AGE = 120;
     var RANKING_SNAPSHOT_DEBOUNCE = 60;
     var RANKING_RENDER_CHUNK = 50;
@@ -58,6 +72,12 @@ function runAll() {
         var ids = mw.config.get( 'wgNamespaceIds' ) || {};
         if ( typeof ids.storage === 'number' && ids.storage >= 0 ) return 'Storage:' + subpath;
         return 'Project:Votes/' + subpath.replace( /^Votes\//, '' );
+    }
+    // 等级快照页：Userlevel 命名空间页由 userLevel gadget 写入。
+    function getStoragePageTitle( subpath ) {
+        var ids = mw.config.get( 'wgNamespaceIds' ) || {};
+        if ( typeof ids.storage === 'number' && ids.storage >= 0 ) return 'Storage:' + subpath;
+        return 'Project:' + subpath;
     }
     function getGlobalSnapshotTitle() { return getDataPageTitle( 'GlobalRanking' ); }
     function getMonthlySnapshotTitle( month ) { return getDataPageTitle( 'MonthlyRanking/' + month ); }
@@ -183,20 +203,22 @@ function runAll() {
     function nowSec() { return Math.floor( Date.now() / 1000 ); }
     function isoMonth() { return new Date().toISOString().slice( 0, 7 ); }
 
-    function clampVoteValue( n ) {
-        n = Math.round( Number( n ) );
+    // 只允许 -1 / -0.5 / 0 / +0.5 / +1，按 0.5 取整并夹紧到范围内。
+    function normalizeVoteValue( n ) {
+        n = Number( n );
         if ( !isFinite( n ) ) return VOTE_NEUTRAL;
+        n = Math.round( n * 2 ) / 2;
         if ( n < VOTE_MIN ) return VOTE_MIN;
         if ( n > VOTE_MAX ) return VOTE_MAX;
         return n;
     }
 
-    // 旧量纲 -1 / -0.5 / 0 / +0.5 / +1 线性映射到 1 / 2 / 3 / 4 / 5。
-    // 该映射是仿射变换（新 = 2 × 旧 + 3），保持投票之间的相对差距与排序。
-    function legacyValueToScale( v ) {
+    // 1~5 分制的 v2 记录换算回 -1~+1（新 = 2 × 旧 + 3 的逆变换）：
+    // 1 → -1，2 → -0.5，3 → 0，4 → +0.5，5 → +1。
+    function v2ValueToLegacy( v ) {
         var n = parseFloat( v );
         if ( !isFinite( n ) ) return VOTE_NEUTRAL;
-        return clampVoteValue( 2 * n + 3 );
+        return normalizeVoteValue( ( n - 3 ) / 2 );
     }
 
     function formatScore( v ) {
@@ -210,8 +232,6 @@ function runAll() {
         if ( n > 0 ) return '+' + s;
         return s;
     }
-
-    function getUserGroups() { return mw.config.get( 'wgUserGroups' ) || []; }
 
     function hasRight( right ) {
         var rights = mw.config.get( 'wgUserRights' ) || [];
@@ -374,19 +394,136 @@ function runAll() {
         } ).catch( function () { return false; } );
     }
 
+    // ------------------------------------------------------------------
+    // 等级权重：读取 userLevel gadget 发布的等级（Storage:Userlevel/<桶>）
+    // ------------------------------------------------------------------
+
+    var LEVEL_CACHE_TTL = 10 * 60 * 1000;
+    var levelCache = {};
+
+    function fnvHash( str ) {
+        var h = 2166136261;
+        for ( var i = 0; i < str.length; i++ ) {
+            h ^= str.charCodeAt( i );
+            h = Math.imul( h, 16777619 );
+        }
+        return h >>> 0;
+    }
+
+    // 必须和 Gadget-userLevel.js 的 bucketOf() 完全一致：FNV-1a % 256，两位十六进制。
+    function levelSnapshotTitle( user ) {
+        var bucket = fnvHash( user ) % 256;
+        var hex = bucket.toString( 16 );
+        if ( hex.length < 2 ) hex = '0' + hex;
+        return getStoragePageTitle( 'Userlevel/' + hex );
+    }
+
+    // 记录格式（userLevel v6）：lastActive \t streak \t totalDays \t bitmap
+    //   \t comment \t edit \t create \t bonus \t score \t level \t ts \t version
+    function parseLevelRecord( text, user ) {
+        var lines = text.split( '\n' );
+        var inSection = false;
+        for ( var i = 0; i < lines.length; i++ ) {
+            var m = lines[ i ].match( /^==\s*(.+?)\s*==\s*$/ );
+            if ( m ) { inSection = m[ 1 ].trim() === user; continue; }
+            if ( !inSection ) continue;
+            var t = lines[ i ].trim();
+            if ( !t ) continue;
+            var p = t.split( '\t' );
+            if ( p.length < 12 ) return null;
+            var version = parseInt( p[ 11 ], 10 ) || 0;
+            var level = parseInt( p[ 9 ], 10 );
+            if ( version < 6 || !isFinite( level ) ) return null;
+            return Math.max( 0, level );
+        }
+        return null;
+    }
+
+    function getLevel( user ) {
+        if ( !user ) return Promise.resolve( 0 );
+        var now = Date.now();
+        var cached = levelCache[ user ];
+        if ( cached && now - cached.ts < LEVEL_CACHE_TTL ) return Promise.resolve( cached.level );
+
+        // 同浏览器里已有 userLevel 的统计缓存时直接复用，省一次请求。
+        try {
+            if ( mw.storage && typeof mw.storage.get === 'function' ) {
+                var raw = mw.storage.get( 'userlevel.v6.stats2.' + user );
+                if ( raw ) {
+                    var obj = JSON.parse( raw );
+                    if ( obj && obj.data && typeof obj.data.level === 'number' &&
+                        now - ( obj.ts || 0 ) < LEVEL_CACHE_TTL ) {
+                        levelCache[ user ] = { level: obj.data.level, ts: now };
+                        return Promise.resolve( obj.data.level );
+                    }
+                }
+            }
+        } catch ( e ) {}
+
+        return new mw.Api().get( {
+            action: 'query', prop: 'revisions', rvprop: 'content',
+            rvslots: 'main', titles: levelSnapshotTitle( user ), formatversion: 2
+        } ).then( function ( res ) {
+            var p = res.query && res.query.pages && res.query.pages[ 0 ];
+            var text = '';
+            if ( p && p.missing === undefined ) {
+                text = safeGet( p, 'revisions.0.slots.main.content' ) || '';
+            }
+            var level = parseLevelRecord( text, user );
+            if ( level === null ) level = 0;
+            levelCache[ user ] = { level: level, ts: Date.now() };
+            return level;
+        } ).catch( function () {
+            levelCache[ user ] = { level: 0, ts: Date.now() };
+            return 0;
+        } );
+    }
+
+    function readNum( obj, key, fallback ) {
+        var v = obj ? Number( obj[ key ] ) : NaN;
+        return isFinite( v ) ? v : fallback;
+    }
+
+    /*
+     * 等级 → 权重曲线：
+     *   Lv0~Lv15：base 起，用凹曲线累加 span（低等级提升快，越接近 15 增量越小）；
+     *   Lv15 之后：在 base+span 的基础上用指数尾部继续增加 tail，
+     *              增量随等级单调递减并趋近 0，最终无限接近 base+span+tail。
+     * 默认：Lv0 = 0.20，Lv15 = 1.00，Lv30 ≈ 1.30，上限 1.50。
+     */
+    function levelWeight( level, cfg ) {
+        var conf = ( cfg && cfg.levelWeights ) || {};
+        var base = Math.max( 0, readNum( conf, 'base', DEFAULT_LEVEL_WEIGHTS.base ) );
+        var span = Math.max( 0, readNum( conf, 'span', DEFAULT_LEVEL_WEIGHTS.span ) );
+        var watershed = readNum( conf, 'watershed', DEFAULT_LEVEL_WEIGHTS.watershed );
+        var tail = Math.max( 0, readNum( conf, 'tail', DEFAULT_LEVEL_WEIGHTS.tail ) );
+        var tailScale = readNum( conf, 'tailScale', DEFAULT_LEVEL_WEIGHTS.tailScale );
+        var curve = readNum( conf, 'curve', DEFAULT_LEVEL_WEIGHTS.curve );
+        if ( !( curve > 0 ) ) curve = 1;
+
+        var L = Math.max( 0, Math.floor( Number( level ) || 0 ) );
+        var w;
+        if ( !( watershed > 0 ) ) {
+            w = base;
+        } else if ( L <= watershed ) {
+            w = base + span * Math.pow( L / watershed, curve );
+        } else if ( !( tailScale > 0 ) ) {
+            w = base + span + tail;
+        } else {
+            w = base + span + tail * ( 1 - Math.exp( -( L - watershed ) / tailScale ) );
+        }
+        return Math.min( MAX_VOTE_WEIGHT, +w.toFixed( 2 ) );
+    }
+
     function computeWeight( hasComment ) {
         return loadConfig().then( function ( cfg ) {
-            var ncw = ( cfg.noCommentWeight !== undefined && cfg.noCommentWeight !== null ) ? cfg.noCommentWeight : 0.2;
-            if ( !hasComment ) return ncw;
-            var map = cfg.baseWeightByGroup || { default: 1.0 };
-            var bonus = ( cfg.commentBonus !== undefined && cfg.commentBonus !== null ) ? cfg.commentBonus : 2.0;
-            var base = Number( map.default !== undefined && map.default !== null ? map.default : 1.0 );
-            var groups = getUserGroups();
-            for ( var i = 0; i < groups.length; i++ ) {
-                var g = groups[ i ];
-                if ( map[ g ] !== undefined && Number( map[ g ] ) > base ) base = Number( map[ g ] );
-            }
-            return +( base + bonus ).toFixed( 2 );
+            var ncw = ( cfg.noCommentWeight !== undefined && cfg.noCommentWeight !== null )
+                ? Number( cfg.noCommentWeight ) : 0.2;
+            // 不写理由的票保持固定的低权重，不随等级放大；同样不允许超过 1.5。
+            if ( !hasComment ) return Math.min( MAX_VOTE_WEIGHT, Math.max( 0, ncw ) );
+            return getLevel( mw.config.get( 'wgUserName' ) || '' ).then( function ( level ) {
+                return levelWeight( level, cfg );
+            } );
         } );
     }
 
@@ -474,8 +611,8 @@ function runAll() {
                             allVotes[ m[ 9 ] ] = {
                                 id: m[ 9 ], user: m[ 2 ], page: parseInt( m[ 3 ], 10 ),
                                 value: recordVersion >= 2
-                                    ? clampVoteValue( m[ 4 ] )
-                                    : legacyValueToScale( m[ 4 ] ),
+                                    ? v2ValueToLegacy( m[ 4 ] )
+                                    : normalizeVoteValue( m[ 4 ] ),
                                 weight: parseFloat( m[ 5 ] ),
                                 timestamp: parseInt( m[ 6 ], 10 ), hide: m[ 7 ] === '1',
                                 cid: parseInt( m[ 8 ], 10 )
@@ -547,25 +684,20 @@ function runAll() {
         } );
     }
 
+    // 累加制评分：每票贡献 = 分值 × 权重，直接相加。
+    // 分数没有上限（也没有下限），票越多、等级越高，分数可以一直增长；
+    // 不再做加权平均、不去极值、不加先验。
     function computeScore( weighted ) {
         var n = weighted.length;
         if ( n === 0 ) return { score: null, count: 0 };
-        var W = 0, S = 0, cs = [];
+        var S = 0;
         for ( var i = 0; i < n; i++ ) {
-            var c = weighted[ i ].value * weighted[ i ].weight;
-            cs.push( c ); W += weighted[ i ].weight; S += c;
+            var w = weighted[ i ].weight;
+            // 兜底：旧记录里可能还留着 3 / 4.5 的权重，不允许超过 1.5。
+            if ( w > MAX_VOTE_WEIGHT ) w = MAX_VOTE_WEIGHT;
+            S += weighted[ i ].value * w;
         }
-        if ( n >= 3 && W >= 3 ) {
-            cs.sort( function ( a, b ) { return a - b; } );
-            cs.shift(); cs.pop();
-            var sum = 0;
-            for ( var j = 0; j < cs.length; j++ ) sum += cs[ j ];
-            return { score: sum / ( W - 2 ), count: n };
-        }
-        // 票数不足 3 时用 3 票中位票做先验。先验均值取量纲中点 3，
-        // 保证 1~5 分制下单票不会被拉向 0。
-        var C = 3, m = VOTE_NEUTRAL;
-        return { score: ( C * m + S ) / ( C + W ), count: n };
+        return { score: S, count: n };
     }
 
     function computePanelScore( records, ncw ) {
@@ -573,7 +705,9 @@ function runAll() {
         var weighted = [];
         for ( var i = 0; i < records.length; i++ ) {
             var r = records[ i ];
-            var w = ( r.cid > 0 ) ? r.weight : ncw;
+            // 以记录里保存的 w= 为准。历史上 CommentStreams 的评论 ID
+            // 经常写不进来（c=0），不能再用 cid 判断有没有评论。
+            var w = ( isFinite( r.weight ) && r.weight >= 0 ) ? r.weight : ncw;
             weighted.push( { value: r.value, weight: w } );
         }
         return computeScore( weighted );
@@ -599,7 +733,6 @@ function runAll() {
         valEl.textContent = formatAvgScore( scoreData.score );
         cntEl.textContent = scoreData.count + ' 人';
 
-        // 1~5 分制以 3 分为中性线：高于 3 绿色，低于 3 红色。
         if ( scoreData.score > VOTE_NEUTRAL + 0.005 ) valEl.setAttribute( 'data-sign', 'positive' );
         else if ( scoreData.score < VOTE_NEUTRAL - 0.005 ) valEl.setAttribute( 'data-sign', 'negative' );
         else valEl.setAttribute( 'data-sign', 'zero' );
@@ -824,7 +957,7 @@ function runAll() {
                             var recs = [];
                             for ( var key in all ) {
                                 var r = all[ key ];
-                                if ( r.page === pid ) recs.push( { value: r.value, weight: r.cid > 0 ? r.weight : ncw } );
+                                if ( r.page === pid ) recs.push( { value: r.value, weight: isFinite( r.weight ) && r.weight >= 0 ? r.weight : ncw } );
                             }
                             var s = computeScore( recs );
                             rows.push( {
@@ -1001,7 +1134,7 @@ function runAll() {
                             var recs = [];
                             for ( var key in all ) {
                                 var r = all[ key ];
-                                if ( r.page === pid ) recs.push( { value: r.value, weight: r.cid > 0 ? r.weight : ncw } );
+                                if ( r.page === pid ) recs.push( { value: r.value, weight: isFinite( r.weight ) && r.weight >= 0 ? r.weight : ncw } );
                             }
                             var s = computeScore( recs );
                             rows.push( {
@@ -1389,7 +1522,7 @@ function runAll() {
         var pageId = parseInt( panel.dataset.pageId, 10 );
         var rootId = panel.dataset.scoringRootId ? parseInt( panel.dataset.scoringRootId, 10 ) : pageId;
         var hasComment = commentText.trim().length > 0;
-        value = clampVoteValue( value );
+        value = normalizeVoteValue( value );
 
         return getRecordForUserPage( mw.config.get( 'wgUserName' ), rootId ).then( function ( existingVote ) {
             var isFirstVote = !existingVote;
@@ -1616,9 +1749,8 @@ function runAll() {
 
         var btns = el( 'div', 'voting-panel-buttons' );
         var values = [
-            { label: '+1', value: '1' }, { label: '+2', value: '2' },
-            { label: '+3', value: '3' }, { label: '+4', value: '4' },
-            { label: '+5', value: '5' }
+            { label: '-1', value: '-1' }, { label: '-0.5', value: '-0.5' },
+            { label: '0', value: '0' }, { label: '+0.5', value: '0.5' }, { label: '+1', value: '1' }
         ];
         for ( var i = 0; i < values.length; i++ ) {
             var b = el( 'button', 'voting-btn', values[ i ].label );
@@ -2290,86 +2422,12 @@ function runAll() {
         rerender();
     }
 
-    function hideRCVotes() {
-        var special = mw.config.get( 'wgCanonicalSpecialPageName' );
-        if ( special !== 'Recentchanges' && special !== 'Watchlist' ) return;
-
-        var ids = mw.config.get( 'wgNamespaceIds' ) || {};
-        var storageNs = ( typeof ids.storage === 'number' && ids.storage >= 0 ) ? ids.storage : -1;
-        if ( storageNs < 0 ) return;
-
-        var storageName = ( mw.config.get( 'wgFormattedNamespaces' ) || {} )[ storageNs ] || 'Storage';
-
-        // 判断元素 class 是否属于指定命名空间
-        // 增强版最近更改有两种形式：
-        //   1) mw-changeslist-ns-5510             （带连字符，常见于分组头 <tr>）
-        //   2) mw-changeslist-ns5510-xxx-yyy      （无连字符，常见于 <table> 条目）
-        function hasNsClass( el, ns ) {
-            if ( !el || !el.classList ) return false;
-            if ( el.classList.contains( 'mw-changeslist-ns-' + ns ) ) return true;
-            var prefix = 'mw-changeslist-ns' + ns + '-';
-            for ( var i = 0; i < el.classList.length; i++ ) {
-                if ( el.classList[ i ].indexOf( prefix ) === 0 ) return true;
-            }
-            return false;
-        }
-
-        function isStorageEntry( entry ) {
-            // 1) 命名空间 class
-            if ( hasNsClass( entry, storageNs ) ) return true;
-
-            // 2) 标题链接（.mw-changeslist-title 的 title 属性 / 文本）
-            var titleEl = entry.querySelector( '.mw-changeslist-title' );
-            if ( titleEl ) {
-                var t = ( titleEl.getAttribute( 'title' ) || titleEl.textContent || '' )
-                    .replace( /^\s+/, '' );
-                if ( t.indexOf( storageName + ':' ) === 0 || t.indexOf( 'Storage:' ) === 0 ) return true;
-            }
-
-            // 3) data-target-page 兜底
-            var inner = entry.querySelector( '.mw-changeslist-line-inner' );
-            if ( inner ) {
-                var target = inner.getAttribute( 'data-target-page' ) || '';
-                if ( target.indexOf( storageName + ':' ) === 0 || target.indexOf( 'Storage:' ) === 0 ) return true;
-            }
-
-            return false;
-        }
-
-        function clean() {
-            // 只处理顶层 <table class="mw-changeslist-line ...">，
-            // 分组内部的嵌套 <tr class="...mw-changeslist-line..."> 不会被选中，
-            // 随外层 table 一起移除即可。
-            var entries = document.querySelectorAll( 'table.mw-changeslist-line' );
-            for ( var i = entries.length - 1; i >= 0; i-- ) {
-                var entry = entries[ i ];
-                if ( !document.body.contains( entry ) ) continue;
-                if ( !isStorageEntry( entry ) ) continue;
-
-                // 分组条目在 table 前有一个 checkbox，需要一并删掉
-                var prev = entry.previousElementSibling;
-                if ( prev && prev.matches && prev.matches( 'input.mw-enhancedchanges-checkbox' ) ) {
-                    prev.parentNode.removeChild( prev );
-                }
-
-                entry.parentNode.removeChild( entry );
-            }
-        }
-
-        clean();
-        new MutationObserver( clean ).observe( document.body, {
-            childList: true,
-            subtree: true
-        } );
-    }
-
     function init() {
         try { setupPanels(); } catch ( e ) {}
         try { initScoreDisplays(); } catch ( e ) {}
         try { initRanking(); } catch ( e ) {}
         try { initRewriteForm(); } catch ( e ) {}
         try { initReview(); } catch ( e ) {}
-        try { hideRCVotes(); } catch ( e ) {}
     }
 
     if ( document.readyState === 'loading' ) {
