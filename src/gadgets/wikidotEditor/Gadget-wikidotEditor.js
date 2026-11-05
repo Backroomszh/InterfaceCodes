@@ -880,8 +880,8 @@
             reverseConverted = true;
         }
 
-        /* 旧版留下的 [[raw]] 外壳在编辑时去掉，保存时不再写回 */
-        wikidotSource = unwrapRawBlocks( wikidotSource );
+        /* 旧版留下的 [[raw]] / <center> 等在编辑时规范化，保存时不再写回 */
+        wikidotSource = normalizeStoredWikidotSource( wikidotSource );
 
         /* 隐藏 MediaWiki 原生编辑界面 */
         Array.prototype.forEach.call( form.children, function ( child ) {
@@ -2402,6 +2402,25 @@
         );
     }
 
+    /*
+     * 旧版反向转换可能已经在注释里留下了 <center> 等原生 HTML。
+     * 打开时做一次轻量规范化，不重新转换整份 Wikidot 源码。
+     */
+    function normalizeStoredWikidotSource( source ) {
+        source = unwrapRawBlocks( source );
+
+        source = source.replace(
+            /<center\b[^>]*>([\s\S]*?)<\/center>/gi,
+            function ( m, inner ) {
+                return '[[=]]\n' +
+                    inner.replace( /^\n+|\n+$/g, '' ) +
+                    '\n[[/=]]';
+            }
+        );
+
+        return source;
+    }
+
     function convertWikitextToWikidot( wikitext ) {
         var placeholders = [];
 
@@ -2566,6 +2585,16 @@
         } );
 
         /* 居中 / 引用 */
+        src = src.replace(
+            /<center\b[^>]*>([\s\S]*?)<\/center>/gi,
+            function ( m, inner ) {
+                return P(
+                    '[[=]]\n' +
+                    convertWikitextToWikidot( inner ) +
+                    '\n[[/=]]'
+                );
+            }
+        );
         src = src.replace(
             /<div style="text-align:center">([\s\S]*?)<\/div>/gi,
             function ( m, inner ) {
