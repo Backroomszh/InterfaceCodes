@@ -453,3 +453,4 @@ $(document).ready(function () {
             });
     });
 })();
+importScript('MediaWiki:AnonJoinPopup.js');
