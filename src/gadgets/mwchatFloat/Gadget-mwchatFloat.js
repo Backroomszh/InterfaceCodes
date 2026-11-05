@@ -3250,6 +3250,7 @@
         state.open = false;
         els.panel.classList.remove('is-open');
         els.wrap.classList.remove('is-hidden');
+        resetTriggerScrollState();
         hideMentions();
         schedulePoll(CONFIG.POLL_CLOSED_MS);
     }
@@ -3640,6 +3641,46 @@
         });
     }
 
+    // 移动端跟随 Citizen 底栏：向下滚动时收起，向上滚动时回来
+    let chatTriggerLastY = null;
+    let chatTriggerScrollTicking = false;
+
+    function resetTriggerScrollState() {
+        // 下一次滚动事件只用来记录基准位置，避免把页面恢复的滚动当成滑动方向
+        chatTriggerLastY = null;
+        if (els.wrap) els.wrap.classList.remove('is-scroll-hidden');
+    }
+
+    function updateTriggerOnScroll() {
+        if (!els.wrap || state.open) return;
+        const y = window.scrollY || window.pageYOffset || 0;
+
+        if (!isMobile()) {
+            els.wrap.classList.remove('is-scroll-hidden');
+            chatTriggerLastY = y;
+            return;
+        }
+
+        if (chatTriggerLastY === null) {
+            chatTriggerLastY = y;
+            return;
+        }
+        if (y <= 8) {
+            els.wrap.classList.remove('is-scroll-hidden');
+            chatTriggerLastY = y;
+            return;
+        }
+
+        const delta = y - chatTriggerLastY;
+        if (Math.abs(delta) < 6) return;
+        if (delta > 0) {
+            els.wrap.classList.add('is-scroll-hidden');
+        } else {
+            els.wrap.classList.remove('is-scroll-hidden');
+        }
+        chatTriggerLastY = y;
+    }
+
     function bindPanelEvents() {
         const tryOpen = function () {
             try { open(); } catch (e) { /* locked out */ }
@@ -3745,6 +3786,23 @@
             }
         });
 
+        // 移动端：页面向下滚动时收起聊天按钮，向上滚动时恢复
+        window.addEventListener('scroll', function () {
+            if (chatTriggerScrollTicking) return;
+            chatTriggerScrollTicking = true;
+            requestAnimationFrame(function () {
+                chatTriggerScrollTicking = false;
+                updateTriggerOnScroll();
+            });
+        }, { passive: true });
+
+        window.addEventListener('resize', function () {
+            chatTriggerLastY = window.scrollY || window.pageYOffset || 0;
+            if (!isMobile() && els.wrap) {
+                els.wrap.classList.remove('is-scroll-hidden');
+            }
+        });
+
         document.addEventListener('keydown', function (e) {
             // 输入框里的 Esc 已处理 @ 候选并 preventDefault，避免顺手关掉整个面板
             if (e.defaultPrevented) return;
@@ -3821,6 +3879,7 @@
         restorePanelGeometry();
         bindGlobalEvents();
         startTriggerPeek();
+        resetTriggerScrollState();
         schedulePoll(0);
 
         // userlevel 脚本可能比本组件晚几秒才写好等级缓存；多次补读，
