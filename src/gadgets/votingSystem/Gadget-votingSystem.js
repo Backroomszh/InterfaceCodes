@@ -1515,6 +1515,12 @@ function runAll() {
     window.initMonthlyRanking = initMonthlyRanking;
     window.initRanking = initRanking;
 
+    // 页面内容被 AJAX 重新渲染时重新初始化排行榜。
+    // 必须放在 runAll 内部，外层的 mw.hook 拿不到这里的局部函数。
+    mw.hook( 'wikipage.content' ).add( function () {
+        try { initRanking(); } catch ( e ) {}
+    } );
+
     function doVote( panel, value, commentText, hideScore, messageEl ) {
         if ( !isLoggedIn() ) { vsNotify( msg( 'vote-login-required' ), { type: 'error' } ); return Promise.resolve(); }
         if ( !hasRight( 'voting' ) ) { vsNotify( msg( 'vote-autoconfirmed-required' ), { type: 'error' } ); return Promise.resolve(); }
@@ -2436,10 +2442,6 @@ function runAll() {
         init();
     }
 }
-
-mw.hook( 'wikipage.content' ).add( function () {
-    initRanking();
-} );
 
 runAll();
 
