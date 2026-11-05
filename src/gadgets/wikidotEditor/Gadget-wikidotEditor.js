@@ -4,6 +4,8 @@
  * 用法：在参数设置中启用后，访问 ?action=edit&editor=wd
  * 样式：随小工具加载 Gadget-wikidotEditor.css
  * 保存时：Wikidot -> Wikitext + <!--WIKIDOT ... WIKIDOT--> 注释
+ * 纯 MediaWiki 页面会自动反向生成 Wikidot 源码；
+ * 注释过期时也会根据当前 Wikitext 重新反向生成。
  *
  * 界面：
  *   - 选项卡式工具栏：格式 / 段落 / 插入 / 特殊字符 / 帮助
@@ -55,6 +57,16 @@
         'license-box-end': 'License Box End',
         'cecs':            'CECS'
     };
+
+    var REVERSE_INCLUDE_MAP = ( function () {
+        var map = {};
+        for ( var key in INCLUDE_MAP ) {
+            if ( Object.prototype.hasOwnProperty.call( INCLUDE_MAP, key ) ) {
+                map[ INCLUDE_MAP[ key ].toLowerCase() ] = key;
+            }
+        }
+        return map;
+    }() );
 
     /* ==========================================================
      * 图标（全部为内联线条图，不使用 emoji）
@@ -819,10 +831,35 @@
      * 构建编辑器
      * ========================================================== */
     function buildEditor( form, textarea ) {
-        var match = textarea.value.match( COMMENT_RE );
-        var wikidotSource = match
-            ? match[ 1 ].replace( /--&gt;/g, '-->' )
-            : textarea.value;
+        var originalValue = textarea.value;
+        var commentMatch = originalValue.match( COMMENT_RE );
+        var cleanWikitext = originalValue
+            .replace( /<!--WIKIDOT\n[\s\S]*?\nWIKIDOT-->/g, '' )
+            .replace( /^\n+|\n+$/g, '' );
+
+        var wikidotSource;
+        var reverseConverted = false;
+
+        if ( commentMatch ) {
+            var storedSource = commentMatch[ 1 ].replace( /--&gt;/g, '-->' );
+            var storedWikitext = buildWikitextDocument( storedSource );
+
+            /*
+             * 用注释里的源码重新前向转换，和当前页面 Wikitext 对比：
+             * 一致 -> 注释是最新的，直接复用原始 Wikidot 源码；
+             * 不一致 -> 页面在 MediaWiki 模式下被改过，反向重建源码。
+             */
+            if ( normalizeWikitextForCompare( storedWikitext ) ===
+                 normalizeWikitextForCompare( cleanWikitext ) ) {
+                wikidotSource = storedSource;
+            } else {
+                wikidotSource = convertWikitextToWikidot( cleanWikitext );
+                reverseConverted = true;
+            }
+        } else {
+            wikidotSource = convertWikitextToWikidot( cleanWikitext );
+            reverseConverted = true;
+        }
 
         /* 隐藏 MediaWiki 原生编辑界面 */
         Array.prototype.forEach.call( form.children, function ( child ) {
@@ -852,7 +889,10 @@
         var subtitle = document.createElement( 'p' );
         subtitle.className = 'wd-subtitle';
         subtitle.textContent =
-            '使用 Wikidot 语法书写，保存时自动转换为 Wikitext。';
+            '使用 Wikidot 语法书写，保存时自动转换为 Wikitext。' +
+            ( reverseConverted
+                ? ' 本次已根据当前 Wikitext 反向生成源码。'
+                : '' );
 
         headerMain.appendChild( title );
         headerMain.appendChild( subtitle );
@@ -2210,6 +2250,7 @@
             [ '[[footnoteblock]]', '脚注列表' ],
             [ '[[toc]]', '目录' ],
             [ '[[code]]…[[/code]]', '代码块' ],
+            [ '[[raw]]…[[/raw]]', '原样保留 Wikitext，反向转换会自动使用' ],
             [ '[[collapsible show="展开"]]…[[/collapsible]]', '折叠块' ],
             [ '[[div class="类名"]]…[[/div]]', '容器' ],
             [ '[[=]]…[[/=]]', '居中区块' ],
@@ -2320,6 +2361,428 @@
     }
 
     /* ==========================================================
+     * Wikitext -> Wikidot 反向转换
+     * 用于：纯 MediaWiki 页面，或 WIKIDOT 注释已因 MediaWiki 编辑而过期
+     * ========================================================== */
+    function normalizeWikitextForCompare( text ) {
+        return String( text )
+            .replace( /\r\n?/g, '\n' )
+            .replace( /[ \t]+$/gm, '' )
+            .replace( /^\n+|\n+$/g, '' );
+    }
+
+    function convertWikitextToWikidot( wikitext ) {
+        var placeholders = [];
+
+        function P( text ) {
+            var id = '\u0000RW' + placeholders.length + '\u0000';
+            placeholders.push( text );
+            return id;
+        }
+
+        function restore( text ) {
+            var prev;
+            do {
+                prev = text;
+                text = text.replace( /\u0000RW(\d+)\u0000/g, function ( m, i ) {
+                    return placeholders[ parseInt( i, 10 ) ];
+                } );
+            } while ( text !== prev );
+            return text;
+        }
+
+        var src = String( wikitext ).replace( /\r\n?/g, '\n' );
+
+        /* 代码 / 数学 / nowiki / 脚本 / 注释：先保护，避免被后续规则改写 */
+        src = src.replace(
+            /<syntaxhighlight\b([^>]*)>([\s\S]*?)<\/syntaxhighlight>/gi,
+            function ( m, attrs, code ) {
+                var lang = '';
+                var lm = attrs.match( /\blang\s*=\s*"([^"]*)"/i );
+                if ( lm ) lang = lm[ 1 ];
+                return P(
+                    '[[code' + ( lang ? ' type="' + lang + '"' : '' ) +
+                    ']]\n' + code.replace( /^\n|\n$/g, '' ) + '\n[[/code]]'
+                );
+            }
+        );
+        src = src.replace( /<pre\b[^>]*>([\s\S]*?)<\/pre>/gi, function ( m, code ) {
+            return P( '[[code]]\n' + code.replace( /^\n|\n$/g, '' ) + '\n[[/code]]' );
+        } );
+        src = src.replace( /<math\b[^>]*>([\s\S]*?)<\/math>/gi, function ( m, body ) {
+            return P( '[[math]]\n' + body.replace( /^\n|\n$/g, '' ) + '\n[[/math]]' );
+        } );
+        src = src.replace( /<nowiki\b[^>]*>([\s\S]*?)<\/nowiki>/gi, function ( m, body ) {
+            return P( '@@' + body + '@@' );
+        } );
+        src = src.replace( /<script\b[^>]*>[\s\S]*?<\/script>/gi, function ( m ) {
+            return P( m );
+        } );
+        src = src.replace( /<style\b[^>]*>[\s\S]*?<\/style>/gi, function ( m ) {
+            return P( m );
+        } );
+        src = src.replace( /<!--([\s\S]*?)-->/g, function ( m, body ) {
+            return P( '[!--' + body + '--]' );
+        } );
+        src = src.replace( /<code>([\s\S]*?)<\/code>/gi, function ( m, body ) {
+            return P( '{{' + body + '}}' );
+        } );
+
+        /* 编辑器自动注入的包裹（代码等已先保护） */
+        src = src.replace(
+            /\{\{CSS\|User:QiuxiMeow\/代码\/wd适配\.css\}\}\n?/g,
+            ''
+        );
+        src = src.replace( /\{\{NOSIDEBAR\}\}\n?/g, '' );
+
+        /* #REDIRECT / #重定向 整行原样保留，避免被列表转换改写 */
+        src = src.replace(
+            /^(\s*#(?:REDIRECT|重定向)(?=\s|\[|$)[^\n]*)$/gim,
+            function ( m ) {
+                return P( '[[raw]]' + m + '[[/raw]]' );
+            }
+        );
+
+        /* 模板 -> include；复杂/解析函数 -> raw */
+        src = convertWikitextTemplates( src, P );
+
+        /* 目录与双下划线魔术字 */
+        src = src.replace( /__TOC__/g, function () {
+            return P( '[[toc]]' );
+        } );
+        src = src.replace(
+            /__(?:NOTOC|NOEDITSECTION|NOGALLERY|FORCETOC|NEWSECTIONLINK|NOCONTENTCONVERT|NOCC|NOTITLECONVERT|NOTC|INDEX|NOINDEX|STATICREDIRECT|DISAMBIG)__/g,
+            function ( m ) {
+                return P( '[[raw]]' + m + '[[/raw]]' );
+            }
+        );
+
+        /* 图片 / 媒体链接先于普通内链 */
+        src = src.replace(
+            /\[\[(?:File|Image):([^\]\n]+)\]\]/gi,
+            function ( m, body ) {
+                var parts = body.split( '|' );
+                var name = parts.shift().trim();
+                var width = '';
+                var alt = '';
+                var complex = false;
+
+                parts.forEach( function ( part ) {
+                    part = part.trim();
+                    if ( /^\d+(?:x\d+)?(?:px)?$/i.test( part ) ) {
+                        width = part;
+                    } else if ( /^alt\s*=/i.test( part ) ) {
+                        alt = part.substring( part.indexOf( '=' ) + 1 ).trim();
+                    } else if ( part ) {
+                        complex = true;
+                    }
+                } );
+
+                if ( !name || complex ) return P( m );
+
+                var out = '[[image ' + name;
+                if ( width ) out += ' width="' + width + '"';
+                if ( alt ) out += ' alt="' + alt + '"';
+                return P( out + ']]' );
+            }
+        );
+        src = src.replace( /\[\[Media:([^\]\n]+)\]\]/gi, function ( m, body ) {
+            var parts = body.split( '|' );
+            var name = parts[ 0 ].trim();
+            if ( !name ) return P( m );
+            var label = parts.length > 1
+                ? parts.slice( 1 ).join( '|' ).trim()
+                : name;
+            return P( '[[file ' + name + '|' + label + ']]' );
+        } );
+
+        /* 普通内链 */
+        src = src.replace( /\[\[([^\[\]\n]+?)\]\]/g, function ( m, inner ) {
+            /*
+             * MediaWiki 的 [[#章节]] 与编辑器内部锚点语法冲突，
+             * 用 raw 原样保留，避免保存时被转成 <span id>。
+             */
+            if ( inner.charAt( 0 ) === '#' ) {
+                return P( '[[raw]][[' + inner + ']][[/raw]]' );
+            }
+            return '[[[' + inner + ']]]';
+        } );
+
+        /* 标题 */
+        src = src.replace( /^(={1,6})\s*(.*?)\s*\1\s*$/gm, function ( m, eq, text ) {
+            return new Array( eq.length + 1 ).join( '+' ) + ' ' + text;
+        } );
+
+        /* 脚注 */
+        src = src.replace( /<ref\b([^>]*)>([\s\S]*?)<\/ref>/gi, function ( m, attrs, inner ) {
+            if ( /\bname\s*=/.test( attrs ) ) return P( m );
+            return P(
+                '[[footnote]]' +
+                convertWikitextToWikidot( inner ) +
+                '[[/footnote]]'
+            );
+        } );
+        src = src.replace( /<ref\b[^>]*\/>/gi, function () {
+            return P( '[[footnote]][[/footnote]]' );
+        } );
+        src = src.replace( /<references\s*\/>/gi, function () {
+            return P( '[[footnoteblock]]' );
+        } );
+        src = src.replace( /<references\s*>[\s\S]*?<\/references>/gi, function () {
+            return P( '[[footnoteblock]]' );
+        } );
+
+        /* 居中 / 引用 */
+        src = src.replace(
+            /<div style="text-align:center">([\s\S]*?)<\/div>/gi,
+            function ( m, inner ) {
+                return P(
+                    '[[=]]\n' +
+                    convertWikitextToWikidot( inner ) +
+                    '\n[[/=]]'
+                );
+            }
+        );
+        src = src.replace(
+            /<blockquote class="wikidot-quote">([\s\S]*?)<\/blockquote>/gi,
+            function ( m, inner ) {
+                return P(
+                    '[[>]]' +
+                    convertWikitextToWikidot( inner ) +
+                    '[[/>]]'
+                );
+            }
+        );
+        src = src.replace( /<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi, function ( m, inner ) {
+            return inner.split( '\n' ).map( function ( line ) {
+                return '> ' + line;
+            } ).join( '\n' );
+        } );
+
+        /* 标签页 */
+        src = convertWikitextTabber( src, P );
+
+        /* 常见容器 / 行内样式 */
+        src = convertWikitextDivs( src );
+        src = convertWikitextSpans( src );
+
+        /* 内联标签 */
+        src = src.replace( /<br\s*\/?>/gi, '@@@@' );
+        src = src.replace( /<strong>([\s\S]*?)<\/strong>/gi, '**$1**' );
+        src = src.replace( /<b>([\s\S]*?)<\/b>/gi, '**$1**' );
+        src = src.replace( /<em>([\s\S]*?)<\/em>/gi, '//$1//' );
+        src = src.replace( /<i>([\s\S]*?)<\/i>/gi, '//$1//' );
+        src = src.replace( /<u>([\s\S]*?)<\/u>/gi, '__$1__' );
+        src = src.replace( /<s>([\s\S]*?)<\/s>/gi, '--$1--' );
+        src = src.replace( /<sup>([\s\S]*?)<\/sup>/gi, '^^$1^^' );
+        src = src.replace( /<sub>([\s\S]*?)<\/sub>/gi, ',,$1,,' );
+
+        /* MediaWiki 粗体 / 斜体 */
+        src = src.replace( /'''''([\s\S]*?)'''''/g, '//**$1**//' );
+        src = src.replace( /'''([\s\S]*?)'''/g, '**$1**' );
+        src = src.replace( /''([\s\S]*?)''/g, '//$1//' );
+
+        return restore( src );
+    }
+
+    function convertWikitextTemplates( src, P ) {
+        var out = '';
+        var i = 0;
+
+        while ( i < src.length ) {
+            var start = src.indexOf( '{{', i );
+            if ( start === -1 ) {
+                out += src.slice( i );
+                break;
+            }
+
+            out += src.slice( i, start );
+
+            /* 三层大括号是模板参数，顶层出现时原样保留 */
+            if ( src.charAt( start + 2 ) === '{' ) {
+                var tripleEnd = src.indexOf( '}}}', start + 3 );
+                if ( tripleEnd === -1 ) {
+                    out += src.slice( start );
+                    break;
+                }
+                out += P( '[[raw]]' + src.slice( start, tripleEnd + 3 ) + '[[/raw]]' );
+                i = tripleEnd + 3;
+                continue;
+            }
+
+            var end = findTemplateEnd( src, start );
+            if ( end === -1 ) {
+                out += src.slice( start );
+                break;
+            }
+
+            out += convertOneTemplate( src.slice( start + 2, end - 2 ), P );
+            i = end;
+        }
+
+        return out;
+    }
+
+    function findTemplateEnd( src, start ) {
+        var depth = 0;
+
+        for ( var i = start; i < src.length - 1; i++ ) {
+            if ( src.charAt( i ) === '{' && src.charAt( i + 1 ) === '{' ) {
+                depth++;
+                i++;
+            } else if ( src.charAt( i ) === '}' && src.charAt( i + 1 ) === '}' ) {
+                depth--;
+                i++;
+                if ( depth === 0 ) return i + 1;
+            }
+        }
+
+        return -1;
+    }
+
+    function convertOneTemplate( inner, P ) {
+        var raw = '[[raw]]{{' + inner + '}}[[/raw]]';
+        var trimmed = inner.trim();
+
+        if ( !trimmed ||
+             /\n/.test( inner ) ||
+             /[{}]/.test( inner ) ||
+             /\[\[|\]\]/.test( inner ) ||
+             /^[#:]/.test( trimmed ) ) {
+            return P( raw );
+        }
+
+        var parts = inner.split( '|' );
+        var name = parts.shift().trim();
+        if ( !name || /[=\[\]]/.test( name ) ) return P( raw );
+
+        var args = [];
+        for ( var i = 0; i < parts.length; i++ ) {
+            var part = parts[ i ].trim();
+            var eq = part.indexOf( '=' );
+
+            if ( eq === -1 ) {
+                args.push( ( i + 1 ) + '=' + part );
+            } else {
+                var key = part.substring( 0, eq ).trim();
+                if ( !key ) return P( raw );
+                args.push( key + '=' + part.substring( eq + 1 ).trim() );
+            }
+        }
+
+        var canonical = REVERSE_INCLUDE_MAP[ name.toLowerCase() ];
+        var moduleName = canonical || name;
+        var include = '[[include ' +
+            ( canonical ? ':component:' : 'component:' ) + moduleName;
+
+        for ( var j = 0; j < args.length; j++ ) {
+            include += '\n| ' + args[ j ];
+        }
+        include += ( args.length ? '\n]]' : ']]' );
+
+        return P( include );
+    }
+
+    function convertWikitextTabber( src, P ) {
+        return src.replace( /<tabber>([\s\S]*?)<\/tabber>/gi, function ( m, inner ) {
+            var parts = inner.split( /\n\|\-\|/ );
+            var tabs = [];
+
+            for ( var i = 0; i < parts.length; i++ ) {
+                var part = parts[ i ].replace( /^\n+|\n+$/g, '' );
+                if ( !part ) continue;
+
+                var eq = part.indexOf( '=' );
+                if ( eq === -1 ) continue;
+
+                var title = part.substring( 0, eq ).trim();
+                var body = part.substring( eq + 1 ).replace( /^\n+|\n+$/g, '' );
+                tabs.push(
+                    '[[tab ' + title + ']]\n' +
+                    convertWikitextToWikidot( body ) +
+                    '\n[[/tab]]'
+                );
+            }
+
+            if ( !tabs.length ) return P( m );
+
+            return P( '[[tabview]]\n' + tabs.join( '\n' ) + '\n[[/tabview]]' );
+        } );
+    }
+
+    function reverseDivAttrs( attrs ) {
+        if ( !attrs || !attrs.trim() ) return '';
+
+        var id = attrs.match( /\bid\s*=\s*"([^"]*)"/i );
+        var cls = attrs.match( /\bclass\s*=\s*"([^"]*)"/i );
+        var style = attrs.match( /\bstyle\s*=\s*"([^"]*)"/i );
+
+        var rest = attrs
+            .replace( /\bid\s*=\s*"[^"]*"/ig, '' )
+            .replace( /\bclass\s*=\s*"[^"]*"/ig, '' )
+            .replace( /\bstyle\s*=\s*"[^"]*"/ig, '' )
+            .trim();
+
+        if ( rest ) return null;
+
+        var out = '';
+        if ( id ) out += ' id="' + id[ 1 ] + '"';
+        if ( cls ) out += ' class="' + cls[ 1 ] + '"';
+        if ( style ) out += ' style="' + style[ 1 ] + '"';
+        return out;
+    }
+
+    function convertWikitextDivs( src ) {
+        var re = /<div([^>]*)>((?:(?!<div\b)[\s\S])*?)<\/div>/i;
+        var guard = 0;
+
+        while ( guard++ < 1000 ) {
+            var changed = false;
+
+            src = src.replace( re, function ( m, attrs, inner ) {
+                var clean = reverseDivAttrs( attrs );
+                if ( clean === null ) return m;
+                changed = true;
+                return '[[div' + clean + ']]' + inner + '[[/div]]';
+            } );
+
+            if ( !changed ) break;
+        }
+
+        return src;
+    }
+
+    function convertWikitextSpans( src ) {
+        return src.replace( /<span([^>]*)>([\s\S]*?)<\/span>/gi, function ( m, attrs, inner ) {
+            var id = attrs.match( /\bid\s*=\s*"([^"]*)"/i );
+            if ( id && !inner.trim() &&
+                 !attrs.replace( /\bid\s*=\s*"[^"]*"/i, '' ).trim() ) {
+                return '[[#' + id[ 1 ] + ']]';
+            }
+
+            var styleMatch = attrs.match( /\bstyle\s*=\s*"([^"]*)"/i );
+            if ( !styleMatch ) return m;
+
+            var rest = attrs.replace( /\bstyle\s*=\s*"[^"]*"/ig, '' ).trim();
+            if ( rest ) return m;
+
+            var style = styleMatch[ 1 ].trim();
+            var color = /^color\s*:\s*([^;]+)\s*;?$/i.exec( style );
+            var size = /^font-size\s*:\s*([^;]+)\s*;?$/i.exec( style );
+
+            if ( color ) {
+                var c = color[ 1 ].trim().replace( /^#/, '' );
+                return '##' + c + '|' + inner + '##';
+            }
+            if ( size ) {
+                return '[[size ' + size[ 1 ].trim() + ']]' + inner + '[[/size]]';
+            }
+
+            return '[[span style="' + style + '"]]' + inner + '[[/span]]';
+        } );
+    }
+
+    /* ==========================================================
      * Wikidot -> Wikitext 转换器
      * ========================================================== */
     function convertWikidotToWikitext( src, placeholders, isTopLevel ) {
@@ -2343,7 +2806,12 @@
             return '<pre>' + content + '</pre>';
         }, placeholders );
 
-        /* 0.1 注释 [!-- 注释 --] -> <!-- 注释 --> */
+        /* 0.1 raw 原样块：反向转换时用来保存无法映射的 Wikitext */
+        src = convertNestedTag( src, 'raw', function ( attrs, content ) {
+            return P( content );
+        }, placeholders );
+
+        /* 0.2 注释 [!-- 注释 --] -> <!-- 注释 --> */
         src = src.replace( /\[!--([\s\S]*?)--\]/g, function ( m, content ) {
             return P( '<!--' + content + '-->' );
         } );
@@ -2648,7 +3116,7 @@
 
         var PAIRED = [
             'code', 'collapsible', 'footnote', 'div', 'iftags',
-            'span', 'size', 'tabview', 'tab'
+            'span', 'size', 'tabview', 'tab', 'raw'
         ];
         var pairedRe = new RegExp(
             '\\[\\[\\/?(?:' + PAIRED.join( '|' ) + ')(?:\\s+[^\\]]*)?\\]\\]',
@@ -2713,15 +3181,17 @@
     }
 
     function normalizeModuleName( raw ) {
-        var n = raw.trim().toLowerCase();
+        var n = String( raw ).trim();
         n = n.replace( /^:[^:]+:/, '' );
-        n = n.replace( /^component[:\-]/, '' );
+        n = n.replace( /^component[:\-]/i, '' );
         return n;
     }
 
     function mapIncludeName( raw ) {
         var n = normalizeModuleName( raw );
-        if ( INCLUDE_MAP[ n ] ) return INCLUDE_MAP[ n ];
+        // 仅查找键转小写，返回名保留原始大小写（XLCS 不应变成 Xlcs）
+        var key = n.toLowerCase();
+        if ( INCLUDE_MAP[ key ] ) return INCLUDE_MAP[ key ];
         return n.replace( /-/g, ' ' ).replace( /\b\w/g, function ( c ) {
             return c.toUpperCase();
         } );
