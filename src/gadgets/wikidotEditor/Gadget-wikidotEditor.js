@@ -2300,6 +2300,7 @@
             [ '[[footnote]]注释[[/footnote]]', '脚注' ],
             [ '[[footnoteblock]]', '脚注列表' ],
             [ '[[toc]]', '目录' ],
+            [ '[[module CSS]]…[[/module]]', '内联 CSS，保存为 {{CSS|content=...}}' ],
             [ '__TOC__ / __NOTOC__', '分别对应 [[toc]] / 省略（等同 {{NOSIDEBAR}}）' ],
             [ '__NOEDITSECTION__ 等', '用 [[html]] 原样保留，保存时仍输出魔术字' ],
             [ '[[code]]…[[/code]]', '代码块' ],
@@ -2470,6 +2471,29 @@
                 var converted = convertWikidotToWikitext( inner, ph, false );
                 converted = restorePlaceholders( converted, ph );
                 return holdHtml( '[[html]]' + open + converted + '</p>[[/html]]' );
+            }
+        );
+
+        /*
+         * {{CSS|content=...}} 以及旧版错误生成的
+         * [[include component:CSS | content=...]] 都还原成 CSS 模块。
+         */
+        source = source.replace(
+            /\{\{CSS\s*\|\s*content\s*=\s*([\s\S]*?)\}\}/gi,
+            function ( m, css ) {
+                css = css.replace( /^\n+|\n+$/g, '' );
+                return '[[module CSS]]\n' + css + '\n[[/module]]';
+            }
+        );
+        source = source.replace(
+            /\[\[include\s+component\s*:\s*CSS\b([\s\S]*?)\]\]/gi,
+            function ( m, args ) {
+                var cm = /(?:^|\n)\s*\|\s*content\s*=\s*([\s\S]*)$/i.exec( args );
+                if ( !cm ) return m;
+                var css = cm[ 1 ]
+                    .replace( /^\n+|\n+$/g, '' )
+                    .replace( /@@@@/g, '\n' );
+                return '[[module CSS]]\n' + css + '\n[[/module]]';
             }
         );
 
@@ -2955,6 +2979,20 @@
         var trimmed = inner.trim();
 
         if ( !trimmed ) return P( templateText );
+
+        /*
+         * {{CSS|content=...}} 是 [[module CSS]] 的前向结果，
+         * 反向转换必须优先还原成模块，不能当成普通模板嵌入。
+         */
+        var cssBlock = /^CSS\s*(?:\|\s*content\s*=([\s\S]*))?$/i.exec( trimmed );
+        if ( cssBlock ) {
+            var cssBody = ( cssBlock[ 1 ] || '' ).replace( /^\n+|\n+$/g, '' );
+            return P(
+                '[[module CSS]]' +
+                ( cssBody ? '\n' + cssBody + '\n' : '' ) +
+                '[[/module]]'
+            );
+        }
 
         /* 解析函数、三花括号模板参数等不做 include 化 */
         if ( /^[#:]/.test( trimmed ) ||
@@ -3623,14 +3661,24 @@
         }
 
         var tmplName = mapIncludeName( moduleName );
+        var isCssModule = /^CSS$/i.test( tmplName );
         var params = args.map( function ( kv ) {
-            /*
-             * 反向转换会把模板参数里的换行写成 @@@@；
-             * 这里还原成 <br />，让多行参数能正常显示。
-             */
-            var value = convertIncludeArgToWikitext( kv[ 1 ] );
-            value = cleanArgValue( value )
-                .replace( /@@@@/g, '<br />' );
+            var value;
+
+            if ( isCssModule ) {
+                /* CSS 内容不是 Wikitext，@@@@ 必须还原成换行而不是 <br /> */
+                value = kv[ 1 ].replace( /@@@@/g, '\n' );
+                if ( !/\n$/.test( value ) ) value += '\n';
+            } else {
+                /*
+                 * 反向转换会把模板参数里的换行写成 @@@@；
+                 * 这里还原成 <br />，让多行参数能正常显示。
+                 */
+                value = convertIncludeArgToWikitext( kv[ 1 ] );
+                value = cleanArgValue( value )
+                    .replace( /@@@@/g, '<br />' );
+            }
+
             return kv[ 0 ] + '=' + value;
         } ).join( '|' );
 
@@ -3842,5 +3890,285 @@
     /* ==========================================================
      * 启动
      * ========================================================== */
+
+    /* ==========================================================
+     * 作家助手桥接：可嵌入实例
+     * ========================================================== */
+
+    /**
+     * 在任意容器里创建一个独立的 Wikidot 编辑器。
+     *
+     * 与 buildEditor() 的区别：
+     *   - 不依赖 #editform / #wpTextbox1
+     *   - 不隐藏原生编辑表单
+     *   - 不绑定原生 form.submit 保存
+     *   - 不提供预览分栏和“保存编辑”底栏
+     *   - 返回实例，供作家助手通过统一接口读写
+     *
+     * 复用的是原文件里真实的 buildToolbar / createHighlighter /
+     * convertWikidotToWikitext / convertWikitextToWikidot，
+     * 没有重写工具栏、语法高亮或转换逻辑。
+     */
+    function mountWikidotEditor( container, initialSource ) {
+        var root = document.createElement( 'div' );
+        root.className = 'wd-embed';
+        root.id = 'wikidot-editor-container';
+
+        var ta = document.createElement( 'textarea' );
+        ta.id = 'wikidot-textarea';
+        ta.className = 'wd-embed-textarea';
+        ta.value = initialSource == null ? '' : String( initialSource );
+        ta.spellcheck = false;
+        ta.setAttribute( 'wrap', 'soft' );
+        ta.setAttribute( 'aria-label', 'Wikidot 源代码' );
+
+        /* 复用原工具栏。预览按钮在嵌入模式里没有意义，隐藏掉。 */
+        var hooks = {
+            nodes: null,
+            togglePreview: null,
+            toggleHighlight: null
+        };
+        var toolbar = buildToolbar( ta, hooks );
+
+        if ( hooks.nodes && hooks.nodes.previewBtn ) {
+            hooks.nodes.previewBtn.style.display = 'none';
+            hooks.nodes.previewBtn.setAttribute( 'aria-hidden', 'true' );
+            hooks.nodes.previewBtn.tabIndex = -1;
+        }
+
+        var stage = document.createElement( 'div' );
+        stage.className = 'wd-editor-stage wd-embed-stage';
+        stage.appendChild( ta );
+
+        var statusbar = document.createElement( 'div' );
+        statusbar.className = 'wd-statusbar wd-embed-statusbar';
+
+        var statusText = document.createElement( 'span' );
+        statusText.className = 'wd-status-text';
+        statusText.innerHTML =
+            '<span class="wd-status-item">字符 <b>0</b></span>' +
+            '<span class="wd-status-item">行 <b>1</b></span>' +
+            '<span class="wd-status-item">光标 <b>1:1</b></span>';
+        var statusRefs = statusText.querySelectorAll( 'b' );
+
+        statusbar.appendChild( statusText );
+
+        root.appendChild( toolbar );
+        root.appendChild( stage );
+        root.appendChild( statusbar );
+        container.appendChild( root );
+
+        /* 复用原语法高亮 */
+        var highlighter = createHighlighter(
+            stage,
+            ta,
+            hooks.nodes ? hooks.nodes.highlightBtn : null
+        );
+
+        hooks.toggleHighlight = function () {
+            highlighter.setEnabled( !highlighter.isEnabled() );
+        };
+
+        var statusTimer = null;
+
+        function updateStatus() {
+            var text = ta.value;
+            var lines = text ? text.split( '\n' ).length : 1;
+            var pos = 0;
+            try {
+                pos = ta.selectionStart || 0;
+            } catch ( e ) {
+                pos = 0;
+            }
+
+            var line = 1;
+            var lineStart = 0;
+            for ( var i = 0; i < pos && i < text.length; i++ ) {
+                if ( text.charCodeAt( i ) === 10 ) {
+                    line++;
+                    lineStart = i + 1;
+                }
+            }
+
+            if ( statusRefs[ 0 ] ) {
+                statusRefs[ 0 ].textContent = text.length;
+            }
+            if ( statusRefs[ 1 ] ) {
+                statusRefs[ 1 ].textContent = lines;
+            }
+            if ( statusRefs[ 2 ] ) {
+                statusRefs[ 2 ].textContent = line + ':' + ( pos - lineStart + 1 );
+            }
+        }
+
+        function scheduleStatus() {
+            if ( statusTimer ) {
+                return;
+            }
+            statusTimer = setTimeout( function () {
+                statusTimer = null;
+                updateStatus();
+            }, 160 );
+        }
+
+        var listeners = [];
+
+        function on( target, type, fn ) {
+            target.addEventListener( type, fn );
+            listeners.push( [ target, type, fn ] );
+        }
+
+        on( ta, 'input', function () {
+            scheduleStatus();
+            highlighter.schedule();
+        } );
+        on( ta, 'keyup', scheduleStatus );
+        on( ta, 'click', scheduleStatus );
+        on( ta, 'select', scheduleStatus );
+
+        updateStatus();
+        highlighter.refresh();
+
+        return {
+            element: root,
+            textarea: ta,
+
+            getValue: function () {
+                return ta.value;
+            },
+
+            setValue: function ( value ) {
+                ta.value = value == null ? '' : String( value );
+                fireInput( ta );
+                updateStatus();
+                highlighter.refresh();
+            },
+
+            onChange: function ( cb ) {
+                var handler = function () {
+                    cb( ta.value );
+                };
+                ta.addEventListener( 'input', handler );
+                return function () {
+                    ta.removeEventListener( 'input', handler );
+                };
+            },
+
+            destroy: function () {
+                if ( statusTimer ) {
+                    clearTimeout( statusTimer );
+                    statusTimer = null;
+                }
+
+                for ( var i = 0; i < listeners.length; i++ ) {
+                    var l = listeners[ i ];
+                    try {
+                        l[ 0 ].removeEventListener( l[ 1 ], l[ 2 ] );
+                    } catch ( e ) {}
+                }
+                listeners = [];
+
+                try {
+                    highlighter.setEnabled( false );
+                } catch ( e ) {}
+
+                if ( root.parentNode ) {
+                    root.parentNode.removeChild( root );
+                }
+            },
+
+            /* 存储协议：与原 buildEditor() 保存时的格式完全一致 */
+            toStorage: wdToStorage,
+
+            fromStorage: wdFromStorage
+        };
+    }
+
+    /**
+     * 复刻 buildEditor() 内部的 buildWikitextDocument()。
+     * 该函数是 buildEditor 的局部函数，补丁无法直接调用，
+     * 因此在这里用同样的实现重建。
+     */
+    function wdBuildDocument( src ) {
+        var placeholders = [];
+        var wikitext = convertWikidotToWikitext( src, placeholders, true );
+
+        wikitext = restorePlaceholders( wikitext, placeholders );
+
+        if ( wikitext.indexOf( WD_CSS_TEMPLATE ) === -1 ) {
+            wikitext = WD_CSS_TEMPLATE + '\n' + wikitext;
+        }
+
+        return wikitext;
+    }
+
+    /**
+     * Wikidot 源码 -> 页面存储文本
+     * 与原编辑器保存逻辑一致：
+     *   Wikitext + "\n<!--WIKIDOT\n" + source + "\nWIKIDOT-->\n"
+     */
+    function wdToStorage( source ) {
+        var wikitext = wdBuildDocument( source );
+        var safe = String( source ).replace( /-->/g, '--&gt;' );
+
+        return wikitext + '\n<!--WIKIDOT\n' + safe + '\nWIKIDOT-->\n';
+    }
+
+    /**
+     * 页面存储文本 -> Wikidot 源码
+     * 复刻原编辑器的读取逻辑：
+     *   - 有 WIKIDOT 注释，且注释重新前向转换后与当前 Wikitext 一致
+     *     -> 直接复用注释里的源码；
+     *   - 否则根据当前 Wikitext 反向生成源码。
+     *
+     * 返回 { source, reverseConverted }，便于调用方提示用户。
+     */
+    function wdFromStorage( wikitext ) {
+        var text = String( wikitext == null ? '' : wikitext );
+        var commentMatch = text.match( COMMENT_RE );
+        var cleanWikitext = text
+            .replace( /<!--WIKIDOT\n[\s\S]*?\nWIKIDOT-->/g, '' )
+            .replace( /^\n+|\n+$/g, '' );
+
+        var source;
+        var reverseConverted = false;
+
+        if ( commentMatch ) {
+            var storedSource = commentMatch[ 1 ].replace( /--&gt;/g, '-->' );
+            var storedWikitext = wdBuildDocument( storedSource );
+
+            if ( normalizeWikitextForCompare( storedWikitext ) ===
+                 normalizeWikitextForCompare( cleanWikitext ) ) {
+                source = storedSource;
+            } else {
+                source = convertWikitextToWikidot( cleanWikitext );
+                reverseConverted = true;
+            }
+        } else {
+            source = convertWikitextToWikidot( cleanWikitext );
+            reverseConverted = true;
+        }
+
+        return {
+            source: normalizeStoredWikidotSource( source ),
+            reverseConverted: reverseConverted
+        };
+    }
+
+    /* 对外导出：作家助手只依赖这一组接口 */
+    mw.wikidotEditor = {
+        mount: mountWikidotEditor,
+        toStorage: wdToStorage,
+        fromStorage: wdFromStorage,
+
+        /* 方便调试或其他脚本复用 */
+        convertWikitextToWikidot: convertWikitextToWikidot,
+        convertWikidotToWikitext: function ( src ) {
+            var placeholders = [];
+            var out = convertWikidotToWikitext( src, placeholders, true );
+            return restorePlaceholders( out, placeholders );
+        }
+    };
+
     initWikidotEditor();
 }() );
