@@ -929,7 +929,8 @@
         subtitle.textContent =
             '使用 Wikidot 语法书写，保存时自动转换为 Wikitext。' +
             ( reverseConverted
-                ? ' 本次已根据当前 Wikitext 反向生成源码。'
+                ? ' 本次已根据当前 Wikitext 反向生成源码。' +
+                  ' 由于限制，可能存在无法转换的 MediaWiki 语法。'
                 : '' );
 
         headerMain.appendChild( title );
@@ -2949,6 +2950,14 @@
                 /<references\s*>[\s\S]*?<\/references>/gi,
                 '[[footnoteblock]]'
             );
+            value = value.replace(
+                /<center\b[^>]*>([\s\S]*?)<\/center>/gi,
+                function ( m, inner ) {
+                    return '[[=]]\n' +
+                        inner.replace( /^\n+|\n+$/g, '' ) +
+                        '\n[[/=]]';
+                }
+            );
 
             /*
              * 模板参数的换行无法直接放进 Wikidot include 的单行参数，
@@ -2974,6 +2983,51 @@
         return P( include );
     }
 
+    /*
+     * {{Collapse}} 的 initial/final 是折叠标题，body 是折叠内容。
+     * 直接转成 Wikidot 的 [[collapsible]]，body 递归转换，
+     * 这样 body 里的 {{Blurimage}}、[[=]]、标题等仍会正常转换。
+     */
+    function collapseLabel( text ) {
+        var wd = convertWikitextToWikidot( text || '' );
+        return wd
+            .replace( /<br\s*\/?>/gi, ' ' )
+            .replace( /<\/?[^>]+>/g, ' ' )
+            .replace( /\[\[\/?=\]\]/g, ' ' )
+            .replace( /\[\[\[([^\]|]+)\|([^\]]+)\]\]\]/g, '$2' )
+            .replace( /\[\[\[([^\]]+)\]\]\]/g, '$1' )
+            .replace( /\[\[([^\]|]+)\|([^\]]+)\]\]/g, '$2' )
+            .replace( /\[\[([^\]]+)\]\]/g, '$1' )
+            .replace( /^[*#]+\s*/gm, ' ' )
+            .replace( /^\++\s*/gm, ' ' )
+            .replace( /\s+/g, ' ' )
+            .replace( /"/g, '&quot;' )
+            .trim();
+    }
+
+    function buildCollapsibleFromTemplate( rawArgs, P ) {
+        var map = {};
+
+        for ( var i = 0; i < rawArgs.length; i++ ) {
+            var part = rawArgs[ i ];
+            var eq = part.indexOf( '=' );
+            if ( eq === -1 ) continue;
+            var key = part.substring( 0, eq ).trim().toLowerCase();
+            if ( key ) map[ key ] = part.substring( eq + 1 );
+        }
+
+        var show = collapseLabel( map.initial ) || '展开';
+        var hide = collapseLabel( map.final ) || '收起';
+        var body = convertWikitextToWikidot( map.body || '' )
+            .replace( /^\n+|\n+$/g, '' );
+
+        return P(
+            '[[collapsible show="' + show + '" hide="' + hide + '"]]' +
+            ( body ? '\n' + body + '\n' : '' ) +
+            '[[/collapsible]]'
+        );
+    }
+
     function convertOneTemplate( inner, P ) {
         var templateText = '{{' + inner + '}}';
         var trimmed = inner.trim();
@@ -2995,9 +3049,11 @@
         }
 
         /* 解析函数、三花括号模板参数等不做 include 化 */
-        if ( /^[#:]/.test( trimmed ) ||
+        var isCollapseTemplate = /^Collapse\b/i.test( trimmed );
+        if ( !isCollapseTemplate && (
+             /^[#:]/.test( trimmed ) ||
              trimmed.indexOf( '{{{' ) !== -1 ||
-             trimmed.indexOf( '}}}' ) !== -1 ) {
+             trimmed.indexOf( '}}}' ) !== -1 ) ) {
             return P( templateText );
         }
 
@@ -3032,6 +3088,10 @@
             var parts = splitTopLevelPipes( inner );
             name = parts.shift().trim();
             rawArgs = parts;
+        }
+
+        if ( /^Collapse$/i.test( name ) ) {
+            return buildCollapsibleFromTemplate( rawArgs, P );
         }
 
         return buildIncludeFromTemplate( name, rawArgs, P, templateText );
@@ -3603,6 +3663,8 @@
      * 前向转换时还原成 MediaWiki 的 HTML 与双括号链接。
      */
     function convertIncludeArgToWikitext( value ) {
+        value = value.replace( /\[\[=\]\]/g, '<div style="text-align:center">' );
+        value = value.replace( /\[\[\/=\]\]/g, '</div>' );
         value = value.replace(
             /##([^|#\n]+)\|([^\n]*?)##/g,
             function ( m, color, text ) {
