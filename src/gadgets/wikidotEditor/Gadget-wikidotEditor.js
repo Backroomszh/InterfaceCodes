@@ -2538,6 +2538,59 @@
         return source;
     }
 
+    /*
+     * [[File:...]] / [[Image:...]]：
+     * 站内图片转 [[image]] / [[=image]]；
+     * 站外链接、音视频/PDF、thumb/frame/autoplay 等无法表达的选项，
+     * 原样放进 [[html]]，避免留下原生 MediaWiki 语法。
+     */
+    function convertFileLink( m, body, P ) {
+        var parts = body.split( '|' );
+        var name = parts.shift().trim();
+        var width = '';
+        var alt = '';
+        var center = false;
+        var unsupported = false;
+
+        parts.forEach( function ( part ) {
+            part = part.trim();
+            if ( !part ) return;
+
+            if ( /^\d+(?:x\d+)?(?:px)?$/i.test( part ) ) {
+                width = part;
+            } else if ( /^alt\s*=/i.test( part ) ) {
+                alt = part.substring( part.indexOf( '=' ) + 1 ).trim();
+            } else if ( /^link\s*=/i.test( part ) ) {
+                /* link= 只影响点击目标，不阻止图片本身转换 */
+            } else if ( /^center$/i.test( part ) ) {
+                center = true;
+            } else {
+                /* thumb/frame/autoplay/loop 等无法用 Wikidot 图片表达 */
+                unsupported = true;
+            }
+        } );
+
+        var isExternal = /^(?:https?:)?\/\//i.test( name );
+        var extMatch = /\.([a-z0-9]+)(?:[?#].*)?$/i.exec( name );
+        var ext = extMatch ? extMatch[ 1 ].toLowerCase() : '';
+        var isMediaFile = /^(?:mp3|ogg|oga|wav|flac|opus|m4a|mp4|webm|ogv|pdf|djvu)$/.test( ext );
+
+        if ( !name || unsupported || isExternal || isMediaFile ) {
+            return P( '[[html]]' + m + '[[/html]]' );
+        }
+
+        var out = '[[' + ( center ? '=' : '' ) + 'image ' + name;
+        if ( width ) out += ' width="' + width + '"';
+        if ( alt ) out += ' alt="' + alt + '"';
+        return P( out + ']]' );
+    }
+
+    function extractImageName( attrs ) {
+        /* 文件名可以包含空格，属性从 width=/alt=/link= 等开始 */
+        var idx = attrs.search( /\s+(?:width|alt|link|class|style|align)\s*=/i );
+        return ( idx === -1 ? attrs : attrs.slice( 0, idx ) ).trim();
+    }
+
     var htmlBlockSeq = 0;
 
     function convertWikitextToWikidot( wikitext ) {
@@ -2679,31 +2732,7 @@
         /* 图片 / 媒体链接先于普通内链 */
         src = src.replace(
             /\[\[(?:File|Image):([^\]\n]+)\]\]/gi,
-            function ( m, body ) {
-                var parts = body.split( '|' );
-                var name = parts.shift().trim();
-                var width = '';
-                var alt = '';
-                var complex = false;
-
-                parts.forEach( function ( part ) {
-                    part = part.trim();
-                    if ( /^\d+(?:x\d+)?(?:px)?$/i.test( part ) ) {
-                        width = part;
-                    } else if ( /^alt\s*=/i.test( part ) ) {
-                        alt = part.substring( part.indexOf( '=' ) + 1 ).trim();
-                    } else if ( part ) {
-                        complex = true;
-                    }
-                } );
-
-                if ( !name || complex ) return P( m );
-
-                var out = '[[image ' + name;
-                if ( width ) out += ' width="' + width + '"';
-                if ( alt ) out += ' alt="' + alt + '"';
-                return P( out + ']]' );
-            }
+            function ( m, body ) { return convertFileLink( m, body, P ); }
         );
         src = src.replace( /\[\[Media:([^\]\n]+)\]\]/gi, function ( m, body ) {
             var parts = body.split( '|' );
@@ -2955,12 +2984,13 @@
              * 前向转换 convertIncludeArgToWikitext 会完整还原成 HTML。
              */
             value = value.replace(
-                /(^|[^\[])\[\[([^\[\]\n]+?)\]\](?!\])/g,
+                /(^|[^\[])\[\[((?!File:|Image:)[^\[\]\n]+?)\]\](?!\])/gi,
                 function ( m, pre, inner ) {
                     return pre + '[[[' + inner + ']]]';
                 }
             );
             value = convertWikitextSpans( value );
+            value = convertWikitextDivs( value );
             value = value.replace( /<references\s*\/>/gi, '[[footnoteblock]]' );
             value = value.replace(
                 /<references\s*>[\s\S]*?<\/references>/gi,
@@ -2973,6 +3003,10 @@
                         inner.replace( /^\n+|\n+$/g, '' ) +
                         '\n[[/=]]';
                 }
+            );
+            value = value.replace(
+                /\[\[(?:File|Image):([^\]\n]+)\]\]/gi,
+                function ( m, body ) { return convertFileLink( m, body, P ); }
             );
 
             /*
@@ -3360,11 +3394,11 @@
         src = src.replace(
             /\[\[=image\s+([^\]]+)\]\]/gi,
             function ( m, attrs ) {
-                var fnMatch = attrs.match( /^\s*(\S+)/ );
-                var filename = fnMatch ? fnMatch[ 1 ] : '';
+                var filename = extractImageName( attrs );
+                if ( !filename ) return m;
                 var wMatch = attrs.match( /width\s*=\s*"([^"]*)"/i );
                 var aMatch = attrs.match( /alt\s*=\s*"([^"]*)"/i );
-                var result = '[[File:' + filename;
+                var result = '[[File:' + filename + '|center';
                 if ( wMatch ) result += '|' + wMatch[ 1 ];
                 if ( aMatch ) result += '|alt=' + aMatch[ 1 ];
                 result += ']]';
@@ -3376,9 +3410,8 @@
         src = src.replace(
             /\[\[image\s+([^\]]+)\]\]/gi,
             function ( m, attrs ) {
-                var fnMatch = attrs.match( /^\s*(\S+)/ );
-                if ( !fnMatch ) return m;
-                var first = fnMatch[ 1 ];
+                var first = extractImageName( attrs );
+                if ( !first ) return m;
 
                 if ( /^https?:\/\//i.test( first ) ) {
                     return P( '<nowiki>' + m + '</nowiki>' );
@@ -3695,6 +3728,44 @@
     function convertIncludeArgToWikitext( value ) {
         value = value.replace( /\[\[=\]\]/g, '<div style="text-align:center">' );
         value = value.replace( /\[\[\/=\]\]/g, '</div>' );
+
+        var divRe = /\[\[div(?:\s+((?:(?:class|style|id)\s*=\s*"[^"]*"\s*)+))?\]\]([\s\S]*?)\[\[\/div\]\]/gi;
+        var prev;
+        do {
+            prev = value;
+            value = value.replace( divRe, function ( m, attrs, inner ) {
+                return '<div' + ( attrs ? ' ' + attrs.trim() : '' ) + '>' +
+                       inner + '</div>';
+            } );
+        } while ( value !== prev );
+
+        value = value.replace(
+            /\[\[=image\s+([^\]]+)\]\]/gi,
+            function ( m, attrs ) {
+                var filename = extractImageName( attrs );
+                if ( !filename ) return m;
+                var wMatch = attrs.match( /width\s*=\s*"([^"]*)"/i );
+                var aMatch = attrs.match( /alt\s*=\s*"([^"]*)"/i );
+                var result = '[[File:' + filename + '|center';
+                if ( wMatch ) result += '|' + wMatch[ 1 ];
+                if ( aMatch ) result += '|alt=' + aMatch[ 1 ];
+                return result + ']]';
+            }
+        );
+        value = value.replace(
+            /\[\[image\s+([^\]]+)\]\]/gi,
+            function ( m, attrs ) {
+                var filename = extractImageName( attrs );
+                if ( !filename ) return m;
+                var wMatch = attrs.match( /width\s*=\s*"([^"]*)"/i );
+                var aMatch = attrs.match( /alt\s*=\s*"([^"]*)"/i );
+                var result = '[[File:' + filename;
+                if ( wMatch ) result += '|' + wMatch[ 1 ];
+                if ( aMatch ) result += '|alt=' + aMatch[ 1 ];
+                return result + ']]';
+            }
+        );
+
         value = value.replace(
             /##([^|#\n]+)\|([^\n]*?)##/g,
             function ( m, color, text ) {
