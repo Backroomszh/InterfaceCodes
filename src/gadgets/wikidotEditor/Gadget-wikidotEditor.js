@@ -2616,6 +2616,14 @@
             return P( '{{' + body + '}}' );
         } );
 
+        /*
+         * MediaWiki 行首的 > 是字面文本，但 Wikidot 会把它当引用。
+         * 先用 @@...@@ 转义；前向转换会还原成字面 >。
+         */
+        src = src.replace( /^(>+)/gm, function ( m ) {
+            return '@@' + m + '@@';
+        } );
+
         /* 编辑器自动注入的包裹（代码等已先保护） */
         src = src.replace(
             /\{\{CSS\|User:QiuxiMeow\/代码\/wd适配\.css\}\}\n?/g,
@@ -2725,6 +2733,14 @@
         src = src.replace( /^(={1,6})\s*(.*?)\s*\1\s*$/gm, function ( m, eq, text ) {
             return new Array( eq.length + 1 ).join( '+' ) + ' ' + text;
         } );
+        src = src.replace(
+            /<h([1-6])\b[^>]*>([\s\S]*?)<\/h\1>/gi,
+            function ( m, level, text ) {
+                text = text.replace( /\s*\n\s*/g, ' ' ).trim();
+                return new Array( parseInt( level, 10 ) + 1 ).join( '+' ) +
+                       ' ' + text;
+            }
+        );
 
         /* 脚注 */
         src = src.replace( /<ref\b([^>]*)>([\s\S]*?)<\/ref>/gi, function ( m, attrs, inner ) {
@@ -2984,47 +3000,61 @@
     }
 
     /*
-     * {{Collapse}} 的 initial/final 是折叠标题，body 是折叠内容。
-     * 直接转成 Wikidot 的 [[collapsible]]，body 递归转换，
-     * 这样 body 里的 {{Blurimage}}、[[=]]、标题等仍会正常转换。
+     * {{Collapse}} 保留模板语义，转成 include，而不是压平成
+     * [[collapsible show="..."]] —— 后者的 show 只能是纯文本，
+     * 会把 original 里的标题、换行和列表全部挤成一行。
+     *
+     * initial/final/body 会递归转成 Wikidot；其中的结构换行先用
+     * @@@@ 表示，前向转换时再还原成真正的换行，从而保留段落、
+     * 标题和列表排版。<br /> 则先保护成 HTML，避免与结构换行混淆。
      */
-    function collapseLabel( text ) {
-        var wd = convertWikitextToWikidot( text || '' );
-        return wd
-            .replace( /<br\s*\/?>/gi, ' ' )
-            .replace( /<\/?[^>]+>/g, ' ' )
-            .replace( /\[\[\/?=\]\]/g, ' ' )
-            .replace( /\[\[\[([^\]|]+)\|([^\]]+)\]\]\]/g, '$2' )
-            .replace( /\[\[\[([^\]]+)\]\]\]/g, '$1' )
-            .replace( /\[\[([^\]|]+)\|([^\]]+)\]\]/g, '$2' )
-            .replace( /\[\[([^\]]+)\]\]/g, '$1' )
-            .replace( /^[*#]+\s*/gm, ' ' )
-            .replace( /^\++\s*/gm, ' ' )
-            .replace( /\s+/g, ' ' )
-            .replace( /"/g, '&quot;' )
-            .trim();
+    function collapseArgToWikidot( text ) {
+        var brs = [];
+
+        text = String( text || '' ).replace( /<br\s*\/?>/gi, function ( m ) {
+            var id = '\u0000BR' + brs.length + '\u0000';
+            brs.push( m );
+            return id;
+        } );
+
+        text = convertWikitextToWikidot( text );
+        text = text.replace( /\u0000BR(\d+)\u0000/g, function ( m, i ) {
+            return brs[ parseInt( i, 10 ) ];
+        } );
+
+        return text
+            .replace( /^\n+|\n+$/g, '' )
+            .replace( /\r?\n/g, '@@@@' );
     }
 
-    function buildCollapsibleFromTemplate( rawArgs, P ) {
-        var map = {};
+    function buildCollapseInclude( rawArgs, P ) {
+        var args = [];
 
         for ( var i = 0; i < rawArgs.length; i++ ) {
             var part = rawArgs[ i ];
+            if ( !part || !part.trim() ) continue;
+
             var eq = part.indexOf( '=' );
             if ( eq === -1 ) continue;
-            var key = part.substring( 0, eq ).trim().toLowerCase();
-            if ( key ) map[ key ] = part.substring( eq + 1 );
+
+            var key = part.substring( 0, eq ).trim();
+            var value = part.substring( eq + 1 );
+
+            if ( /^(?:initial|final|body)$/i.test( key ) ) {
+                value = collapseArgToWikidot( value );
+            } else {
+                value = value
+                    .replace( /^\n+|\n+$/g, '' )
+                    .replace( /\r?\n/g, '@@@@' );
+            }
+
+            args.push( key + '=' + value );
         }
 
-        var show = collapseLabel( map.initial ) || '展开';
-        var hide = collapseLabel( map.final ) || '收起';
-        var body = convertWikitextToWikidot( map.body || '' )
-            .replace( /^\n+|\n+$/g, '' );
-
         return P(
-            '[[collapsible show="' + show + '" hide="' + hide + '"]]' +
-            ( body ? '\n' + body + '\n' : '' ) +
-            '[[/collapsible]]'
+            '[[include component:Collapse' +
+            ( args.length ? '\n| ' + args.join( '\n| ' ) : '' ) +
+            ']]'
         );
     }
 
@@ -3091,7 +3121,7 @@
         }
 
         if ( /^Collapse$/i.test( name ) ) {
-            return buildCollapsibleFromTemplate( rawArgs, P );
+            return buildCollapseInclude( rawArgs, P );
         }
 
         return buildIncludeFromTemplate( name, rawArgs, P, templateText );
@@ -3724,6 +3754,7 @@
 
         var tmplName = mapIncludeName( moduleName );
         var isCssModule = /^CSS$/i.test( tmplName );
+        var isCollapseModule = /^Collapse$/i.test( tmplName );
         var params = args.map( function ( kv ) {
             var value;
 
@@ -3731,6 +3762,21 @@
                 /* CSS 内容不是 Wikitext，@@@@ 必须还原成换行而不是 <br /> */
                 value = kv[ 1 ].replace( /@@@@/g, '\n' );
                 if ( !/\n$/.test( value ) ) value += '\n';
+            } else if ( isCollapseModule ) {
+                /*
+                 * Collapse 的 initial/final/body 是块级 Wikitext，
+                 * 先把 @@@@ 还原成真正的换行，再完整跑一遍前向转换，
+                 * 这样标题、列表、[[=]]、嵌套的 Blurimage 都能还原。
+                 */
+                var raw = kv[ 1 ].replace( /@@@@/g, '\n' );
+                /*
+                 * 让 ++ 标题、列表等从行首开始，否则模板参数里的
+                 * == 标题不会按 MediaWiki 标题解析。
+                 */
+                if ( !/^\n/.test( raw ) ) raw = '\n' + raw;
+                var argPh = [];
+                value = convertWikidotToWikitext( raw, argPh, false );
+                value = restorePlaceholders( value, argPh );
             } else {
                 /*
                  * 反向转换会把模板参数里的换行写成 @@@@；
