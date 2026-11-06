@@ -443,7 +443,26 @@ body.mwchat-dragging { user-select: none !important; }
 .mwchat-act-delete:hover,
 .mwchat-act-blacklist:hover { color: var(--mwc-danger); }
 @media (hover: none), (pointer: coarse) {
-    .mwchat-actions { opacity: .95; pointer-events: auto; }
+    /* 触屏没有 hover：操作按钮常驻，并放到消息下方，别盖住时间 */
+    .mwchat-row {
+        grid-template-areas:
+            "avatar name time"
+            "avatar body body"
+            "actions actions actions";
+    }
+    .mwchat-actions {
+        position: static;
+        grid-area: actions;
+        justify-self: end;
+        align-self: start;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+        max-width: 100%;
+        margin-top: 3px;
+        opacity: 1;
+        pointer-events: auto;
+    }
+    .mwchat-actions:empty { display: none; }
 }
 
 /* ---------- 等级徽章 ---------- */
@@ -849,6 +868,26 @@ body.mwchat-dragging { user-select: none !important; }
     }
     .mwchat-header { padding-top: 14px; }
     .mwchat-input { font-size: 16px; }
+    /* 移动端把操作按钮放到消息下方，避免盖住右上角时间 */
+    .mwchat-row {
+        grid-template-areas:
+            "avatar name time"
+            "avatar body body"
+            "actions actions actions";
+    }
+    .mwchat-actions {
+        position: static;
+        grid-area: actions;
+        justify-self: end;
+        align-self: start;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+        max-width: 100%;
+        margin-top: 3px;
+        opacity: 1;
+        pointer-events: auto;
+    }
+    .mwchat-actions:empty { display: none; }
     .mwchat-trigger-wrap {
         transition: transform .25s cubic-bezier(.22, .8, .24, 1), opacity .18s ease;
         will-change: transform;
