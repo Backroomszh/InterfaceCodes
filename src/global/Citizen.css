@@ -1902,12 +1902,11 @@ a[title='创建新子页面']::before {
 }
 @media screen and (max-width: 760px) {
     .citizen-page-aside .citizen-toc {
-        bottom: 8rem;
-        right: 0;
-        left: auto;
+        left: 20px;
+        right: auto;
     }
     .citizen-page-aside .citizen-toc-card {
-        right: 0;
+        left: 0;
     }
 }
 @media screen and (max-width: 1119.98px) {
