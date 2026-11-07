@@ -25,6 +25,7 @@
       - czzTools
       - editButtonSupplement
       - wikidotEditor
+      - novelEditor
 
 - section: Admin
   gadgets:
