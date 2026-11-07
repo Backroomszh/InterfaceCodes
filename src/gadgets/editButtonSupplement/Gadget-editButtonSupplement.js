@@ -5,6 +5,19 @@
     if ( !mw.config.get( 'wgIsProbablyEditable' ) ) return;
     if ( mw.config.get( 'wgNamespaceNumber' ) < 0 ) return;
 
+    // ── 避免在 The_Backrooms_Wiki: 命名空间运行 ──────────────────────────
+    // 1) 项目命名空间在标准 MediaWiki 中固定为 4；
+    // 2) 某些 wiki 会把 Project 别名成站点名（如 The_Backrooms_Wiki），
+    //    通过 wgNamespaceIds 反查其编号一并排除。
+    var nsIds = mw.config.get( 'wgNamespaceIds' ) || {};
+    var excludedNsIds = [ 4 ];
+    var aliasId = nsIds[ 'the_backrooms_wiki' ];
+    if ( aliasId !== undefined && excludedNsIds.indexOf( aliasId ) === -1 ) {
+        excludedNsIds.push( aliasId );
+    }
+    if ( excludedNsIds.indexOf( mw.config.get( 'wgNamespaceNumber' ) ) !== -1 ) return;
+    // ─────────────────────────────────────────────────────────────────────
+
     var pageName = mw.config.get( 'wgPageName' );
 
     // 跳过带文件后缀的页面（.js / .lua / .css / .json / .txt 等）
@@ -14,6 +27,11 @@
     var wdEditUrl = mw.util.getUrl( pageName, {
         action: 'edit',
         editor: 'wd'
+    } );
+
+    var novelEditUrl = mw.util.getUrl( pageName, {
+        action: 'edit',
+        editor: 'novel'
     } );
 
     var tries = 0;
@@ -48,6 +66,29 @@
                                         'stroke-linecap="round"/>' +
                                 '</svg>' +
                                 '<span>使用wikidot语法编辑</span>' +
+                            '</span>' +
+                        '</a>' +
+                    '</li>' +
+                    '<li id="ca-edit-novel" class="mw-list-item">' +
+                        '<a href="' + novelEditUrl + '" rel="nofollow" ' +
+                            'title="使用纯写作模式编辑本页">' +
+                            '<span style="display:inline-flex;align-items:center;gap:6px;">' +
+                                '<svg xmlns="http://www.w3.org/2000/svg" ' +
+                                    'width="20" height="20" viewBox="0 0 20 20" ' +
+                                    'aria-hidden="true">' +
+                                    // 钢笔外轮廓：笔尾 → 笔身 → 笔尖
+                                    '<path d="M14 3 L17 6 L9 15 L4 16 L5 11 Z" ' +
+                                        'fill="none" stroke="currentColor" ' +
+                                        'stroke-width="2" ' +
+                                        'stroke-linejoin="round" ' +
+                                        'stroke-linecap="round"/>' +
+                                    // 笔身/笔握分界（对应钢笔的笔夹根部）
+                                    '<path d="M11.5 5.5 L14.5 8.5" ' +
+                                        'fill="none" stroke="currentColor" ' +
+                                        'stroke-width="2" ' +
+                                        'stroke-linecap="round"/>' +
+                                '</svg>' +
+                                '<span>使用纯写作模式编辑</span>' +
                             '</span>' +
                         '</a>' +
                     '</li>' +
