@@ -3269,6 +3269,15 @@
             sel.addRange( range );
         }
 
+        function setCaretAtEnd( block ) {
+            var range = document.createRange();
+            range.selectNodeContents( block );
+            range.collapse( false );
+            var sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange( range );
+        }
+
         function ensureEditorBlocks() {
             var child = editor.firstChild;
             var pending = null;
@@ -3533,6 +3542,135 @@
 
             setCaretInside( tail );
             afterEdit();
+        }
+
+        /*
+         * 空段落的删除：浏览器对 <div><br></div> 的 Delete/Backspace
+         * 处理不一致（第一行能删、后面几行删不掉）。
+         * 这里统一改成整段移除，保证任意位置的空行行为一致。
+         */
+        function isPlainTextBlock( node ) {
+            if ( !node || node.nodeType !== 1 ) return false;
+            if ( !/^(DIV|P|H[1-6]|BLOCKQUOTE)$/.test( node.tagName ) ) return false;
+            if ( node === editor ) return false;
+            if ( isWidgetNode( node ) || isCodeContainerNode( node ) ||
+                 isCodeLeafNode( node ) || isInlineCodeContainerNode( node ) ) {
+                return false;
+            }
+            return node.parentNode === editor ||
+                isCodeContainerNode( node.parentNode );
+        }
+
+        function isEmptyTextBlock( node ) {
+            if ( !isPlainTextBlock( node ) ) return false;
+            if ( node.textContent &&
+                 node.textContent.replace( / /g, ' ' ).trim() ) {
+                return false;
+            }
+            return !node.querySelector(
+                'img,hr,.nv-widget,.nv-code-inline,.nv-code-block,' +
+                '.nv-code-container,.nv-code-container-inline'
+            );
+        }
+
+        function blockAtCaret( range ) {
+            var block = closestBlock( range.startContainer );
+            if ( block ) return block;
+
+            /* 光标正好落在编辑器容器的两个段落之间 */
+            if ( range.startContainer === editor ) {
+                var idx = range.startOffset;
+                var node = editor.childNodes[ idx ] || editor.childNodes[ idx - 1 ];
+                if ( node && node.nodeType === 1 ) return node;
+            }
+            return null;
+        }
+
+        function boundaryContent( block, range, atEnd ) {
+            var probe = document.createRange();
+            probe.selectNodeContents( block );
+            try {
+                if ( atEnd ) {
+                    probe.setStart( range.endContainer, range.endOffset );
+                } else {
+                    probe.setEnd( range.startContainer, range.startOffset );
+                }
+            } catch ( e ) {
+                return null;
+            }
+            if ( probe.toString() !== '' ) return null;
+            return probe.cloneContents();
+        }
+
+        function boundaryIsClear( frag ) {
+            if ( !frag ) return false;
+            if ( !frag.querySelector ) return true;
+            return !frag.querySelector(
+                'br,img,hr,.nv-widget,.nv-code-inline,.nv-code-block,' +
+                '.nv-code-container,.nv-code-container-inline'
+            );
+        }
+
+        function caretAtBlockStart( block, range ) {
+            return boundaryIsClear( boundaryContent( block, range, false ) );
+        }
+
+        function caretAtBlockEnd( block, range ) {
+            return boundaryIsClear( boundaryContent( block, range, true ) );
+        }
+
+        function handleEmptyBlockKey( forward ) {
+            var range = getSelectionRange();
+            if ( !range || !range.collapsed ) return false;
+
+            var block = blockAtCaret( range );
+            if ( !isPlainTextBlock( block ) ) return false;
+
+            /* 光标就在空段落里：整段移除，光标落到相邻段落 */
+            if ( isEmptyTextBlock( block ) ) {
+                var sibling = forward ?
+                    block.nextElementSibling : block.previousElementSibling;
+
+                if ( !sibling ) {
+                    /* 首/尾空行没有可合并的段落，吞掉按键，别让占位 <br> 被删掉 */
+                    return true;
+                }
+                if ( !isPlainTextBlock( sibling ) ) return false;
+
+                block.parentNode.removeChild( block );
+
+                if ( forward ) {
+                    setCaretInside( sibling );
+                } else if ( isEmptyTextBlock( sibling ) ) {
+                    setCaretInside( sibling );
+                } else {
+                    setCaretAtEnd( sibling );
+                }
+
+                afterEdit();
+                return true;
+            }
+
+            /* 光标在非空段落边界，相邻是空段落时直接吃掉空行 */
+            if ( forward && caretAtBlockEnd( block, range ) ) {
+                var next = block.nextElementSibling;
+                if ( next && isEmptyTextBlock( next ) ) {
+                    next.parentNode.removeChild( next );
+                    afterEdit();
+                    return true;
+                }
+            }
+
+            if ( !forward && caretAtBlockStart( block, range ) ) {
+                var prev = block.previousElementSibling;
+                if ( prev && isEmptyTextBlock( prev ) ) {
+                    prev.parentNode.removeChild( prev );
+                    afterEdit();
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /* ---------- 格式 ---------- */
@@ -6405,6 +6543,13 @@
                 if ( key === 'u' ) {
                     e.preventDefault();
                     execFormat( 'underline' );
+                    return;
+                }
+            }
+
+            if ( e.key === 'Backspace' || e.key === 'Delete' ) {
+                if ( handleEmptyBlockKey( e.key === 'Delete' ) ) {
+                    e.preventDefault();
                     return;
                 }
             }
