@@ -1,0 +1,18 @@
+ResourceLoader: true
+hidden: true
+default: true
+type: general
+rights: []
+dependencies:
+    - mediawiki.api
+    - jquery
+skins: []
+actions:
+    - edit
+namespaces: []
+peers: []
+package: false
+enable: true
+files:
+    - Gadget-novelEditor.js
+    - Gadget-novelEditor.css
