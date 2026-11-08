@@ -241,7 +241,7 @@ color-scheme:light;color:var(--nv-fg);font-family:var(--nv-ui);
 .nv-embed .nv-main{padding:10px 12px;}
 .nv-embed .nv-paper{max-width:none;}
 .nv-embed .nv-editor{padding:30px 36px 80px;font-size:17px;}
-.nv-embed .nv-editor.is-empty::before{top:30px;left:36px;right:36px;font-size:17px;}
+.nv-embed .nv-editor.is-empty::before{top:30px;left:72px;right:36px;font-size:17px;}
 @media (max-width:900px){
 .nv-doc-title{max-width:min(24vw,240px);}
 .nv-summary{display:none;}
