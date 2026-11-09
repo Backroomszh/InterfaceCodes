@@ -454,3 +454,4 @@ $(document).ready(function () {
     });
 })();
 importScript('MediaWiki:AnonJoinPopup.js');
+importScript('MediaWiki:未正式入站拦截.js');
