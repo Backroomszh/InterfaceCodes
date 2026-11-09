@@ -8,13 +8,18 @@
 (function () {
     'use strict';
 
-    // 未登录用户直接退出，不初始化聊天组件
+    // 1. 未登录用户直接退出，不初始化聊天组件
     if (!mw.config.get('wgUserName')) return;
 
-    // 未确认用户组：不加载聊天组件
-    // 已通过 siteinfo 确认内部名就是 '未确认用户'（非英文别名）
-    if ((mw.config.get('wgUserGroups') || []).indexOf('未确认用户') !== -1) return;
+    // 2. 没有完成入站确认（cookie 缺失）的用户不加载聊天室
+    function hasOobeCompleted() {
+        return document.cookie.split(';').some(function (item) {
+            return item.trim().startsWith('oobe_completed=true');
+        });
+    }
+    if (!hasOobeCompleted()) return;
 
+    // 3. 防止同一页面重复注入
     if (window.__mwchatFloatLoaded) return;
     window.__mwchatFloatLoaded = true;
 
