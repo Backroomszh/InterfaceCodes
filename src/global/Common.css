@@ -1483,7 +1483,7 @@ code,
   max-width: calc(100vw - 2rem) !important;
   margin: 0 !important;
   padding: 0 !important;
-  z-index: 198 !important;
+  z-index: 1000 !important;
 }
 .citizen-sitenotice-container {
   position: static !important;
