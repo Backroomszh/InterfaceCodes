@@ -11,6 +11,10 @@
     // 未登录用户直接退出，不初始化聊天组件
     if (!mw.config.get('wgUserName')) return;
 
+    // 未确认用户组：不加载聊天组件
+    // 已通过 siteinfo 确认内部名就是 '未确认用户'（非英文别名）
+    if ((mw.config.get('wgUserGroups') || []).indexOf('未确认用户') !== -1) return;
+
     if (window.__mwchatFloatLoaded) return;
     window.__mwchatFloatLoaded = true;
 
