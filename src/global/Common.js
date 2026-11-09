@@ -2,6 +2,8 @@
  * Script Name: Template CSS
  * Author: Fandom Backrooms(CC BY-SA 4.0 International)
  */
+importScript('MediaWiki:AnonJoinPopup.js');
+importScript('MediaWiki:未正式入站拦截.js');
 (function () {
     const eles = document.querySelectorAll('.js-action-play');
     eles.forEach(function (e) {
@@ -453,5 +455,3 @@ $(document).ready(function () {
             });
     });
 })();
-importScript('MediaWiki:AnonJoinPopup.js');
-importScript('MediaWiki:未正式入站拦截.js');
