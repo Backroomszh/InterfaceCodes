@@ -4,6 +4,10 @@
  *
  * 全部读写只经过站内 api.php（mw.Api），不使用 WebSocket / EventSource /
  * 外部 HTTP 服务 / CDN / iframe。所有写操作均带 assert: 'user'。
+ *
+ * 入站门槛：读取「入站用户名单」白名单页面，不再依赖 cookie。
+ *   - 在名单内：正常挂载聊天室
+ *   - 不在名单 / 页面缺失 / 读取失败：完全不挂载任何 DOM（fail-closed）
  */
 (function () {
     'use strict';
@@ -11,15 +15,7 @@
     // 1. 未登录用户直接退出，不初始化聊天组件
     if (!mw.config.get('wgUserName')) return;
 
-    // 2. 没有完成入站确认（cookie 缺失）的用户不加载聊天室
-    function hasOobeCompleted() {
-        return document.cookie.split(';').some(function (item) {
-            return item.trim().startsWith('oobe_completed=true');
-        });
-    }
-    if (!hasOobeCompleted()) return;
-
-    // 3. 防止同一页面重复注入
+    // 2. 防止同一页面重复注入
     if (window.__mwchatFloatLoaded) return;
     window.__mwchatFloatLoaded = true;
 
@@ -28,6 +24,9 @@
         // 存储页面
         CHAT_PAGE: 'Storage:Chat',
         BLACKLIST_PAGE: 'MediaWiki:ChatBlacklist',
+
+        // 入站白名单页面（与「入站前守则」Gadget 使用同一名单）
+        MEMBER_LIST_PAGE: '入站用户名单',
 
         // 所有编辑摘要必须以此前缀开头，否则会被 AbuseFilter 拦截
         SUMMARY_PREFIX: 'mwlfg: ',
@@ -355,6 +354,58 @@
             }
         }
         throw lastError;
+    }
+
+    /* ============================ 入站白名单（严格模式） ============================ */
+    // 与「入站前守则」Gadget 使用同一份名单，解析规则保持一致：
+    //   - 每行去掉前导 * / #（列表语法）
+    //   - 支持 [[User:Name]]、[[User:Name|显示名]]、[[:User:Name]]
+    //   - 也支持直接写用户名
+    // 页面缺失视作空名单；读取失败由调用方 fail-closed 处理。
+    async function readMemberListStrict() {
+        const data = await getApi().get({
+            action: 'query', formatversion: 2,
+            prop: 'revisions', rvprop: 'content', rvslots: 'main',
+            titles: CONFIG.MEMBER_LIST_PAGE,
+            maxage: 0, smaxage: 0
+        });
+        const p = data.query && data.query.pages && data.query.pages[0];
+        if (!p || p.missing) return '';
+        const rev = p.revisions && p.revisions[0];
+        const raw = rev && rev.slots && rev.slots.main && rev.slots.main.content;
+        return String(raw == null ? '' : raw);
+    }
+
+    function isMemberInContent(content, name) {
+        const target = String(name || '').replace(/_/g, ' ').trim().toLowerCase();
+        if (!target) return false;
+        return String(content || '').split(/\r?\n/).some(function (line) {
+            const n = line.replace(/^\s*[*#]+\s*/, '').trim();
+            if (!n) return false;
+            const m = n.match(/^\[\[:?\s*User\s*:\s*([^|\]]+?)\s*(?:\|[^\]]*)?\]\]$/i);
+            if (m) {
+                return m[1].replace(/_/g, ' ').trim().toLowerCase() === target;
+            }
+            return n.toLowerCase() === target;
+        });
+    }
+
+    // 严格校验：不在名单或无法验证（网络/页面异常）一律返回 false。
+    // 这是启动聊天室前的强制检查，失败就完全不挂载。
+    async function enforceMembership() {
+        if (!state.me) return false;
+        try {
+            let content;
+            try {
+                content = await readMemberListStrict();
+            } catch (firstError) {
+                // 单次网络抖动时重试一次；仍然失败则 fail-closed
+                content = await readMemberListStrict();
+            }
+            return isMemberInContent(content, state.me);
+        } catch (e) {
+            return false;
+        }
     }
 
     /* ============================ 黑名单（严格模式） ============================ */
@@ -3861,21 +3912,31 @@
     /* ============================ 启动 ============================ */
     async function main() {
         state.me = mw.config.get('wgUserName') || null;
+        if (!state.me) return;
+
+        // 入站白名单（fail-closed）：
+        //   - 在「入站用户名单」内：继续初始化
+        //   - 不在名单 / 页面缺失 / 读取失败：完全不挂载任何 DOM
+        let member = false;
+        for (let attempt = 0; attempt < 2; attempt++) {
+            member = await enforceMembership();
+            if (member || state.lockedOut) break;
+            await sleep(600);
+        }
+        if (!member) return;
 
         // 严格黑名单（fail-closed）：
         //   - 命中：完全不挂载任何 DOM
         //   - 命中不了（读取失败 / JSON 损坏）：同样不挂载，绝不放行
-        // 匿名用户没有用户名，不可能命中名单，按只读模式挂载。
-        if (state.me) {
-            let ok = false;
-            for (let attempt = 0; attempt < 2; attempt++) {
-                ok = await enforceBlacklist();
-                if (ok || state.lockedOut) break;
-                await sleep(600);
-            }
-            if (!ok) return; // 命中或无法验证：不挂载任何 DOM
-            state.userSet.add(state.me);
+        let ok = false;
+        for (let attempt = 0; attempt < 2; attempt++) {
+            ok = await enforceBlacklist();
+            if (ok || state.lockedOut) break;
+            await sleep(600);
         }
+        if (!ok) return;
+        state.userSet.add(state.me);
+
         if (!document.body) return;
 
         const groups = mw.config.get('wgUserGroups') || [];
