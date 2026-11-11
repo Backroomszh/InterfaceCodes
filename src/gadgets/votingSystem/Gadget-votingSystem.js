@@ -11,6 +11,16 @@ function runAll() {
     var ANCHOR_ID = 'voting-panel-anchor';
     var ALL_RECORDS_CACHE_TTL = 30 * 60 * 1000;
 
+    // ------------------ 白名单 ------------------
+    // 只有名单内的用户才会加载投票系统。名单页面每一行形如：
+    //   * [[User:用户名|用户名]]
+    // 页面在其他命名空间时，改这里的标题即可。
+    var WHITELIST_TITLE = '入站用户名单';
+    var WHITELIST_CACHE_KEY = 'voting_whitelist_v1';
+    var WHITELIST_TTL = 10 * 60 * 1000;
+    // 白名单校验通过后才初始化任何投票界面。
+    var accessGranted = false;
+
     // 投票量纲：-1 / -0.5 / 0 / +0.5 / +1。
     // 历史上曾短暂改为 +1 ~ +5（记录版本 v2），读取时换算回旧量纲；
     // 新投票继续写 v1。
@@ -1323,6 +1333,7 @@ function runAll() {
     }
 
     function initGlobalRanking( wrap, order, limit, opts ) {
+        if ( !accessGranted ) return Promise.resolve();
         opts = opts || {};
         wrap.innerHTML = '';
         wrap.appendChild( el( 'div', 'voting-ranking-loading', msg( 'ranking-snapshot-loading' ) ) );
@@ -1391,6 +1402,7 @@ function runAll() {
 
 
     function initMonthlyRanking( wrap, month, order, limit, opts ) {
+        if ( !accessGranted ) return Promise.resolve();
         opts = opts || {};
         wrap.innerHTML = '';
         wrap.appendChild( el( 'div', 'voting-ranking-loading', msg( 'ranking-snapshot-loading' ) ) );
@@ -1459,6 +1471,7 @@ function runAll() {
     }
 
     function initRanking() {
+        if ( !accessGranted ) return;
         var allowGlobal = isAllowed( 'globalRanking' );
         var allowMonthly = isAllowed( 'monthlyRanking' );
 
@@ -2428,7 +2441,75 @@ function runAll() {
         rerender();
     }
 
+    // ---------------- 白名单校验 ----------------
+
+    function normalizeUserName( name ) {
+        var n = String( name || '' ).replace( /_/g, ' ' ).replace( /\s+/g, ' ' ).trim();
+        if ( !n ) return '';
+        return n.charAt( 0 ).toUpperCase() + n.slice( 1 );
+    }
+
+    // 只解析 * / # 列表项里的 [[User:...]]，避免正文里提到的用户名被误当成白名单
+    function parseWhitelist( text ) {
+        var names = {};
+        var lines = String( text || '' ).split( /\r?\n/ );
+        var re = /\[\[\s*(?:User|用户)\s*:\s*([^|\]]+?)\s*(?:\|[^\]]*)?\]\]/gi;
+        for ( var i = 0; i < lines.length; i++ ) {
+            if ( !/^\s*[*#]\s*/.test( lines[ i ] ) ) continue;
+            var m;
+            re.lastIndex = 0;
+            while ( ( m = re.exec( lines[ i ] ) ) !== null ) {
+                var name = normalizeUserName( String( m[ 1 ] ).split( '#' )[ 0 ] );
+                if ( name ) names[ name ] = true;
+            }
+        }
+        return names;
+    }
+
+    function readWhitelistCache() {
+        try {
+            var raw = mw.storage.get( WHITELIST_CACHE_KEY );
+            if ( !raw ) return null;
+            var o = JSON.parse( raw );
+            if ( !o || !o.ts || !o.names ) return null;
+            return o;
+        } catch ( e ) { return null; }
+    }
+
+    function loadWhitelist() {
+        var cached = readWhitelistCache();
+        if ( cached && Date.now() - cached.ts < WHITELIST_TTL ) {
+            return Promise.resolve( cached.names );
+        }
+        return new mw.Api().get( {
+            action: 'query', prop: 'revisions', rvprop: 'content',
+            rvslots: 'main', titles: WHITELIST_TITLE, formatversion: 2
+        } ).then( function ( res ) {
+            var p = res.query && res.query.pages && res.query.pages[ 0 ];
+            var text = ( p && p.missing === undefined )
+                ? ( safeGet( p, 'revisions.0.slots.main.content' ) || '' )
+                : '';
+            var names = parseWhitelist( text );
+            try {
+                mw.storage.set( WHITELIST_CACHE_KEY, JSON.stringify( { ts: Date.now(), names: names } ) );
+            } catch ( e ) {}
+            return names;
+        } ).catch( function () {
+            // 读取失败时退回旧缓存；连缓存都没有就拒绝
+            return ( cached && cached.names ) ? cached.names : {};
+        } );
+    }
+
+    function checkAccess() {
+        var user = mw.config.get( 'wgUserName' );
+        if ( !user ) return Promise.resolve( false );
+        return loadWhitelist().then( function ( names ) {
+            return !!names[ normalizeUserName( user ) ];
+        } ).catch( function () { return false; } );
+    }
+
     function init() {
+        if ( !accessGranted ) return;
         try { setupPanels(); } catch ( e ) {}
         try { initScoreDisplays(); } catch ( e ) {}
         try { initRanking(); } catch ( e ) {}
@@ -2436,11 +2517,16 @@ function runAll() {
         try { initReview(); } catch ( e ) {}
     }
 
-    if ( document.readyState === 'loading' ) {
-        document.addEventListener( 'DOMContentLoaded', init );
-    } else {
-        init();
-    }
+    // 先校验白名单，通过后才初始化；未登录 / 不在名单内 → 整个投票系统不加载
+    checkAccess().then( function ( ok ) {
+        accessGranted = ok;
+        if ( !ok ) return;
+        if ( document.readyState === 'loading' ) {
+            document.addEventListener( 'DOMContentLoaded', init );
+        } else {
+            init();
+        }
+    } );
 }
 
 runAll();
