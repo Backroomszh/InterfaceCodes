@@ -1,3 +1,39 @@
+/* ===== 用户菜单：我的草稿（新版沙盒） + 沙盒（旧版） ===== */
+( function () {
+    'use strict';
+
+    function init() {
+        var sandboxLi = document.getElementById( 'pt-sandbox' );
+        if ( !sandboxLi ) return;
+
+        // 1) 把“沙盒”文字改成“沙盒（旧版）”
+        var label = sandboxLi.querySelector( 'a > span:not(.citizen-ui-icon)' );
+        if ( label ) label.textContent = '沙盒（旧版）';
+
+        var sandboxA = sandboxLi.querySelector( 'a' );
+        if ( sandboxA ) sandboxA.title = '沙盒（旧版）';
+
+        // 2) 在沙盒之前插入“我的草稿（新版沙盒）”
+        var draftLi = document.createElement( 'li' );
+        draftLi.id = 'pt-mydrafts';
+        draftLi.className = 'mw-list-item';
+        draftLi.innerHTML =
+            '<a href="/The_Backrooms_Wiki:' + encodeURIComponent( '作家助手' ) + '" title="我的草稿（新版沙盒）">' +
+                '<span class="citizen-ui-icon mw-ui-icon-article mw-ui-icon-wikimedia-article"></span> ' +
+                '<span>我的草稿（新版沙盒）</span>' +
+            '</a>';
+
+        sandboxLi.parentNode.insertBefore( draftLi, sandboxLi );
+    }
+
+    if ( document.readyState === 'loading' ) {
+        document.addEventListener( 'DOMContentLoaded', init );
+    } else {
+        init();
+    }
+}() );
+
+/* ===== 更多编辑方式：Wikidot 语法 / 纯写作模式 ===== */
 ( function () {
     'use strict';
 
@@ -6,9 +42,6 @@
     if ( mw.config.get( 'wgNamespaceNumber' ) < 0 ) return;
 
     // ── 避免在 The_Backrooms_Wiki: 命名空间运行 ──────────────────────────
-    // 1) 项目命名空间在标准 MediaWiki 中固定为 4；
-    // 2) 某些 wiki 会把 Project 别名成站点名（如 The_Backrooms_Wiki），
-    //    通过 wgNamespaceIds 反查其编号一并排除。
     var nsIds = mw.config.get( 'wgNamespaceIds' ) || {};
     var excludedNsIds = [ 4 ];
     var aliasId = nsIds[ 'the_backrooms_wiki' ];
@@ -76,13 +109,11 @@
                                 '<svg xmlns="http://www.w3.org/2000/svg" ' +
                                     'width="20" height="20" viewBox="0 0 20 20" ' +
                                     'aria-hidden="true">' +
-                                    // 钢笔外轮廓：笔尾 → 笔身 → 笔尖
                                     '<path d="M14 3 L17 6 L9 15 L4 16 L5 11 Z" ' +
                                         'fill="none" stroke="currentColor" ' +
                                         'stroke-width="2" ' +
                                         'stroke-linejoin="round" ' +
                                         'stroke-linecap="round"/>' +
-                                    // 笔身/笔握分界（对应钢笔的笔夹根部）
                                     '<path d="M11.5 5.5 L14.5 8.5" ' +
                                         'fill="none" stroke="currentColor" ' +
                                         'stroke-width="2" ' +
