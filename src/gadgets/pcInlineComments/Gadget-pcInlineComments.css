@@ -35,7 +35,7 @@
 .pc-bubble-count { font-size: 11px; font-weight: 600; line-height: 1; }
 body.pc-hidden .pc-bubble { display: none !important; }
 
-/* ============ 顶部工具栏开关按钮 ============ */
+/* ============ 顶部工具栏开关（通用重置） ============ */
 .pc-toggle-wrapper {
   display: inline-flex;
   align-items: center;
@@ -48,18 +48,35 @@ li.pc-toggle-li {
 }
 
 /* 
- * 极致纯净，完全依赖原生 .cdx-button，绝不覆盖宽高圆角
+ * 传统皮肤文本模式 
+ * 模仿原生的 <a> 链接
  */
-.pc-toggle.cdx-button {
+.pc-toggle-text-mode {
+  background: transparent !important;
+  border: none !important;
+  color: var(--color-progressive, #3366cc) !important;
+  font: inherit !important;
+  cursor: pointer;
+  padding: 0 !important;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.pc-toggle-text-mode:hover {
+  text-decoration: underline;
+}
+
+/* 
+ * Citizen 纯图标模式 
+ */
+.pc-toggle-icon-mode.cdx-button {
   background-color: transparent !important;
   color: inherit !important; 
   border: none !important;
 }
-.pc-toggle.cdx-button:hover {
+.pc-toggle-icon-mode.cdx-button:hover {
   background-color: var(--background-color-interactive, #eaecf0) !important;
 }
 
-/* 屏幕阅读器可见，视觉隐藏 */
 .pc-toggle-text {
   position: absolute;
   width: 1px; height: 1px;
@@ -69,7 +86,6 @@ li.pc-toggle-li {
   border: 0;
 }
 
-/* 包裹器，用于定位 🚫 标志 */
 .pc-icon-wrap {
   position: relative;
   display: inline-flex;
@@ -79,7 +95,6 @@ li.pc-toggle-li {
   height: 20px;
 }
 
-/* 气泡图标本体（通过 mask 绘制） */
 .pc-icon-bubble {
   display: block;
   width: 100%;
@@ -91,15 +106,10 @@ li.pc-toggle-li {
   mask-repeat: no-repeat;
   -webkit-mask-position: center;
   mask-position: center;
-  /* 气泡轮廓 */
   -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M3 3h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-6l-4 3v-3H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z' fill='none' stroke='%23ffffff' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E");
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M3 3h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-6l-4 3v-3H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z' fill='none' stroke='%23ffffff' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 
-/* 
- * 🚫 标志，挂在包裹器上，不受气泡 mask 影响
- */
-/* 圆圈 */
 .pc-toggle-off .pc-icon-wrap::after {
   content: '';
   position: absolute;
@@ -114,7 +124,6 @@ li.pc-toggle-li {
   z-index: 2;
 }
 
-/* 斜线 */
 .pc-toggle-off .pc-icon-wrap::before {
   content: '';
   position: absolute;
@@ -146,7 +155,6 @@ li.pc-toggle-li {
   background: var(--color-surface-1, #ffffff);
   color: var(--color-base, #202122);
   border-left: 1px solid var(--border-color-subtle, #eaecf0);
-  border-right: 1px solid var(--border-color-subtle, #eaecf0);
   transform: translateX(100%);
   transition: transform .26s cubic-bezier(.22, .8, .28, 1);
   z-index: 9000;
