@@ -455,3 +455,61 @@ $(document).ready(function () {
             });
     });
 })();
+
+/**
+ * 增加更多前往登录位置，比如两个评论
+ */
+/* MediaWiki:Common.js — 匿名用户点击评论按钮跳转登录页 */
+( function () {
+    'use strict';
+
+    if ( mw.config.get( 'wgUserName' ) !== null ) return;
+
+    var loginUrl = mw.util.getUrl( 'Special:UserLogin', {
+        returnto: mw.config.get( 'wgPageName' ),
+        usesul3: 0
+    } );
+
+    function goLogin( e ) {
+        if ( e ) { e.preventDefault(); e.stopPropagation(); }
+        window.location.href = loginUrl;
+    }
+
+    /* 段落评论面板（动态弹出，事件委托） */
+    document.addEventListener( 'click', function ( e ) {
+        if ( e.target && e.target.closest && e.target.closest( '.pc-panel-send' ) ) goLogin( e );
+    }, true );
+    document.addEventListener( 'submit', function ( e ) {
+        if ( e.target && e.target.matches && e.target.matches( '.pc-panel-form' ) ) goLogin( e );
+    }, true );
+
+    /* CommentStreams 评论按钮 */
+    function hijack() {
+        document.querySelectorAll( '.cs-footer .oo-ui-widget-disabled' ).forEach( function ( widget ) {
+            var a = widget.querySelector( 'a.oo-ui-buttonElement-button' );
+            if ( !a || a.dataset.anonLinked ) return;
+
+            widget.classList.remove( 'oo-ui-widget-disabled' );
+            widget.setAttribute( 'aria-disabled', 'false' );
+            a.setAttribute( 'aria-disabled', 'false' );
+            a.setAttribute( 'tabindex', '0' );
+            widget.style.pointerEvents = 'auto';
+            a.style.pointerEvents = 'auto';
+            a.href = loginUrl;
+
+            a.style.backgroundColor = '#f8f9fa';
+            a.style.color = '#202122';
+
+            widget.querySelectorAll( '.oo-ui-icon-speechBubbleAdd' ).forEach( function ( icon ) {
+                icon.style.filter = 'invert(1)';
+            } );
+
+            a.addEventListener( 'click', goLogin, true );
+            a.dataset.anonLinked = '1';
+        } );
+    }
+
+    /* 评论异步渲染时自动补刀 */
+    new MutationObserver( hijack ).observe( document.body, { childList: true, subtree: true } );
+    hijack();
+}() );
