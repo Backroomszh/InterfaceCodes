@@ -1,0 +1,334 @@
+/* ============ 气泡按钮 ============ */
+.pc-bubble {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  margin: 0;
+  padding: 2px 4px;
+  border: none;
+  background: transparent;
+  color: var(--color-subtle, #72777d);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  vertical-align: middle;
+  opacity: 0.5;
+  user-select: none;
+  transition: opacity .15s, color .15s, transform .1s;
+}
+.mw-parser-output p:hover .pc-bubble,
+.mw-parser-output blockquote:hover .pc-bubble,
+.pc-bubble:focus-visible { opacity: 1; }
+.pc-bubble:hover {
+  opacity: 1;
+  color: var(--color-emphasized, #202122);
+  transform: scale(1.1);
+}
+.pc-bubble.pc-bubble-has { opacity: 1; }
+.pc-bubble.pc-bubble-active {
+  opacity: 1;
+  color: var(--color-emphasized, #202122);
+  transform: scale(1.1);
+}
+.pc-bubble-count { font-size: 11px; font-weight: 600; line-height: 1; }
+body.pc-hidden .pc-bubble { display: none !important; }
+
+/* ============ 顶部工具栏开关按钮 ============ */
+.pc-toggle-wrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 !important;
+}
+li.pc-toggle-li { 
+  list-style: none; margin: 0; padding: 0; 
+  display: inline-flex; align-items: center;
+}
+
+/* 
+ * 极致纯净，完全依赖原生 .cdx-button，绝不覆盖宽高圆角
+ */
+.pc-toggle.cdx-button {
+  background-color: transparent !important;
+  color: inherit !important; 
+  border: none !important;
+}
+.pc-toggle.cdx-button:hover {
+  background-color: var(--background-color-interactive, #eaecf0) !important;
+}
+
+/* 屏幕阅读器可见，视觉隐藏 */
+.pc-toggle-text {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  border: 0;
+}
+
+/* 包裹器，用于定位 🚫 标志 */
+.pc-icon-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+}
+
+/* 气泡图标本体（通过 mask 绘制） */
+.pc-icon-bubble {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background-color: currentColor;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  /* 气泡轮廓 */
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M3 3h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-6l-4 3v-3H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z' fill='none' stroke='%23ffffff' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M3 3h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-6l-4 3v-3H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z' fill='none' stroke='%23ffffff' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+/* 
+ * 🚫 标志，挂在包裹器上，不受气泡 mask 影响
+ */
+/* 圆圈 */
+.pc-toggle-off .pc-icon-wrap::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  background-color: var(--background-color-page, #ffffff);
+  box-sizing: border-box;
+  z-index: 2;
+}
+
+/* 斜线 */
+.pc-toggle-off .pc-icon-wrap::before {
+  content: '';
+  position: absolute;
+  bottom: 2.5px;
+  right: -0.5px;
+  width: 7px;
+  height: 1.5px;
+  background-color: currentColor;
+  transform: rotate(45deg);
+  z-index: 3;
+}
+
+/* 兜底浮动按钮 */
+.pc-toggle.pc-toggle-floating {
+  position: fixed !important; top: 12px !important; right: 12px !important; z-index: 9500 !important;
+  background: var(--color-surface-1, #ffffff) !important;
+  border: 1px solid var(--border-color-subtle, #eaecf0) !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .1) !important;
+  border-radius: 50% !important;
+  width: 40px !important; height: 40px !important;
+}
+
+/* ============ 抽屉面板基础 (桌面端) ============ */
+.pc-panel {
+  position: fixed;
+  top: 0; right: 0; bottom: 0;
+  width: 380px;
+  max-width: 100vw;
+  background: var(--color-surface-1, #ffffff);
+  color: var(--color-base, #202122);
+  border-left: 1px solid var(--border-color-subtle, #eaecf0);
+  border-right: 1px solid var(--border-color-subtle, #eaecf0);
+  transform: translateX(100%);
+  transition: transform .26s cubic-bezier(.22, .8, .28, 1);
+  z-index: 9000;
+  display: flex;
+  flex-direction: column;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+.pc-panel.pc-panel-open { transform: translateX(0); }
+
+.pc-panel-handle {
+  display: none;
+  width: 32px;
+  height: 4px;
+  background: var(--border-color-base, #a2a9b1);
+  border-radius: 2px;
+  margin: 8px auto 0;
+  opacity: 0.3;
+}
+
+.pc-panel-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color-subtle, #eaecf0);
+  flex-shrink: 0;
+}
+.pc-panel-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-emphasized, #000000);
+}
+.pc-panel-close {
+  border: none; background: transparent;
+  color: var(--color-subtle, #72777d);
+  padding: 4px;
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: color .15s;
+}
+.pc-panel-close:hover { color: var(--color-base, #202122); }
+
+.pc-panel-list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 0 20px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.2s;
+}
+.pc-panel-list:hover {
+  scrollbar-color: var(--border-color-base, #c8ccd1) transparent;
+}
+.pc-panel-list::-webkit-scrollbar { width: 6px; }
+.pc-panel-list::-webkit-scrollbar-track { background: transparent; }
+.pc-panel-list::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 3px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+  transition: background-color 0.2s;
+}
+.pc-panel-list:hover::-webkit-scrollbar-thumb {
+  background-color: var(--color-subtle, #a2a9b1);
+}
+.pc-panel-list::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-base, #72777d);
+}
+
+.pc-thread {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border-color-subtle, #eaecf0);
+  background: transparent;
+  margin: 0;
+}
+.pc-thread:last-child { border-bottom: none; }
+
+.pc-thread-meta {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 6px;
+}
+.pc-avatar-wrap {
+  display: inline-flex;
+  flex-shrink: 0;
+  text-decoration: none;
+}
+.pc-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  user-select: none;
+}
+.pc-thread-user {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-emphasized, #000000);
+  text-decoration: none;
+}
+.pc-thread-user:hover { text-decoration: underline; }
+.pc-thread-user:visited { color: var(--color-emphasized, #000000); }
+.pc-thread-time {
+  font-size: 12px;
+  color: var(--color-subtle, #72777d);
+  margin-left: auto;
+}
+.pc-thread-body {
+  white-space: pre-wrap; word-break: break-word;
+  line-height: 1.6; color: var(--color-base, #202122);
+}
+.pc-empty {
+  color: var(--color-subtle, #72777d);
+  text-align: center; padding: 40px 0; font-size: 13px;
+}
+
+.pc-panel-form {
+  flex-shrink: 0;
+  padding: 12px 20px 16px;
+  background: var(--color-surface-1, #ffffff);
+  border-top: 1px solid var(--border-color-subtle, #eaecf0);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pc-panel-input {
+  width: 100%; min-height: 56px;
+  box-sizing: border-box; resize: none;
+  border: none; border-radius: 8px;
+  padding: 12px;
+  font: inherit; font-size: 14px; line-height: 1.5;
+  background: var(--color-surface-2, #f8f9fa);
+  color: var(--color-base, #202122);
+  outline: none;
+  transition: background-color .15s;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color-subtle, #c8ccd1) transparent;
+}
+.pc-panel-input::-webkit-scrollbar { width: 6px; }
+.pc-panel-input::-webkit-scrollbar-thumb { background-color: var(--border-color-subtle, #c8ccd1); border-radius: 3px; }
+.pc-panel-input:focus {
+  background: var(--color-surface-interactive, #eaecf0);
+}
+.pc-panel-foot {
+  display: flex; align-items: center; justify-content: space-between;
+}
+.pc-panel-hint { font-size: 12px; color: var(--color-subtle, #72777d); }
+.pc-panel-send {
+  border: none;
+  border-radius: 20px;
+  background: var(--color-progressive, #3366cc);
+  color: var(--color-inverted-fixed, #ffffff);
+  padding: 6px 16px;
+  font: inherit; font-size: 13px; font-weight: 500;
+  cursor: pointer;
+  transition: opacity .15s;
+}
+.pc-panel-send:hover { opacity: 0.85; }
+.pc-panel-send:disabled {
+  background: var(--color-surface-3, #eaecf0);
+  color: var(--color-subtle, #72777d);
+  cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .pc-panel {
+    top: 15vh;
+    bottom: 0; left: 0; right: 0;
+    width: 100%; max-width: none;
+    border-left: none;
+    border-radius: 12px 12px 0 0;
+    transform: translateY(100%);
+    transition: transform .26s cubic-bezier(.22, .8, .28, 1);
+    box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.08);
+  }
+  .pc-panel.pc-panel-open { transform: translateY(0); }
+  .pc-panel-handle { display: block; }
+  .pc-panel-head { padding-top: 8px; }
+  .pc-panel-form { padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
+}

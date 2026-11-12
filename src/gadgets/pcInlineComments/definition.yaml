@@ -1,0 +1,19 @@
+ResourceLoader: true
+hidden: true
+default: true
+type: general
+rights: []
+dependencies:
+    - mediawiki.api
+    - mediawiki.util
+    - mediawiki.notification
+skins: []
+actions: []
+namespaces: 
+    - 0
+peers: []
+package: false
+enable: true
+files:
+    - Gadget-pcInlineComments.js
+    - Gadget-pcInlineComments.css
