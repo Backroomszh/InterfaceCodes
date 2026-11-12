@@ -2395,6 +2395,51 @@
         return src;
     }
 
+    /*
+     * 与 convertNestedTag 相同，但使用独立占位符前缀。
+     * 用于 include 参数值内部，避免和正文外层 PH 占位符冲突。
+     */
+    var nestedTagSeq = 0;
+
+    function convertNestedTagUnique( src, tagName, buildFn ) {
+        var seq = ++nestedTagSeq;
+        var prefix = '\u0000SZ' + seq + '_';
+        var blocks = [];
+        var closeTag = '[[' + '/' + tagName + ']]';
+        var closeEscaped = closeTag.replace( /[.*+?^${}()|[\]\\]/g, '\\$&' );
+
+        var re = new RegExp(
+            '\\[\\[' + tagName + '(?:\\s+([^\\]]*))?\\]\\]' +
+            '((?:(?!\\[\\[' + tagName + '\\b)[\\s\\S])*?)' +
+            closeEscaped,
+            'i'
+        );
+
+        var changed = true;
+        while ( changed ) {
+            changed = false;
+            var m = src.match( re );
+            if ( m ) {
+                var id = prefix + blocks.length + '\u0000';
+                blocks.push( buildFn( m[ 1 ] || '', m[ 2 ] ) );
+                src = src.substring( 0, m.index ) + id +
+                      src.substring( m.index + m[ 0 ].length );
+                changed = true;
+            }
+        }
+
+        var resolveRe = new RegExp( '\\u0000SZ' + seq + '_(\\d+)\\u0000', 'g' );
+        var prev;
+        do {
+            prev = src;
+            src = src.replace( resolveRe, function ( m, i ) {
+                return blocks[ parseInt( i, 10 ) ];
+            } );
+        } while ( src !== prev );
+
+        return src;
+    }
+
     function extractDivAttrs( attrs ) {
         var result = '';
         if ( !attrs ) return result;
@@ -2845,6 +2890,8 @@
         src = src.replace( /<sup>([\s\S]*?)<\/sup>/gi, '^^$1^^' );
         src = src.replace( /<sub>([\s\S]*?)<\/sub>/gi, ',,$1,,' );
 
+        src = convertInlineHtmlTags( src, P );
+
         /* MediaWiki 粗体 / 斜体 */
         src = src.replace( /'''''([\s\S]*?)'''''/g, '//**$1**//' );
         src = src.replace( /'''([\s\S]*?)'''/g, '**$1**' );
@@ -3004,6 +3051,7 @@
                         '\n[[/=]]';
                 }
             );
+            value = convertInlineHtmlTags( value, P );
             value = value.replace(
                 /\[\[(?:File|Image):([^\]\n]+)\]\]/gi,
                 function ( m, body ) { return convertFileLink( m, body, P ); }
@@ -3271,6 +3319,94 @@
 
             return '[[span' + out + ']]' + inner + '[[/span]]';
         } );
+    }
+
+    /*
+     * 常见行内 HTML -> Wikidot；无法表达的标签整体包进 [[html]]。
+     * 同时用于正文和 include 参数值。
+     */
+    function convertInlineHtmlTags( src, P ) {
+        function wrapHtml( m ) {
+            return P( '[[html]]' + m + '[[/html]]' );
+        }
+
+        src = src.replace( /<strong\b[^>]*>([\s\S]*?)<\/strong>/gi, '**$1**' );
+        src = src.replace( /<b\b[^>]*>([\s\S]*?)<\/b>/gi, '**$1**' );
+        src = src.replace( /<em\b[^>]*>([\s\S]*?)<\/em>/gi, '//$1//' );
+        src = src.replace( /<i\b[^>]*>([\s\S]*?)<\/i>/gi, '//$1//' );
+        src = src.replace( /<u\b[^>]*>([\s\S]*?)<\/u>/gi, '__$1__' );
+        src = src.replace( /<(?:s|del)\b[^>]*>([\s\S]*?)<\/(?:s|del)>/gi, '--$1--' );
+        src = src.replace( /<ins\b[^>]*>([\s\S]*?)<\/ins>/gi, '__$1__' );
+        src = src.replace( /<sup\b[^>]*>([\s\S]*?)<\/sup>/gi, '^^$1^^' );
+        src = src.replace( /<sub\b[^>]*>([\s\S]*?)<\/sub>/gi, ',,$1,,' );
+        src = src.replace(
+            /<(?:kbd|samp|var|tt)\b[^>]*>([\s\S]*?)<\/(?:kbd|samp|var|tt)>/gi,
+            '[[span style="font-family:monospace"]]$1[[/span]]'
+        );
+
+        var changed = true;
+        while ( changed ) {
+            changed = false;
+            src = src.replace(
+                /<(big|small)\b[^>]*>([\s\S]*?)<\/\1>/gi,
+                function ( m, tag, inner ) {
+                    changed = true;
+                    return '[[size ' + ( /^big$/i.test( tag ) ? 'larger' : 'smaller' ) +
+                           ']]' + inner + '[[/size]]';
+                }
+            );
+        }
+
+        src = src.replace(
+            /<font\b([^>]*)>([\s\S]*?)<\/font>/gi,
+            function ( m, attrs, inner ) {
+                var color = attrs.match( /\bcolor\s*=\s*"([^"]*)"/i );
+                var face = attrs.match( /\bface\s*=\s*"([^"]*)"/i );
+                var size = attrs.match( /\bsize\s*=\s*"([^"]*)"/i );
+
+                if ( color ) {
+                    var c = color[ 1 ].trim().replace( /^#/, '' );
+                    return '##' + c + '|' + inner + '##';
+                }
+                if ( size ) {
+                    var map = {
+                        1: 'x-small', 2: 'small', 3: 'medium',
+                        4: 'large', 5: 'x-large', 6: 'xx-large', 7: 'xxx-large'
+                    };
+                    var key = size[ 1 ].trim().replace( /^[+-]/, '' );
+                    if ( map[ key ] ) {
+                        return '[[size ' + map[ key ] + ']]' + inner + '[[/size]]';
+                    }
+                }
+                if ( face ) {
+                    return '[[span style="font-family:' + face[ 1 ] + '"]]' +
+                           inner + '[[/span]]';
+                }
+                return wrapHtml( m );
+            }
+        );
+
+        src = src.replace(
+            /<mark\b[^>]*>([\s\S]*?)<\/mark>/gi,
+            function ( m, inner ) {
+                return '[[span style="background-color:yellow"]]' +
+                       inner + '[[/span]]';
+            }
+        );
+
+        src = src.replace( /<hr\b[^>]*\/?>/gi, '----' );
+
+        /* 其他无法表达的成对标签 / 媒体标签整体放进 [[html]] */
+        src = src.replace(
+            /<([a-z][a-z0-9]*)\b[^>]*>[\s\S]*?<\/\1>/gi,
+            function ( m ) { return wrapHtml( m ); }
+        );
+        src = src.replace(
+            /<(?:img|input|embed|iframe|video|audio|source|track|canvas|svg|object)\b[^>]*\/?>/gi,
+            function ( m ) { return wrapHtml( m ); }
+        );
+
+        return src;
     }
 
     function findWikitextTemplateEnd( src, start ) {
@@ -3620,11 +3756,11 @@
             }
         );
 
-        /* 24. size */
-        src = src.replace(
-            /\[\[size\s+([^\]]+)\]\]([\s\S]*?)\[\[\/size\]\]/gi,
-            '<span style="font-size:$1">$2</span>'
-        );
+        /* 24. size（支持嵌套） */
+        src = convertNestedTag( src, 'size', function ( attrs, content ) {
+            return '<span style="font-size:' + attrs.trim() + '">' +
+                   content + '</span>';
+        }, placeholders );
 
         /* 24.5 四层及以上方括号链接（常见手误）按普通内链处理 */
         src = src.replace( /\[{4,}([^\]|]+)\|([^\]]+)\]{4,}/g, '[[$1|$2]]' );
@@ -3776,10 +3912,10 @@
                 return '<span style="color:' + color + '">' + text + '</span>';
             }
         );
-        value = value.replace(
-            /\[\[size\s+([^\]]+)\]\]([\s\S]*?)\[\[\/size\]\]/gi,
-            '<span style="font-size:$1">$2</span>'
-        );
+        value = convertNestedTagUnique( value, 'size', function ( attrs, content ) {
+            return '<span style="font-size:' + attrs.trim() + '">' +
+                   content + '</span>';
+        } );
         value = value.replace(
             /\[\[span\s+((?:(?:class|style|id)\s*=\s*"[^"]*"\s*)+)\]\]([\s\S]*?)\[\[\/span\]\]/gi,
             function ( m, attrs, inner ) {
@@ -3798,6 +3934,14 @@
             /\[\[\[([^\]|]+)\]\]\]/g,
             '[[$1]]'
         );
+
+        /* include 参数里的行内格式还原成 MediaWiki 标记/HTML */
+        value = value.replace( /\*\*([^\n]+?)\*\*/g, "'''$1'''" );
+        value = value.replace( /(^|[^:])\/\/([^\n]+?)\/\//g, "$1''$2''" );
+        value = value.replace( /__([^\n]+?)__/g, '<u>$1</u>' );
+        value = value.replace( /--([^\n]+?)--/g, '<s>$1</s>' );
+        value = value.replace( /\^\^([^\n]+?)\^\^/g, '<sup>$1</sup>' );
+        value = value.replace( /,,([^\n]+?),,/g, '<sub>$1</sub>' );
         return value;
     }
 
