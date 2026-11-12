@@ -20,7 +20,7 @@
     pageName: null, storageTitle: null, comments: [], revid: null,
     visible: true, inflight: false, panelOpen: false,
     activeSectionKey: null, activeParagraphEl: null,
-    toggleBtns: [], // 支持注入多个按钮
+    toggleBtns: [], 
     panelEl: null, panelListEl: null,
     panelTa: null, panelSend: null, panelHint: null,
     avatarIds: {}, avatarUrls: {}, avatarPending: {}
@@ -28,6 +28,7 @@
 
   var api = new mw.Api();
   var pcInitDone = false;
+  var isCitizenSkin = (mw.config.get('skin') === 'citizen');
 
   // ================= 工具函数 =================
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
@@ -76,7 +77,7 @@
     } catch (e) { return String(ts); }
   }
 
-  // ================= SVG 图标（仅用于段落气泡与面板） =================
+  // ================= SVG 图标 =================
   function svgEl(tag, attrs) {
     var el = document.createElementNS(SVG_NS, tag);
     for (var k in attrs) if (Object.prototype.hasOwnProperty.call(attrs, k)) el.setAttribute(k, attrs[k]);
@@ -191,7 +192,8 @@
     data.updated = nowIso();
     var params = {
       action: 'edit', title: state.storageTitle, text: JSON.stringify(data, null, 2),
-      summary: makeSummary('update inline comments'), formatversion: 2
+      summary: makeSummary('update inline comments'), formatversion: 2,
+      watchlist: 'watch' // 核心改动：自动加入监视列表，以便以后触发系统通知
     };
     if (baserevid != null) params.baserevid = baserevid;
     else params.createonly = true;
@@ -450,16 +452,24 @@
   function syncToggleState() {
     state.toggleBtns.forEach(function(btn) {
       if (!btn) return;
-      if (state.visible) {
-        btn.title = '隐藏段落评论';
-        btn.setAttribute('aria-label', '隐藏段落评论');
-        btn.classList.add('pc-toggle-on');
-        btn.classList.remove('pc-toggle-off');
+      
+      if (btn.classList.contains('pc-toggle-icon-mode')) {
+        // Citizen 纯图标模式
+        if (state.visible) {
+          btn.title = '隐藏段落评论';
+          btn.setAttribute('aria-label', '隐藏段落评论');
+          btn.classList.add('pc-toggle-on');
+          btn.classList.remove('pc-toggle-off');
+        } else {
+          btn.title = '显示段落评论';
+          btn.setAttribute('aria-label', '显示段落评论');
+          btn.classList.remove('pc-toggle-on');
+          btn.classList.add('pc-toggle-off');
+        }
       } else {
-        btn.title = '显示段落评论';
-        btn.setAttribute('aria-label', '显示段落评论');
-        btn.classList.remove('pc-toggle-on');
-        btn.classList.add('pc-toggle-off');
+        // 传统皮肤纯文本模式
+        btn.textContent = state.visible ? '隐藏段评' : '显示段评';
+        btn.title = state.visible ? '隐藏段落评论' : '显示段落评论';
       }
     });
   }
@@ -477,30 +487,34 @@
     var btn = document.createElement('button');
     btn.type = 'button'; 
     
-    btn.className = 'pc-toggle cdx-button cdx-button--weight-quiet cdx-button--icon-only';
-    if (isSticky) {
-       btn.classList.add('citizen-cdx-button--size-large', 'citizen-sticky-header-fake-button');
-       btn.setAttribute('tabindex', '-1'); // 符合 sticky header 原生规范
-    } else if (mw.config.get('skin') === 'citizen') {
-       btn.classList.add('citizen-cdx-button--size-large');
+    if (isCitizenSkin) {
+      btn.className = 'pc-toggle pc-toggle-icon-mode cdx-button cdx-button--weight-quiet cdx-button--icon-only';
+      if (isSticky) {
+         btn.classList.add('citizen-cdx-button--size-large', 'citizen-sticky-header-fake-button');
+         btn.setAttribute('tabindex', '-1');
+      } else {
+         btn.classList.add('citizen-cdx-button--size-large');
+      }
+
+      var wrap = document.createElement('span');
+      wrap.className = 'pc-icon-wrap';
+
+      var iconSpan = document.createElement('span');
+      iconSpan.className = 'pc-icon-bubble';
+      wrap.appendChild(iconSpan);
+      btn.appendChild(wrap);
+      
+      var textSpan = document.createElement('span');
+      textSpan.className = 'pc-toggle-text';
+      textSpan.textContent = '段落评论';
+      btn.appendChild(textSpan);
+      
+    } else {
+      // 传统皮肤：纯文本按钮
+      btn.className = 'pc-toggle pc-toggle-text-mode';
     }
-
-    var wrap = document.createElement('span');
-    wrap.className = 'pc-icon-wrap';
-
-    var iconSpan = document.createElement('span');
-    iconSpan.className = 'pc-icon-bubble';
-    wrap.appendChild(iconSpan);
-
-    btn.appendChild(wrap);
-    
-    var textSpan = document.createElement('span');
-    textSpan.className = 'pc-toggle-text';
-    textSpan.textContent = '段落评论';
-    btn.appendChild(textSpan);
     
     btn.addEventListener('click', function (e) { e.preventDefault(); toggleVisible(); });
-    
     state.toggleBtns.push(btn);
     return btn;
   }
@@ -508,7 +522,7 @@
   function injectToggle() {
     var skin = mw.config.get('skin') || '';
 
-    if (skin === 'citizen') {
+    if (isCitizenSkin) {
       // 1. 主头部注入
       var actions = document.querySelector('.citizen-page-actions');
       if (actions && !actions.querySelector('.pc-toggle')) {
@@ -516,17 +530,14 @@
         wrapper.className = 'citizen-header__item pc-toggle-wrapper';
         wrapper.appendChild(createToggle(false));
         
-        // 寻找分享按钮
         var shareBtn = actions.querySelector('.citizen-share-trigger');
         if (shareBtn) {
-          // 放在分享按钮右侧
           if (shareBtn.nextSibling) {
             actions.insertBefore(wrapper, shareBtn.nextSibling);
           } else {
             actions.appendChild(wrapper);
           }
         } else {
-          // 找不到分享按钮的兜底（防止结构性缺失）
           var langDropdown = actions.querySelector('#citizen-page-languages-dropdown');
           if (langDropdown && langDropdown.parentNode === actions) {
             actions.insertBefore(wrapper, langDropdown);
@@ -541,17 +552,14 @@
       if (stickyEnd && !stickyEnd.querySelector('.pc-toggle')) {
         var stickyBtn = createToggle(true);
         
-        // 寻找吸顶栏的分享按钮
         var stickyShare = stickyEnd.querySelector('#citizen-share-sticky-header');
         if (stickyShare) {
-          // 放在分享按钮右侧
           if (stickyShare.nextSibling) {
             stickyEnd.insertBefore(stickyBtn, stickyShare.nextSibling);
           } else {
             stickyEnd.appendChild(stickyBtn);
           }
         } else {
-          // 找不到吸顶栏分享按钮的兜底
           var stickyLang = stickyEnd.querySelector('#citizen-sticky-header-languages');
           if (stickyLang && stickyLang.parentNode === stickyEnd) {
             stickyEnd.insertBefore(stickyBtn, stickyLang);
@@ -565,7 +573,7 @@
       return;
     }
 
-    // 其他皮肤逻辑...
+    // 传统皮肤逻辑（插入 ul 列表）
     if (document.querySelector('.pc-toggle')) return;
     var btn = createToggle(false);
     var containers = ['#p-views', '#p-cactions', '.page-actions', '#p-associated-pages', '#right-navigation'];
@@ -620,8 +628,7 @@
     
     injectToggle();
 
-    // 监听 Citizen 吸顶栏可能延迟渲染的情况
-    if (mw.config.get('skin') === 'citizen' && window.MutationObserver) {
+    if (isCitizenSkin && window.MutationObserver) {
       var observer = new MutationObserver(function() {
         var stickyEnd = document.querySelector('.citizen-sticky-header-end');
         if (stickyEnd && !stickyEnd.querySelector('.pc-toggle')) {
@@ -648,8 +655,12 @@
     }
 
     loadStorage().then(function (r) {
-      state.comments = r.data.sections; state.revid = r.revid; renderBubbles();
-    }).catch(function () { renderBubbles(); });
+      state.comments = r.data.sections; 
+      state.revid = r.revid; 
+      renderBubbles();
+    }).catch(function () { 
+      renderBubbles(); 
+    });
   }
 
   mw.loader.using(['mediawiki.api', 'mediawiki.util', 'mediawiki.notification']).then(function() {
