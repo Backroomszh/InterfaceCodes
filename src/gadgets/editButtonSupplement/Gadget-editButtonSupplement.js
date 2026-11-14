@@ -37,11 +37,10 @@
 ( function () {
     'use strict';
 
-    if ( mw.config.get( 'wgAction' ) !== 'view' ) return;
-    if ( !mw.config.get( 'wgIsProbablyEditable' ) ) return;
-    if ( mw.config.get( 'wgNamespaceNumber' ) < 0 ) return;
+    // ── 删掉了 wgAction !== 'view' 的守卫，任何 action 都继续执行 ──
+    // ── 也删掉了 wgIsProbablyEditable 守卫，避免 history/diff 等页面被提前拦截 ──
 
-    // ── 避免在 The_Backrooms_Wiki: 命名空间运行 ──────────────────────────
+    // 避免在 The_Backrooms_Wiki: 命名空间运行
     var nsIds = mw.config.get( 'wgNamespaceIds' ) || {};
     var excludedNsIds = [ 4 ];
     var aliasId = nsIds[ 'the_backrooms_wiki' ];
@@ -49,7 +48,6 @@
         excludedNsIds.push( aliasId );
     }
     if ( excludedNsIds.indexOf( mw.config.get( 'wgNamespaceNumber' ) ) !== -1 ) return;
-    // ─────────────────────────────────────────────────────────────────────
 
     var pageName = mw.config.get( 'wgPageName' );
 
