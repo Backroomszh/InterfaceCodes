@@ -27,6 +27,7 @@
       - editButtonSupplement
       - wikidotEditor
       - novelEditor
+      - formEditor
 
 - section: Admin
   gadgets:
