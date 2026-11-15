@@ -33,7 +33,7 @@
     }
 }() );
 
-/* ===== 更多编辑方式：Wikidot 语法 / 纯写作模式 ===== */
+/* ===== 更多编辑方式：Wikidot 语法 / 纯写作模式 / 填表模式 ===== */
 ( function () {
     'use strict';
 
@@ -63,6 +63,11 @@
     var novelEditUrl = mw.util.getUrl( pageName, {
         action: 'edit',
         editor: 'novel'
+    } );
+
+    var formEditUrl = mw.util.getUrl( pageName, {
+        action: 'edit',
+        editor: 'form'
     } );
 
     var tries = 0;
@@ -118,6 +123,25 @@
                                         'stroke-linecap="round"/>' +
                                 '</svg>' +
                                 '<span>使用纯写作模式编辑</span>' +
+                            '</span>' +
+                        '</a>' +
+                    '</li>' +
+                    '<li id="ca-edit-form" class="mw-list-item">' +
+                        '<a href="' + formEditUrl + '" rel="nofollow" ' +
+                            'title="使用填表模式编辑本页">' +
+                            '<span style="display:inline-flex;align-items:center;gap:6px;">' +
+                                '<svg xmlns="http://www.w3.org/2000/svg" ' +
+                                    'width="20" height="20" viewBox="0 0 20 20" ' +
+                                    'aria-hidden="true">' +
+                                    '<rect x="3" y="3" width="14" height="14" rx="2" ' +
+                                        'fill="none" stroke="currentColor" ' +
+                                        'stroke-width="2"/>' +
+                                    '<path d="M6.5 7.5 H13.5 M6.5 10 H13.5 M6.5 12.5 H11" ' +
+                                        'fill="none" stroke="currentColor" ' +
+                                        'stroke-width="2" ' +
+                                        'stroke-linecap="round"/>' +
+                                '</svg>' +
+                                '<span>使用填表模式编辑</span>' +
                             '</span>' +
                         '</a>' +
                     '</li>' +
