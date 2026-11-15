@@ -1,0 +1,226 @@
+/* ---------- 页面外壳（普通流布局，无 sticky，无阴影） ---------- */
+.fe-page {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1em 1em 4em;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #202122;
+    box-sizing: border-box;
+}
+
+/* ---------- 顶部：返回 / 标题 / 状态 ---------- */
+.fe-head {
+    display: flex;
+    align-items: baseline;
+    gap: 1em;
+    padding: 0.4em 0 0.8em;
+    border-bottom: 1px solid #c8ccd1;
+    margin-bottom: 1em;
+    flex-wrap: wrap;
+}
+
+.fe-back {
+    color: #36c;
+    text-decoration: none;
+    white-space: nowrap;
+    font-size: 14px;
+}
+
+.fe-back:hover { text-decoration: underline; }
+
+.fe-title {
+    font-size: 1.5em;
+    font-weight: 600;
+    flex: 1 1 auto;
+    min-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.fe-status {
+    font-size: 0.9em;
+    color: #54595d;
+    white-space: nowrap;
+}
+
+.fe-status.is-dirty { color: #ac6600; }
+
+/* ---------- 提示条 ---------- */
+.fe-info,
+.fe-warn {
+    padding: 0.6em 1em;
+    border-radius: 3px;
+    margin-bottom: 1em;
+    font-size: 13px;
+}
+
+.fe-info {
+    background: #eaf3ff;
+    border: 1px solid #36c;
+    color: #202122;
+}
+
+.fe-warn {
+    background: #fef6e7;
+    border: 1px solid #ac6600;
+    color: #202122;
+}
+
+/* ---------- 单一编辑区（paper） ---------- */
+.fe-root {
+    font-size: 14px;
+    line-height: 1.6;
+    color: #202122;
+}
+
+.fe-paper {
+    background: #fff;
+    border: 1px solid #c8ccd1;
+    border-radius: 2px;
+    padding: 0 1.5em;
+    margin-bottom: 1em;
+}
+
+/* host 内部的 group 上浮为 paper 直接子级 */
+.fe-fields-host {
+    display: contents;
+}
+
+/* group 之间用细线分隔 */
+.fe-group {
+    padding: 1.2em 0;
+}
+
+.fe-group + .fe-group {
+    border-top: 1px solid #eaecf0;
+}
+
+.fe-group-title {
+    font-size: 1.05em;
+    font-weight: 600;
+    margin: 0 0 0.8em;
+    color: #202122;
+}
+
+.fe-hint {
+    color: #54595d;
+    font-size: 0.9em;
+    margin-bottom: 0.8em;
+}
+
+.fe-field { margin-bottom: 0.9em; }
+.fe-field:last-child { margin-bottom: 0; }
+
+.fe-label {
+    display: block;
+    font-weight: 500;
+    margin-bottom: 0.3em;
+}
+
+.fe-required { color: #d73333; }
+
+.fe-input {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.45em 0.6em;
+    border: 1px solid #a2a9b1;
+    border-radius: 2px;
+    font-size: 14px;
+    font-family: inherit;
+    background: #fff;
+    color: #202122;
+}
+
+.fe-input:focus {
+    outline: 2px solid #36c;
+    outline-offset: -1px;
+    border-color: #36c;
+}
+
+textarea.fe-input {
+    resize: vertical;
+    min-height: 3em;
+    font-family: inherit;
+}
+
+.fe-select { cursor: pointer; }
+
+.fe-radio-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.2em;
+}
+
+.fe-radio {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+.fe-org-status {
+    margin-top: 0.4em;
+    font-size: 0.9em;
+    color: #54595d;
+}
+
+.fe-org-status.is-loading { color: #36c; }
+.fe-org-status.is-error   { color: #d73333; }
+.fe-org-status.is-warn    { color: #ac6600; }
+
+.fe-org-params {
+    margin-top: 0.8em;
+}
+
+/* ---------- 底部：摘要 + 保存 ---------- */
+.fe-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.8em;
+    padding-top: 0.4em;
+    flex-wrap: wrap;
+}
+
+.fe-summary {
+    flex: 1 1 320px;
+    max-width: 100%;
+    padding: 0.45em 0.6em;
+    border: 1px solid #a2a9b1;
+    border-radius: 2px;
+    font-size: 14px;
+    font-family: inherit;
+    box-sizing: border-box;
+}
+
+.fe-summary:focus {
+    outline: 2px solid #36c;
+    outline-offset: -1px;
+    border-color: #36c;
+}
+
+.fe-save-btn {
+    padding: 0.5em 1.6em;
+    background: #36c;
+    color: #fff;
+    border: 1px solid #36c;
+    border-radius: 2px;
+    cursor: pointer;
+    font-size: 14px;
+    font-family: inherit;
+    white-space: nowrap;
+}
+
+.fe-save-btn:hover { background: #447ff5; border-color: #447ff5; }
+.fe-save-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+@media ( max-width: 640px ) {
+    .fe-page { padding: 0.8em 0.6em 3em; }
+    .fe-paper { padding: 0 1em; }
+    .fe-radio-group { flex-direction: column; gap: 0.4em; }
+    .fe-summary { flex: 1 1 100%; }
+    .fe-footer { justify-content: stretch; }
+    .fe-save-btn { flex: 1 1 auto; }
+}
