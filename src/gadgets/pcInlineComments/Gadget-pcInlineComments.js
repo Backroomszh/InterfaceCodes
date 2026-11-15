@@ -20,7 +20,7 @@
     pageName: null, storageTitle: null, comments: [], revid: null,
     visible: true, inflight: false, panelOpen: false,
     activeSectionKey: null, activeParagraphEl: null,
-    toggleBtns: [], 
+    toggleBtns: [],
     panelEl: null, panelListEl: null,
     panelTa: null, panelSend: null, panelHint: null,
     avatarIds: {}, avatarUrls: {}, avatarPending: {}
@@ -117,7 +117,7 @@
     }
 
     var p = api.get({
-      action: 'query', formatversion: 2, 
+      action: 'query', formatversion: 2,
       list: 'queryuserprofilev2', user_name: name, maxage: 0
     }).then(function(data) {
       var row = data.query && data.query[0];
@@ -132,7 +132,7 @@
       delete state.avatarPending[name];
       return CONFIG.avatarDefaultUrl;
     });
-    
+
     state.avatarPending[name] = p;
     return p;
   }
@@ -143,7 +143,7 @@
     container.href = userUrl;
     container.className = 'pc-avatar-wrap';
     container.title = name;
-    
+
     var fallback = buildInitialAvatar(name);
     container.appendChild(fallback);
 
@@ -197,7 +197,7 @@
     };
     if (baserevid != null) params.baserevid = baserevid;
     else params.createonly = true;
-    
+
     return api.postWithToken('csrf', params).then(function (res) {
       if (res.edit && res.edit.result === 'Success') return res.edit.newrevid;
       throw new Error('edit failed');
@@ -208,7 +208,7 @@
     var cid = uid('c_');
     var comment = { id: cid, user: mw.config.get('wgUserName') || '匿名', timestamp: nowSec(), text: text, replies: [] };
     var attempt = 0;
-    
+
     function tryOnce() {
       if (attempt >= CONFIG.maxRetries) return Promise.reject(new Error('多次编辑冲突，保存失败'));
       attempt++;
@@ -222,10 +222,10 @@
           data.sections.push(section);
         }
         if (!section.threads.some(function (t) { return t.id === cid; })) section.threads.push(comment);
-        
+
         return saveStorage(data, r.revid).then(function (newRev) {
-          state.revid = newRev; 
-          state.comments = data.sections; 
+          state.revid = newRev;
+          state.comments = data.sections;
           return data;
         }).catch(function (e) {
           var code = errCode(e);
@@ -248,12 +248,26 @@
     var root = document.querySelector('.mw-parser-output');
     if (!root) return [];
     var list = [];
+
+    // 1. 原有：p / blockquote（保持原索引，旧评论 key 不变）
     root.querySelectorAll('p, blockquote').forEach(function (el, i) {
       if (cleanText(el).length < 2 || isExcluded(el)) return;
       var key = makeKey(el, i);
       el.dataset.pcKey = key;
       list.push({ el: el, key: key });
     });
+
+    // 2. 新增：li（仅收集叶子 li，避免重复气泡）
+    var liIndex = 0;
+    root.querySelectorAll('li').forEach(function (el) {
+      if (cleanText(el).length < 2 || isExcluded(el)) return;
+      // li 内若已含 p / blockquote / 子 li，说明内部已有可评元素，跳过外层 li
+      if (el.querySelector('p, blockquote, li')) return;
+      var key = 'l' + (liIndex++) + '_' + hashStr(cleanText(el).slice(0, 120));
+      el.dataset.pcKey = key;
+      list.push({ el: el, key: key });
+    });
+
     return list;
   }
 
@@ -277,10 +291,10 @@
   function renderBubbles() {
     document.querySelectorAll('.pc-bubble').forEach(function (b) { b.remove(); });
     if (!state.visible) return;
-    
+
     var paragraphs = collectParagraphs(), map = {};
     state.comments.forEach(function (s) { map[s.key] = s; });
-    
+
     paragraphs.forEach(function (p) {
       var sec = map[p.key], count = 0;
       if (sec) sec.threads.forEach(function (t) { count += 1 + (t.replies ? t.replies.length : 0); });
@@ -305,10 +319,10 @@
   // ================= 面板渲染 =================
   function buildPanel() {
     if (state.panelEl) return state.panelEl;
-    
+
     var panel = document.createElement('aside');
     panel.className = 'pc-panel';
-    panel.innerHTML = 
+    panel.innerHTML =
       '<div class="pc-panel-handle"></div>' +
       '<div class="pc-panel-head">' +
         '<div class="pc-panel-title">段落评论</div>' +
@@ -322,12 +336,12 @@
           '<button type="submit" class="pc-panel-send">发布</button>' +
         '</div>' +
       '</form>';
-    
+
     panel.querySelector('.pc-panel-close').appendChild(iconClose(18));
     panel.querySelector('.pc-panel-close').addEventListener('click', closePanel);
     panel.querySelector('.pc-panel-form').addEventListener('submit', onSubmit);
     document.body.appendChild(panel);
-    
+
     state.panelEl = panel;
     state.panelListEl = panel.querySelector('.pc-panel-list');
     state.panelTa = panel.querySelector('.pc-panel-input');
@@ -339,10 +353,10 @@
   function renderPanel() {
     var list = state.panelListEl;
     while (list.firstChild) list.removeChild(list.firstChild);
-    
+
     var section = null;
     state.comments.forEach(function (s) { if (s.key === state.activeSectionKey) section = s; });
-    
+
     if (!section || !section.threads.length) {
       var empty = document.createElement('div');
       empty.className = 'pc-empty';
@@ -350,39 +364,39 @@
       list.appendChild(empty);
       return;
     }
-    
+
     section.threads.forEach(function (t) {
       var item = document.createElement('div');
       item.className = 'pc-thread';
-      
+
       var meta = document.createElement('div');
       meta.className = 'pc-thread-meta';
-      
+
       var avatar = renderAvatar(t.user);
-      
+
       var userUrl = mw.util.getUrl('User:' + t.user);
       var user = document.createElement('a');
       user.className = 'pc-thread-user';
       user.href = userUrl;
       user.textContent = t.user;
-      
+
       var time = document.createElement('span');
       time.className = 'pc-thread-time';
       time.textContent = formatTime(t.timestamp);
-      
+
       meta.appendChild(avatar);
       meta.appendChild(user);
       meta.appendChild(time);
-      
+
       var body = document.createElement('div');
       body.className = 'pc-thread-body';
       body.textContent = t.text;
-      
+
       item.appendChild(meta);
       item.appendChild(body);
       list.appendChild(item);
     });
-    
+
     setTimeout(function() { list.scrollTop = list.scrollHeight; }, 50);
   }
 
@@ -391,13 +405,13 @@
     state.activeSectionKey = sectionKey;
     state.activeParagraphEl = paragraphEl;
     renderPanel();
-    
+
     document.querySelectorAll('.pc-bubble.pc-bubble-active').forEach(function (b) { b.classList.remove('pc-bubble-active'); });
     if (paragraphEl) {
       var b = paragraphEl.querySelector('.pc-bubble');
       if (b) b.classList.add('pc-bubble-active');
     }
-    
+
     void panel.offsetWidth;
     panel.classList.add('pc-panel-open');
     state.panelOpen = true;
@@ -428,12 +442,12 @@
     if (!text) { ta.focus(); return; }
     if (!checkRateLimit()) return;
     if (!state.activeSectionKey || !state.activeParagraphEl) return;
-    
+
     state.inflight = true;
     state.panelSend.disabled = true;
     state.panelSend.textContent = '发送中…';
     state.panelHint.textContent = '';
-    
+
     appendComment(state.activeSectionKey, cleanText(state.activeParagraphEl), text)
       .then(function () { markEdit(); return refreshAll(); })
       .then(function () {
@@ -452,7 +466,7 @@
   function syncToggleState() {
     state.toggleBtns.forEach(function(btn) {
       if (!btn) return;
-      
+
       if (btn.classList.contains('pc-toggle-icon-mode')) {
         // Citizen 纯图标模式
         if (state.visible) {
@@ -485,8 +499,8 @@
 
   function createToggle(isSticky) {
     var btn = document.createElement('button');
-    btn.type = 'button'; 
-    
+    btn.type = 'button';
+
     if (isCitizenSkin) {
       btn.className = 'pc-toggle pc-toggle-icon-mode cdx-button cdx-button--weight-quiet cdx-button--icon-only';
       if (isSticky) {
@@ -503,17 +517,17 @@
       iconSpan.className = 'pc-icon-bubble';
       wrap.appendChild(iconSpan);
       btn.appendChild(wrap);
-      
+
       var textSpan = document.createElement('span');
       textSpan.className = 'pc-toggle-text';
       textSpan.textContent = '段落评论';
       btn.appendChild(textSpan);
-      
+
     } else {
       // 传统皮肤：纯文本按钮
       btn.className = 'pc-toggle pc-toggle-text-mode';
     }
-    
+
     btn.addEventListener('click', function (e) { e.preventDefault(); toggleVisible(); });
     state.toggleBtns.push(btn);
     return btn;
@@ -529,7 +543,7 @@
         var wrapper = document.createElement('div');
         wrapper.className = 'citizen-header__item pc-toggle-wrapper';
         wrapper.appendChild(createToggle(false));
-        
+
         var shareBtn = actions.querySelector('.citizen-share-trigger');
         if (shareBtn) {
           if (shareBtn.nextSibling) {
@@ -551,7 +565,7 @@
       var stickyEnd = document.querySelector('.citizen-sticky-header-end');
       if (stickyEnd && !stickyEnd.querySelector('.pc-toggle')) {
         var stickyBtn = createToggle(true);
-        
+
         var stickyShare = stickyEnd.querySelector('#citizen-share-sticky-header');
         if (stickyShare) {
           if (stickyShare.nextSibling) {
@@ -568,7 +582,7 @@
           }
         }
       }
-      
+
       syncToggleState();
       return;
     }
@@ -592,21 +606,21 @@
 
     if (container.tagName === 'UL') {
       var li = document.createElement('li');
-      li.className = 'pc-toggle-li'; 
-      li.appendChild(btn); 
+      li.className = 'pc-toggle-li';
+      li.appendChild(btn);
       container.appendChild(li);
     } else {
       var ul = container.querySelector('ul');
       if (ul) {
-        var li = document.createElement('li');
-        li.className = 'pc-toggle-li'; 
-        li.appendChild(btn); 
-        ul.appendChild(li);
+        var li2 = document.createElement('li');
+        li2.className = 'pc-toggle-li';
+        li2.appendChild(btn);
+        ul.appendChild(li2);
       } else {
-        var wrapper = document.createElement('div');
-        wrapper.className = 'pc-toggle-wrapper';
-        wrapper.appendChild(btn);
-        container.appendChild(wrapper);
+        var wrapper2 = document.createElement('div');
+        wrapper2.className = 'pc-toggle-wrapper';
+        wrapper2.appendChild(btn);
+        container.appendChild(wrapper2);
       }
     }
     syncToggleState();
@@ -619,13 +633,13 @@
       setTimeout(init, 500);
       return;
     }
-    
+
     pcInitDone = true;
     state.pageName = mw.config.get('wgPageName');
     state.storageTitle = CONFIG.storageNs + ':' + CONFIG.storagePrefix + state.pageName;
     state.visible = localStorage.getItem(CONFIG.visibleKey) !== '0';
     document.body.classList.toggle('pc-hidden', !state.visible);
-    
+
     injectToggle();
 
     if (isCitizenSkin && window.MutationObserver) {
@@ -655,11 +669,11 @@
     }
 
     loadStorage().then(function (r) {
-      state.comments = r.data.sections; 
-      state.revid = r.revid; 
+      state.comments = r.data.sections;
+      state.revid = r.revid;
       renderBubbles();
-    }).catch(function () { 
-      renderBubbles(); 
+    }).catch(function () {
+      renderBubbles();
     });
   }
 
