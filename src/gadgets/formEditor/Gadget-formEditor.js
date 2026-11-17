@@ -19,6 +19,7 @@
  *   - textarea 里的单换行自动展开为双换行（段落分隔）
  *   - 组织版式 / DISPLAYTITLE / 类别首句 三行紧凑，不留空行
  *   - 必填项未填时禁止保存，并在页面顶部提示 + 高亮缺项
+ *   - 页面第一行写入 <!-- formEditor:{...} --> 注释，下次编辑时反向填充
  * ============================================================ */
 ( function () {
     'use strict';
@@ -33,6 +34,7 @@
     var DEFAULT_ORG   = 'Template:M.E.G.S.K.';
     var TEMPLATE_NS   = 10;
     var DRAFT_PREFIX  = 'formEditor:draft:v6:';
+    var DATA_VERSION  = 1;
 
     /* 类别顺序 */
     var CATEGORY_ORDER = [ '物品', '效应', '实体', '层级', '特殊层级' ];
@@ -244,6 +246,56 @@
             vInline( values, '编号' ) + ' - “' + vInline( values, '名称' ) + '”}}';
     }
 
+    /* ==========================================================
+     * 表单数据注释（用于下次编辑回填）
+     * ==========================================================
+     * 写成：
+     *   <!-- formEditor:{"v":1,"category":"物品",...} -->
+     * 渲染时不可见。JSON 里会把 < > 转义为 \u003c \u003e，
+     * 避免注释被提前截断。
+     */
+    function serializeFormEditorData( category, values, org, orgParams ) {
+        var data = {
+            v: DATA_VERSION,
+            category: category,
+            values: values || {},
+            org: org || '',
+            orgParams: orgParams || {}
+        };
+
+        var json;
+        try {
+            json = JSON.stringify( data );
+        } catch ( e ) {
+            return '';
+        }
+        if ( !json ) return '';
+
+        json = json
+            .replace( /</g, '\\u003c' )
+            .replace( />/g, '\\u003e' );
+
+        return '<!-- formEditor:' + json + ' -->';
+    }
+
+    function parseFormEditorData( wikitext ) {
+        var text = String( wikitext == null ? '' : wikitext );
+        var re = /<!--\s*formEditor\s*:\s*([\s\S]*?)-->/;
+        var m = text.match( re );
+        if ( !m ) return null;
+
+        var json = m[ 1 ].trim();
+        if ( !json ) return null;
+
+        try {
+            var data = JSON.parse( json );
+            if ( !data || typeof data !== 'object' ) return null;
+            return data;
+        } catch ( e ) {
+            return null;
+        }
+    }
+
     /* 按顶层分隔符拆分，保护 {{...}} 与 [[...]] */
     function splitTopLevel( text, delimiter ) {
         var parts = [];
@@ -351,7 +403,7 @@
     /* ==========================================================
      * Wikitext 生成器
      * ==========================================================
-     * 开头三行紧凑排列：
+     * 第一行写表单数据注释（不可见），随后：
      *   {{组织版式}}
      *   {{DISPLAYTITLE:...}}
      *   类别首句 / 类别首句 + Level Class
@@ -428,9 +480,16 @@
             appendSection( lines, '附录', v( values, '附录内容' ) );
         }
 
-        return lines.join( '\n' )
+        var body = lines.join( '\n' )
             .replace( /\n{3,}/g, '\n\n' )
-            .replace( /^\n+|\n+$/g, '' ) + '\n';
+            .replace( /^\n+|\n+$/g, '' );
+
+        /* ⑥ 表单数据注释（放第一行，便于下次反向填充） */
+        var dataComment = serializeFormEditorData( category, values, org, orgParams );
+
+        return dataComment
+            ? dataComment + '\n' + body + '\n'
+            : body + '\n';
     }
 
     /* ==========================================================
@@ -481,8 +540,10 @@
                 ? Object.assign( {}, options.initialValues )
                 : {},
             orgTemplates: [],
-            orgSelected: DEFAULT_ORG,
-            orgParams: {},
+            orgSelected: options.initialOrg || DEFAULT_ORG,
+            orgParams: options.initialOrgParams
+                ? Object.assign( {}, options.initialOrgParams )
+                : {},
             orgParamDefs: [],
             orgLoading: false,
             orgError: ''
@@ -571,6 +632,8 @@
             var select = refs.orgSelect;
             if ( !select ) return;
 
+            var selected = state.orgSelected || DEFAULT_ORG;
+
             select.textContent = '';
 
             var list = state.orgTemplates.slice();
@@ -579,6 +642,16 @@
             } );
             if ( !hasDefault ) {
                 list.unshift( { title: DEFAULT_ORG, pageid: 0, virtual: true } );
+            }
+
+            /* 已保存但列表尚未加载的组织版式，临时保留一个选项 */
+            var hasSelected = list.some( function ( t ) {
+                return t.title === selected;
+            } );
+            if ( !hasSelected ) {
+                list.unshift( {
+                    title: selected, pageid: 0, virtual: true, pending: true
+                } );
             }
 
             list.forEach( function ( t ) {
@@ -590,15 +663,8 @@
                 select.appendChild( opt );
             } );
 
-            var exists = false;
-            for ( var i = 0; i < select.options.length; i++ ) {
-                if ( select.options[ i ].value === state.orgSelected ) {
-                    exists = true;
-                    break;
-                }
-            }
-            select.value = exists ? state.orgSelected : DEFAULT_ORG;
-            if ( !exists ) state.orgSelected = DEFAULT_ORG;
+            select.value = selected;
+            state.orgSelected = selected;
 
             updateOrgStatus();
         }
@@ -1041,10 +1107,10 @@
 
         /* ---------- 初始化 ---------- */
         if ( !options.initialValues ) loadDraft();
-        renderOrgSelect();
-        refreshCategoryFields();
 
         state.orgLoading = true;
+        renderOrgSelect();
+        refreshCategoryFields();
         updateOrgStatus();
 
         fetchOrgTemplates().then( function ( list ) {
@@ -1126,8 +1192,45 @@
      * ========================================================== */
     function buildFormEditor( form, textarea ) {
         var existing = textarea.value || '';
-        var prefilled = parseArticleTemplate( existing );
         var hasExisting = !!existing.trim();
+
+        /* 优先从 formEditor 注释恢复；其次从 {{文章模板}} 恢复 */
+        var formData = parseFormEditorData( existing );
+        var articleParams = formData ? null : parseArticleTemplate( existing );
+
+        var initialCategory = '物品';
+        var initialValues = null;
+        var initialOrg = null;
+        var initialOrgParams = null;
+
+        if ( formData ) {
+            if ( CATEGORY_ORDER.indexOf( formData.category ) !== -1 ) {
+                initialCategory = formData.category;
+            }
+
+            initialValues = ( formData.values && typeof formData.values === 'object' )
+                ? Object.assign( {}, formData.values )
+                : {};
+
+            if ( typeof formData.org === 'string' && formData.org ) {
+                initialOrg = formData.org;
+            }
+
+            if ( formData.orgParams && typeof formData.orgParams === 'object' ) {
+                initialOrgParams = Object.assign( {}, formData.orgParams );
+            }
+        } else if ( articleParams ) {
+            var cat = articleParams[ '文章类型' ];
+            if ( cat && CATEGORY_ORDER.indexOf( cat ) !== -1 ) {
+                initialCategory = cat;
+            }
+
+            initialValues = {};
+            Object.keys( articleParams ).forEach( function ( key ) {
+                if ( key === '文章类型' ) return;
+                initialValues[ key ] = articleParams[ key ];
+            } );
+        }
 
         /* 隐藏原生表单 */
         Array.prototype.forEach.call( form.children, function ( child ) {
@@ -1163,12 +1266,15 @@
         container.appendChild( head );
 
         /* 已有内容提示 */
-        if ( prefilled ) {
+        if ( formData ) {
+            container.appendChild( el( 'div', 'fe-info',
+                '已从页面第一行的 formEditor 数据恢复表单内容。保存后会更新该数据。' ) );
+        } else if ( articleParams ) {
             container.appendChild( el( 'div', 'fe-info',
                 '检测到页面中的 {{文章模板}}，已自动预填表单。保存时会覆盖为平铺格式。' ) );
         } else if ( hasExisting ) {
             container.appendChild( el( 'div', 'fe-warn',
-                '此页面已有内容，但无法从 {{文章模板}} 中解析参数。' +
+                '此页面已有内容，但无法从 formEditor 数据或 {{文章模板}} 中解析参数。' +
                 '保存时会用表单内容完全覆盖现有页面。' ) );
         }
 
@@ -1194,25 +1300,11 @@
 
         form.parentNode.insertBefore( container, form );
 
-        var initialCategory = prefilled && prefilled[ '文章类型' ]
-            ? prefilled[ '文章类型' ]
-            : '物品';
-        if ( CATEGORY_ORDER.indexOf( initialCategory ) === -1 ) {
-            initialCategory = '物品';
-        }
-
-        var initialValues = null;
-        if ( prefilled ) {
-            initialValues = {};
-            Object.keys( prefilled ).forEach( function ( key ) {
-                if ( key === '文章类型' ) return;
-                initialValues[ key ] = prefilled[ key ];
-            } );
-        }
-
         var editor = createEditor( mountEl, {
-            initialValues: initialValues,
             initialCategory: initialCategory,
+            initialValues: initialValues,
+            initialOrg: initialOrg,
+            initialOrgParams: initialOrgParams,
             onDirty: function () {
                 statusEl.textContent = '未保存';
                 statusEl.classList.add( 'is-dirty' );
@@ -1345,6 +1437,7 @@
     mw.formEditor = {
         buildWikitext: buildWikitext,
         parseArticleTemplate: parseArticleTemplate,
+        parseFormEditorData: parseFormEditorData,
 
         CATEGORY_ORDER: CATEGORY_ORDER.slice(),
         CATEGORY_FIELDS: CATEGORY_FIELDS,
