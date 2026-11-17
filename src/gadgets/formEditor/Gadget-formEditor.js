@@ -18,6 +18,7 @@
  *   - 整个表单是一个编辑区域（单一 paper），保存按钮在底部
  *   - textarea 里的单换行自动展开为双换行（段落分隔）
  *   - 组织版式 / DISPLAYTITLE / 类别首句 三行紧凑，不留空行
+ *   - 必填项未填时禁止保存，并在页面顶部提示 + 高亮缺项
  * ============================================================ */
 ( function () {
     'use strict';
@@ -446,6 +447,26 @@
         return DRAFT_PREFIX + ( PAGE || 'draft' );
     }
 
+    /* 校验提示样式（只注入一次） */
+    var stylesInjected = false;
+    function ensureEditorStyles() {
+        if ( stylesInjected ) return;
+        stylesInjected = true;
+        if ( document.getElementById( 'fe-injected-styles' ) ) return;
+
+        var style = document.createElement( 'style' );
+        style.id = 'fe-injected-styles';
+        style.textContent = [
+            '.fe-error-bar{margin:12px 0;padding:10px 14px;border:1px solid #d33;' +
+                'background:#fee7e6;color:#b32424;border-radius:4px;font-size:14px;line-height:1.5;}',
+            '.fe-field.is-invalid .fe-label{color:#b32424;}',
+            '.fe-field.is-invalid .fe-input{border-color:#d33;' +
+                'box-shadow:0 0 0 2px rgba(211,51,51,.15);}',
+            '.fe-org-status.is-invalid{color:#b32424;font-weight:bold;}'
+        ].join( '\n' );
+        document.head.appendChild( style );
+    }
+
     /* ==========================================================
      * 表单编辑器工厂
      * ========================================================== */
@@ -467,7 +488,11 @@
             orgError: ''
         };
 
-        var refs = {};
+        var refs = {
+            fieldInputs: {},
+            fieldWraps: {},
+            orgParamInputs: {}
+        };
         var orgParamToken = 0;
 
         /* ---------- 草稿 ---------- */
@@ -619,6 +644,7 @@
             var wrap = refs.orgParamsWrap;
             if ( !wrap ) return;
             wrap.textContent = '';
+            refs.orgParamInputs = {};
 
             if ( !state.orgParamDefs.length ) return;
 
@@ -672,7 +698,10 @@
                     state.orgParams[ def.key ] = input.value;
                     saveDraft();
                     notifyDirty();
+                    field.classList.remove( 'is-invalid' );
                 } );
+
+                refs.orgParamInputs[ def.key ] = input;
 
                 field.appendChild( input );
                 wrap.appendChild( field );
@@ -778,11 +807,17 @@
                 saveDraft();
                 notifyDirty();
                 if ( def.key === '是否附录' ) refreshAppendixVisibility();
+                if ( refs.fieldWraps[ def.key ] ) {
+                    refs.fieldWraps[ def.key ].classList.remove( 'is-invalid' );
+                }
             } );
             input.addEventListener( 'change', function () {
                 state.values[ def.key ] = input.value;
                 if ( def.key === '是否附录' ) refreshAppendixVisibility();
             } );
+
+            refs.fieldInputs[ def.key ] = input;
+            refs.fieldWraps[ def.key ] = wrap;
 
             wrap.appendChild( input );
             return wrap;
@@ -799,6 +834,9 @@
             var hostEl = refs.fieldsHost;
             if ( !hostEl ) return;
             hostEl.textContent = '';
+            refs.fieldInputs = {};
+            refs.fieldWraps = {};
+            clearValidationErrors();
 
             /* 基本信息 */
             var basicGroup = el( 'div', 'fe-group fe-group-basic' );
@@ -852,8 +890,138 @@
         }
 
         /* ==========================================================
+         * 校验
+         * ========================================================== */
+        function isBlank( value ) {
+            return value == null || String( value ).trim() === '';
+        }
+
+        function collectRequiredFields() {
+            var list = [
+                { key: '编号', label: '编号' },
+                { key: '名称', label: '名称' }
+            ];
+
+            ( CATEGORY_FIELDS[ state.category ] || [] ).forEach( function ( def ) {
+                if ( def.required ) {
+                    list.push( { key: def.key, label: def.label } );
+                }
+            } );
+
+            if ( state.values[ '是否附录' ] === '是' ) {
+                list.push( { key: '附录内容', label: '附录内容' } );
+            }
+
+            return list;
+        }
+
+        function validate() {
+            var missing = [];
+
+            if ( !state.orgSelected ) {
+                missing.push( { key: '__org__', label: '组织版式模板' } );
+            }
+
+            collectRequiredFields().forEach( function ( f ) {
+                if ( isBlank( state.values[ f.key ] ) ) missing.push( f );
+            } );
+
+            ( state.orgParamDefs || [] ).forEach( function ( def ) {
+                if ( !def.required ) return;
+                if ( isBlank( state.orgParams[ def.key ] ) ) {
+                    missing.push( {
+                        key: '__orgparam__' + def.key,
+                        label: '组织版式参数「' + ( def.label || def.key ) + '」'
+                    } );
+                }
+            } );
+
+            return missing;
+        }
+
+        function clearValidationErrors() {
+            var bar = refs.errorBar;
+            if ( bar ) {
+                bar.textContent = '';
+                bar.style.display = 'none';
+            }
+
+            Object.keys( refs.fieldWraps || {} ).forEach( function ( k ) {
+                refs.fieldWraps[ k ].classList.remove( 'is-invalid' );
+            } );
+
+            Object.keys( refs.orgParamInputs || {} ).forEach( function ( k ) {
+                var input = refs.orgParamInputs[ k ];
+                var field = input && input.parentNode;
+                if ( field && field.classList ) field.classList.remove( 'is-invalid' );
+            } );
+
+            if ( refs.orgStatus ) refs.orgStatus.classList.remove( 'is-invalid' );
+        }
+
+        function showValidationErrors( missing ) {
+            clearValidationErrors();
+
+            var bar = refs.errorBar;
+            if ( bar ) {
+                bar.style.display = '';
+                bar.textContent = '请填写以下必填项后再保存：' +
+                    missing.map( function ( f ) { return f.label; } ).join( '、' );
+            }
+
+            var firstNode = null;
+
+            missing.forEach( function ( f ) {
+                if ( f.key === '__org__' ) {
+                    if ( refs.orgStatus ) refs.orgStatus.classList.add( 'is-invalid' );
+                    if ( !firstNode ) firstNode = refs.orgSelect;
+                    return;
+                }
+
+                if ( f.key.indexOf( '__orgparam__' ) === 0 ) {
+                    var pk = f.key.slice( '__orgparam__'.length );
+                    var inp = refs.orgParamInputs[ pk ];
+                    if ( inp && inp.parentNode ) {
+                        inp.parentNode.classList.add( 'is-invalid' );
+                        if ( !firstNode ) firstNode = inp;
+                    }
+                    return;
+                }
+
+                var wrap = refs.fieldWraps[ f.key ];
+                if ( wrap ) {
+                    wrap.classList.add( 'is-invalid' );
+                    if ( !firstNode ) firstNode = wrap;
+                }
+            } );
+
+            if ( firstNode ) {
+                if ( firstNode.scrollIntoView ) {
+                    firstNode.scrollIntoView( { behavior: 'smooth', block: 'center' } );
+                }
+                setTimeout( function () {
+                    var target;
+                    if ( firstNode.classList &&
+                         firstNode.classList.contains( 'fe-input' ) ) {
+                        target = firstNode;
+                    } else if ( firstNode.querySelector ) {
+                        target = firstNode.querySelector( '.fe-input' );
+                    }
+                    if ( target && target.focus ) target.focus();
+                }, 0 );
+            }
+        }
+
+        /* ==========================================================
          * 组装
          * ========================================================== */
+        ensureEditorStyles();
+
+        var errorBar = el( 'div', 'fe-error-bar' );
+        errorBar.style.display = 'none';
+        refs.errorBar = errorBar;
+        root.appendChild( errorBar );
+
         var paper = el( 'div', 'fe-paper' );
         paper.appendChild( buildOrgGroup() );
         paper.appendChild( buildCategoryGroup() );
@@ -898,6 +1066,10 @@
          * ========================================================== */
         return {
             element: root,
+
+            validate: validate,
+            showValidationErrors: showValidationErrors,
+            clearValidationErrors: clearValidationErrors,
 
             getWikitext: function () {
                 return buildWikitext(
@@ -1049,6 +1221,13 @@
 
         /* 保存 */
         function save() {
+            var missing = editor.validate();
+            if ( missing.length ) {
+                editor.showValidationErrors( missing );
+                return;
+            }
+            editor.clearValidationErrors();
+
             var wikitext = editor.getWikitext();
             var summary = summaryInput.value || '';
             var summaryField = document.getElementById( 'wpSummary' );
